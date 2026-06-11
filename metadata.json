@@ -1,0 +1,6 @@
+{
+  "name": "StoreOSv3",
+  "description": "A CRUD application for managing tech store inventory with POS, low stock alerts, PDF invoice generation, and base64 image support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

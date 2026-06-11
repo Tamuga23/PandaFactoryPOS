@@ -1,0 +1,148 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store inventory product",
+      "type": "object",
+      "properties": {
+        "sku": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "price": { "type": "number", "minimum": 0 },
+        "cost": { "type": "number", "minimum": 0 },
+        "stock": { "type": "number", "minimum": 0 },
+        "minStockAlert": { "type": "number", "minimum": 0 },
+        "category": { "type": "string", "maxLength": 50 },
+        "imageBase64": { "type": "string", "maxLength": 1048576 },
+        "isReordering": { "type": "boolean" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["sku", "name", "price", "cost", "stock", "minStockAlert", "category", "createdAt", "updatedAt", "ownerId"]
+    },
+    "CartItem": {
+      "title": "CartItem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "serialNumbers": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "sku", "name", "price", "quantity"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "A record of a sale transaction",
+      "type": "object",
+      "properties": {
+        "date": { "type": "integer" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/CartItem" }, "maxItems": 100 },
+        "subtotal": { "type": "number" },
+        "tax": { "type": "number" },
+        "total": { "type": "number" },
+        "discount": { "type": "number" },
+        "shipping": { "type": "number" },
+        "documentType": { "type": "string", "enum": ["RECIBO_OFICIAL", "PROFORMA"] },
+        "clientDocumentType": { "type": "string", "enum": ["CEDULA", "RUC", "PASAPORTE", "NINGUNO"] },
+        "clientDocumentNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "transport": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "currency": { "type": "string", "enum": ["NIO", "USD"] },
+        "exchangeRate": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["EFECTIVO", "TRANSFERENCIA", "TARJETA", "CREDITO"] },
+        "paymentReference": { "type": "string" },
+        "notes": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "returned", "cancelled"] }
+      },
+      "required": ["date", "items", "subtotal", "tax", "total", "documentType", "clientDocumentType", "invoiceNumber", "currency", "exchangeRate", "paymentMethod", "ownerId", "status"]
+    },
+    "PurchaseItem": {
+      "title": "PurchaseItem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "cost": { "type": "number" },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "receivedQuantity": { "type": "integer", "minimum": 0 },
+        "serialNumbers": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "sku", "name", "cost", "quantity", "receivedQuantity"]
+    },
+    "PurchaseTracking": {
+      "title": "PurchaseTracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "isReceived": { "type": "boolean" },
+        "itemsInBox": { "type": "array" }
+      },
+      "required": ["id", "trackingNumber", "status", "isReceived", "itemsInBox"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "type": "object",
+      "properties": {
+        "date": { "type": "integer" },
+        "supplier": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/PurchaseItem" } },
+        "totalCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "PARTIAL", "CLOSED"] },
+        "trackings": { "type": "array", "items": { "$ref": "#/entities/PurchaseTracking" } },
+        "currency": { "type": "string", "enum": ["NIO", "USD"] },
+        "exchangeRate": { "type": "number" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["date", "supplier", "items", "totalCost", "status", "trackings", "currency", "exchangeRate", "ownerId"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "documentType": { "type": "string" },
+        "documentNumber": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["fullName", "createdAt", "ownerId"]
+    },
+    "CompanyInfo": {
+      "title": "CompanyInfo",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "email": { "type": "string" },
+        "logoBase64": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "defaultExchangeRate": { "type": "number" }
+      },
+      "required": ["name", "phone", "address", "email", "ownerId", "defaultExchangeRate"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": { "schema": { "$ref": "#/entities/Product" }, "description": "Inventory products" },
+    "sales/{saleId}": { "schema": { "$ref": "#/entities/Sale" }, "description": "Sales transactions" },
+    "purchases/{purchaseId}": { "schema": { "$ref": "#/entities/Purchase" }, "description": "Inventory purchases" },
+    "customers/{customerId}": { "schema": { "$ref": "#/entities/Customer" }, "description": "Customer profiles" },
+    "company/{uid}": { "schema": { "$ref": "#/entities/CompanyInfo" }, "description": "Business settings" }
+  }
+}
