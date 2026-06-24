@@ -79,6 +79,10 @@ export default function Catalog() {
       descEfectivoPct: productData.descEfectivoPct,
       campania: productData.campania,
       beneficio: productData.beneficio,
+      bullets: productData.bullets,
+      objecionesOverride: productData.objecionesOverride,
+      specsProyector: productData.specsProyector,
+      media: productData.media,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -110,6 +114,10 @@ export default function Catalog() {
       descEfectivoPct: productData.descEfectivoPct,
       campania: productData.campania,
       beneficio: productData.beneficio,
+      bullets: productData.bullets,
+      objecionesOverride: productData.objecionesOverride,
+      specsProyector: productData.specsProyector,
+      media: productData.media,
       updatedAt: Date.now(),
     };
 

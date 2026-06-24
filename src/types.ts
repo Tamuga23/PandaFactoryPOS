@@ -207,6 +207,10 @@ export interface ObjectionOverride {
 
 /** Ficha técnica proyectable (orientada a proyectores/electrónica, extensible). */
 export interface ProjectorSpecs {
+  ansi?: number;
+  throwRatio?: string;
+  distMinEnfoque?: string;
+  autofoco?: boolean;
   lumens?: number;
   resolucion?: string;
   contraste?: string;

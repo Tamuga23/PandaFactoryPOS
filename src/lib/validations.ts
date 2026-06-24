@@ -17,6 +17,10 @@ export const ObjectionOverrideSchema = z.object({
 });
 
 export const ProjectorSpecsSchema = z.object({
+  ansi: z.number().optional(),
+  throwRatio: z.string().optional(),
+  distMinEnfoque: z.string().optional(),
+  autofoco: z.boolean().optional(),
   lumens: z.number().optional(),
   resolucion: z.string().optional(),
   contraste: z.string().optional(),
