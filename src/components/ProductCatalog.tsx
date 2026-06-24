@@ -8,6 +8,11 @@ export interface CatalogProduct {
   category: string;
   status: 'Activo' | 'Inactivo' | string;
   imageUrl?: string;
+  publicar?: boolean;
+  precioPromo?: number;
+  descEfectivoPct?: number;
+  campania?: string;
+  beneficio?: string;
 }
 
 export interface ProductCatalogProps {
@@ -24,6 +29,11 @@ interface FormData {
   category: string;
   status: 'Activo' | 'Inactivo' | string;
   imageFile: File | null;
+  publicar: boolean;
+  precioPromo: number | string;
+  descEfectivoPct: number | string;
+  campania: string;
+  beneficio: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -33,6 +43,11 @@ const INITIAL_FORM_DATA: FormData = {
   category: '',
   status: 'Activo',
   imageFile: null,
+  publicar: true,
+  precioPromo: '',
+  descEfectivoPct: '',
+  campania: '',
+  beneficio: '',
 };
 
 export default function ProductCatalog({
@@ -78,6 +93,11 @@ export default function ProductCatalog({
         category: product.category,
         status: product.status || 'Activo',
         imageFile: null,
+        publicar: product.publicar !== false,
+        precioPromo: product.precioPromo || '',
+        descEfectivoPct: product.descEfectivoPct || '',
+        campania: product.campania || '',
+        beneficio: product.beneficio || '',
       });
       setIsCustomCategory(!isStandardCategory);
     } else {
@@ -125,6 +145,11 @@ export default function ProductCatalog({
         category: formData.category,
         status: formData.status,
         imageFile: formData.imageFile,
+        publicar: formData.publicar,
+        precioPromo: formData.precioPromo ? Number(formData.precioPromo) : undefined,
+        descEfectivoPct: formData.descEfectivoPct ? Number(formData.descEfectivoPct) : undefined,
+        campania: formData.campania || undefined,
+        beneficio: formData.beneficio || undefined,
       };
 
       if (isEditing) {
@@ -263,7 +288,7 @@ export default function ProductCatalog({
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">Precio de Venta Sugerido (USD)</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -tranzinc-y-1/2 text-zinc-400 font-bold">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
               <input
                 type="number"
                 name="priceUSD"
@@ -378,6 +403,90 @@ export default function ProductCatalog({
                   <p className="text-xs text-zinc-500 mt-1">Mantendrá la imagen actual si no selecciona otra.</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* --- Public Catalog / Tablet Options --- */}
+        <div className="pt-6 mt-6 border-t border-zinc-800">
+          <h3 className="text-lg font-semibold text-cyan-400 mb-4 flex items-center gap-2">
+            Configuración de Catálogo Público (Tablet)
+          </h3>
+          
+          <div className="mb-6 bg-zinc-800/50 p-4 rounded-xl border border-zinc-700/50">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                name="publicar"
+                checked={formData.publicar}
+                onChange={(e) => setFormData({ ...formData, publicar: e.target.checked })}
+                className="w-5 h-5 bg-zinc-900 border-zinc-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-offset-zinc-800"
+              />
+              <div>
+                <span className="block text-sm font-medium text-white">Mostrar producto en el catálogo de la tablet</span>
+                <span className="block text-xs text-zinc-400 mt-0.5">Si se desactiva, el producto solo existirá en el POS y no será visible en la tablet.</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Precio Promocional (USD) - Opcional</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                <input
+                  type="number"
+                  name="precioPromo"
+                  value={formData.precioPromo}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="any"
+                  placeholder="Ej. 150.00"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Descuento por Efectivo (%) - Opcional</label>
+              <div className="relative">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">%</span>
+                <input
+                  type="number"
+                  name="descEfectivoPct"
+                  value={formData.descEfectivoPct}
+                  onChange={handleInputChange}
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="Ej. 5"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-4 pr-8 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Campaña (Etiqueta promocional) - Opcional</label>
+              <input
+                type="text"
+                name="campania"
+                value={formData.campania}
+                onChange={handleInputChange}
+                placeholder="Ej. Black Friday"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Beneficio / Gancho de Venta - Opcional</label>
+              <input
+                type="text"
+                name="beneficio"
+                value={formData.beneficio}
+                onChange={handleInputChange}
+                placeholder="Ej. +10,000 hrs de vida útil"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+              />
             </div>
           </div>
         </div>

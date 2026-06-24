@@ -48,6 +48,11 @@ export default function Catalog() {
     category: p.category,
     status: p.stock >= 0 ? 'Activo' : 'Inactivo', // Mapeo temporal
     imageUrl: p.imageBase64,
+    publicar: p.publicar,
+    precioPromo: p.precioPromo,
+    descEfectivoPct: p.descEfectivoPct,
+    campania: p.campania,
+    beneficio: p.beneficio,
   }));
 
   const handleAddProduct = async (productData: any) => {
@@ -69,6 +74,11 @@ export default function Catalog() {
       minStockAlert: 5,
       category: productData.category,
       imageBase64: imageBase64,
+      publicar: productData.publicar !== false,
+      precioPromo: productData.precioPromo,
+      descEfectivoPct: productData.descEfectivoPct,
+      campania: productData.campania,
+      beneficio: productData.beneficio,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -95,6 +105,11 @@ export default function Catalog() {
       price: Number(productData.priceUSD), // We store USD as base now
       category: productData.category,
       imageBase64: imageBase64,
+      publicar: productData.publicar !== false,
+      precioPromo: productData.precioPromo,
+      descEfectivoPct: productData.descEfectivoPct,
+      campania: productData.campania,
+      beneficio: productData.beneficio,
       updatedAt: Date.now(),
     };
 
