@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+_probe.tmp
+_sandbox_probe.txt

@@ -10,6 +10,29 @@ export interface Product {
   category: string;
   imageBase64?: string;
   isReordering?: boolean;
+
+  // --- Campos tablet / catálogo público (OPCIONALES; el POS no los requiere) ---
+  /** Slug normalizado de la categoría (derivable de `category`). */
+  categorySlug?: string;
+  /** Si es false, el producto NO se proyecta al espejo público. */
+  publicar?: boolean;
+  /** Precio promocional, si aplica. No reemplaza a `price`. */
+  precioPromo?: number;
+  /** Descuento por pago en efectivo, en porcentaje (0-100). */
+  descEfectivoPct?: number;
+  /** Campaña comercial asociada (ej. "Black Friday"). */
+  campania?: string;
+  /** Beneficio principal / gancho de venta. */
+  beneficio?: string;
+  /** Guiones / bullets de venta para la tablet. */
+  bullets?: SalesBullet[];
+  /** Ficha técnica para proyectar en la tablet. */
+  specsProyector?: ProjectorSpecs;
+  /** Overrides de objeciones universales para este producto. */
+  objecionesOverride?: ObjectionOverride[];
+  /** Recursos multimedia para la tablet. */
+  media?: TabletMedia;
+
   createdAt: number;
   updatedAt: number;
 }
@@ -161,4 +184,89 @@ export interface ClientData {
   transport: string;
   clientDocumentType?: string;
   clientDocumentNumber?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo público / Tablet de ventas
+// ---------------------------------------------------------------------------
+
+/** Bullet / guion de venta mostrado en la tablet. */
+export interface SalesBullet {
+  text: string;
+  icon?: string;
+  order?: number;
+}
+
+/** Override de una objeción universal para un producto puntual. */
+export interface ObjectionOverride {
+  /** Referencia a la objeción universal (id o key, ej. "garantia"). */
+  objId: string;
+  titulo?: string;
+  respuesta: string;
+}
+
+/** Ficha técnica proyectable (orientada a proyectores/electrónica, extensible). */
+export interface ProjectorSpecs {
+  lumens?: number;
+  resolucion?: string;
+  contraste?: string;
+  conectividad?: string[];
+  garantiaMeses?: number;
+  /** Specs adicionales clave→valor. */
+  extra?: Record<string, string | number | boolean>;
+}
+
+/** Recursos multimedia para la tablet. */
+export interface TabletMedia {
+  heroImage?: string;
+  gallery?: string[];
+  videoUrl?: string;
+}
+
+/**
+ * Proyección pública de un Product (colección `catalogo_publico`).
+ * NUNCA contiene `cost`. La escribe SÓLO el servidor (Cloud Function).
+ */
+export interface PublicCatalogProduct {
+  id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  category: string;
+  categorySlug: string;
+  precio: {
+    /** Precio de lista (= Product.price). */
+    lista: number;
+    /** Precio promocional, si existe. */
+    promo?: number;
+    /** Precio "actual" mostrado (promo si existe, si no lista). */
+    actual: number;
+    /** Descuento por efectivo aplicado (%). */
+    descEfectivoPct?: number;
+    /** Precio final pagando en efectivo = round2(actual*(1-desc/100)). */
+    efectivo: number;
+  };
+  /** stock > 0 && publicar !== false */
+  disponible: boolean;
+  campania?: string;
+  beneficio?: string;
+  bullets?: SalesBullet[];
+  specsProyector?: ProjectorSpecs;
+  objecionesOverride?: ObjectionOverride[];
+  media?: TabletMedia;
+  updatedAt: number;
+}
+
+/** Objeción universal global (garantía, factura, conexión, …). Editable desde el OS. */
+export interface UniversalObjection {
+  id: string;
+  /** Clave estable opcional, ej. "garantia" | "factura" | "conexion". */
+  key?: string;
+  titulo: string;
+  respuesta: string;
+  categoria?: string;
+  order?: number;
+  createdAt: number;
+  updatedAt: number;
+  ownerId: string;
 }
