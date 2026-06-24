@@ -10,6 +10,8 @@ export interface Product {
   category: string;
   imageBase64?: string;
   isReordering?: boolean;
+  /** Disponible en el POS. Si es false, se oculta del POS (la visibilidad en tablet es `publicar`). */
+  activo?: boolean;
 
   // --- Campos tablet / catálogo público (OPCIONALES; el POS no los requiere) ---
   /** Slug normalizado de la categoría (derivable de `category`). */

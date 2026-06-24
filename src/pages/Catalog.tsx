@@ -46,13 +46,18 @@ export default function Catalog() {
     description: p.name, // Usamos el nombre del producto como descripcion principal
     priceUSD: p.price,
     category: p.category,
-    status: p.stock >= 0 ? 'Activo' : 'Inactivo', // Mapeo temporal
+    status: p.activo === false ? 'Inactivo' : 'Activo',
     imageUrl: p.imageBase64,
     publicar: p.publicar,
     precioPromo: p.precioPromo,
     descEfectivoPct: p.descEfectivoPct,
     campania: p.campania,
     beneficio: p.beneficio,
+    // Cargar también los campos complejos para que se vean al editar
+    bullets: p.bullets,
+    objecionesOverride: p.objecionesOverride,
+    specsProyector: p.specsProyector,
+    media: p.media,
   }));
 
   const handleAddProduct = async (productData: any) => {
@@ -75,6 +80,7 @@ export default function Catalog() {
       category: productData.category,
       imageBase64: imageBase64,
       publicar: productData.publicar !== false,
+      activo: productData.status !== 'Inactivo',
       precioPromo: productData.precioPromo,
       descEfectivoPct: productData.descEfectivoPct,
       campania: productData.campania,
@@ -105,11 +111,12 @@ export default function Catalog() {
     const updatedProduct = {
       ...originalProduct,
       name: productData.description,
-      description: productData.description,
+      // A3: no pisar `description` con el nombre al editar; se preserva la original.
       price: Number(productData.priceUSD), // We store USD as base now
       category: productData.category,
       imageBase64: imageBase64,
       publicar: productData.publicar !== false,
+      activo: productData.status !== 'Inactivo',
       precioPromo: productData.precioPromo,
       descEfectivoPct: productData.descEfectivoPct,
       campania: productData.campania,

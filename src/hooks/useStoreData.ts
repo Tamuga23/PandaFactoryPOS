@@ -4,6 +4,21 @@ import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, write
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier } from '../types';
 
+// Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
+// isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
+const TABLET_ONLY_SALE_ITEM_FIELDS = [
+  'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania',
+  'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo',
+];
+
+// Devuelve una copia del ítem sin los campos de tablet ni claves `undefined`.
+const sanitizeSaleItem = (item: any) => {
+  const clean: { [key: string]: any } = { ...item };
+  TABLET_ONLY_SALE_ITEM_FIELDS.forEach((k) => delete clean[k]);
+  Object.keys(clean).forEach((k) => clean[k] === undefined && delete clean[k]);
+  return clean;
+};
+
 export function useStoreData() {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -209,9 +224,7 @@ export function useStoreData() {
       const fullSale: any = { ...sale };
       Object.keys(fullSale).forEach(key => fullSale[key] === undefined && delete fullSale[key]);
       if (fullSale.items) {
-        fullSale.items.forEach((item: any) => {
-          Object.keys(item).forEach(key => item[key] === undefined && delete item[key]);
-        });
+        fullSale.items = fullSale.items.map(sanitizeSaleItem);
       }
       await updateDoc(doc(db, 'sales', sale.id), fullSale);
     } catch (e) {
@@ -234,9 +247,7 @@ export function useStoreData() {
       const fullSale: any = { ...sale, ownerId: 'shared_store', status: sale.status || 'completed' };
       Object.keys(fullSale).forEach(key => fullSale[key] === undefined && delete fullSale[key]);
       if (fullSale.items) {
-        fullSale.items.forEach((item: any) => {
-          Object.keys(item).forEach(key => item[key] === undefined && delete item[key]);
-        });
+        fullSale.items = fullSale.items.map(sanitizeSaleItem);
       }
       
       const saleRef = doc(db, 'sales', sale.id);

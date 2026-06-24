@@ -60,6 +60,7 @@ export const ProductSchema = z.object({
   minStockAlert: z.number().min(0, "Min stock alert must be non-negative"),
   category: z.string().min(1, "Category is required"),
   imageBase64: z.string().optional(),
+  activo: z.boolean().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 }).extend(ProductTabletFieldsSchema.shape);

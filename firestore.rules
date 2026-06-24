@@ -18,7 +18,7 @@ service cloud.firestore {
     function isValidProduct(data) {
       return data.keys().hasAll(['sku', 'name', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'createdAt', 'updatedAt', 'ownerId'])
         && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
-            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media'])
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo'])
         && data.sku is string && data.sku.size() <= 50
         && data.name is string && data.name.size() <= 100
         && data.price is number && data.price >= 0
@@ -43,7 +43,8 @@ service cloud.firestore {
         && (!('bullets' in data) || (data.bullets is list && data.bullets.size() <= 20))
         && (!('specsProyector' in data) || (data.specsProyector is map))
         && (!('objecionesOverride' in data) || (data.objecionesOverride is list && data.objecionesOverride.size() <= 30))
-        && (!('media' in data) || (data.media is map));
+        && (!('media' in data) || (data.media is map))
+        && (!('activo' in data) || (data.activo is bool));
     }
 
     // Sale Validation Blueprint
@@ -199,7 +200,7 @@ service cloud.firestore {
         && incoming().ownerId == existing().ownerId
         && incoming().diff(existing()).affectedKeys().hasOnly([
             'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
-            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media'
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo'
         ]);
       allow delete: if isSignedIn() && isValidId(productId);
     }
