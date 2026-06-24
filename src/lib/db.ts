@@ -6,7 +6,10 @@ import { Product, Sale } from '../types';
 
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true
+  experimentalForceLongPolling: true,
+  // Evita que valores `undefined` (incl. anidados en specsProyector/media)
+  // rompan los writes a Firestore.
+  ignoreUndefinedProperties: true,
 }, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 

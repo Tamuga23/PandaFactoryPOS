@@ -17,6 +17,10 @@ export const ObjectionOverrideSchema = z.object({
 });
 
 export const ProjectorSpecsSchema = z.object({
+  ansi: z.number().optional(),
+  throwRatio: z.string().optional(),
+  distMinEnfoque: z.string().optional(),
+  autofoco: z.boolean().optional(),
   lumens: z.number().optional(),
   resolucion: z.string().optional(),
   contraste: z.string().optional(),
@@ -56,6 +60,7 @@ export const ProductSchema = z.object({
   minStockAlert: z.number().min(0, "Min stock alert must be non-negative"),
   category: z.string().min(1, "Category is required"),
   imageBase64: z.string().optional(),
+  activo: z.boolean().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 }).extend(ProductTabletFieldsSchema.shape);

@@ -34,6 +34,7 @@ export default function POS() {
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
+      if (p.activo === false) return false; // A2: ocultar productos inactivos del POS
       const searchLower = searchTerm.toLowerCase();
       return (
         p.name.toLowerCase().includes(searchLower) || 

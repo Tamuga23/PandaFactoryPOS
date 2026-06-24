@@ -1,0 +1,13 @@
+{
+  "firestore": {
+    "database": "ai-studio-5c0f20d4-1ed2-4741-aa36-9644b15dbb81",
+    "location": "us-east1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions",
+    "predeploy": ["npm --prefix functions run build"],
+    "ignore": ["node_modules", ".git", "*.local"]
+  }
+}

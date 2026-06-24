@@ -1,148 +1,899 @@
 {
+  "$comment": "Blueprint del modelo de datos. Refleja src/types.ts (interfaces) y firestore.rules (validacion). Incluye campos de tablet/catalogo, `activo`, logistica de Purchase y las entidades/colecciones nuevas (Supplier, UniversalObjection, PublicCatalogProduct).",
   "entities": {
     "Product": {
       "title": "Product",
-      "description": "Store inventory product",
+      "description": "Producto de inventario (privado, fuente de verdad). `cost` nunca se proyecta al catalogo publico.",
       "type": "object",
       "properties": {
-        "sku": { "type": "string", "maxLength": 50 },
-        "name": { "type": "string", "maxLength": 100 },
-        "description": { "type": "string", "maxLength": 1000 },
-        "price": { "type": "number", "minimum": 0 },
-        "cost": { "type": "number", "minimum": 0 },
-        "stock": { "type": "number", "minimum": 0 },
-        "minStockAlert": { "type": "number", "minimum": 0 },
-        "category": { "type": "string", "maxLength": 50 },
-        "imageBase64": { "type": "string", "maxLength": 1048576 },
-        "isReordering": { "type": "boolean" },
-        "createdAt": { "type": "integer" },
-        "updatedAt": { "type": "integer" },
-        "ownerId": { "type": "string" }
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "sku": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stock": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minStockAlert": {
+          "type": "number",
+          "minimum": 0
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "imageBase64": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "isReordering": {
+          "type": "boolean"
+        },
+        "activo": {
+          "type": "boolean",
+          "description": "Disponible en POS; si es false se oculta del POS."
+        },
+        "categorySlug": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "publicar": {
+          "type": "boolean",
+          "description": "Si es false, no se proyecta al catalogo publico (tablet)."
+        },
+        "precioPromo": {
+          "type": "number",
+          "minimum": 0
+        },
+        "descEfectivoPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "campania": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "beneficio": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "bullets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/SalesBullet"
+          },
+          "maxItems": 20
+        },
+        "specsProyector": {
+          "$ref": "#/entities/ProjectorSpecs"
+        },
+        "objecionesOverride": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/ObjectionOverride"
+          },
+          "maxItems": 30
+        },
+        "media": {
+          "$ref": "#/entities/TabletMedia"
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "ownerId": {
+          "type": "string"
+        }
       },
-      "required": ["sku", "name", "price", "cost", "stock", "minStockAlert", "category", "createdAt", "updatedAt", "ownerId"]
+      "required": [
+        "sku",
+        "name",
+        "price",
+        "cost",
+        "stock",
+        "minStockAlert",
+        "category",
+        "createdAt",
+        "updatedAt",
+        "ownerId"
+      ]
     },
     "CartItem": {
       "title": "CartItem",
+      "description": "Renglon de carrito/venta: hereda todos los campos de Product mas quantity y serialNumbers. Al persistir la venta se eliminan los campos de catalogo/tablet (publicar, precioPromo, descEfectivoPct, campania, beneficio, bullets, specsProyector, objecionesOverride, media, categorySlug, activo).",
       "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/entities/Product"
+        }
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "sku": { "type": "string" },
-        "name": { "type": "string" },
-        "price": { "type": "number" },
-        "quantity": { "type": "integer", "minimum": 1 },
-        "serialNumbers": { "type": "array", "items": { "type": "string" } }
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "serialNumbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
-      "required": ["id", "sku", "name", "price", "quantity"]
+      "required": [
+        "id",
+        "sku",
+        "name",
+        "price",
+        "quantity"
+      ]
     },
     "Sale": {
       "title": "Sale",
-      "description": "A record of a sale transaction",
+      "description": "Transaccion de venta. subtotal/tax/total/precios en USD; discount/shipping se ingresan en NIO.",
       "type": "object",
       "properties": {
-        "date": { "type": "integer" },
-        "items": { "type": "array", "items": { "$ref": "#/entities/CartItem" }, "maxItems": 100 },
-        "subtotal": { "type": "number" },
-        "tax": { "type": "number" },
-        "total": { "type": "number" },
-        "discount": { "type": "number" },
-        "shipping": { "type": "number" },
-        "documentType": { "type": "string", "enum": ["RECIBO_OFICIAL", "PROFORMA"] },
-        "clientDocumentType": { "type": "string", "enum": ["CEDULA", "RUC", "PASAPORTE", "NINGUNO"] },
-        "clientDocumentNumber": { "type": "string" },
-        "customerId": { "type": "string" },
-        "customerName": { "type": "string" },
-        "customerEmail": { "type": "string" },
-        "customerPhone": { "type": "string" },
-        "customerAddress": { "type": "string" },
-        "transport": { "type": "string" },
-        "invoiceNumber": { "type": "string" },
-        "currency": { "type": "string", "enum": ["NIO", "USD"] },
-        "exchangeRate": { "type": "number" },
-        "paymentMethod": { "type": "string", "enum": ["EFECTIVO", "TRANSFERENCIA", "TARJETA", "CREDITO"] },
-        "paymentReference": { "type": "string" },
-        "notes": { "type": "string" },
-        "ownerId": { "type": "string" },
-        "status": { "type": "string", "enum": ["completed", "returned", "cancelled"] }
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "date": {
+          "type": "integer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/CartItem"
+          },
+          "maxItems": 100
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "tax": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "discount": {
+          "type": "number"
+        },
+        "shipping": {
+          "type": "number"
+        },
+        "documentType": {
+          "type": "string",
+          "enum": [
+            "RECIBO_OFICIAL",
+            "PROFORMA"
+          ]
+        },
+        "clientDocumentType": {
+          "type": "string",
+          "enum": [
+            "CEDULA",
+            "RUC",
+            "PASAPORTE",
+            "NINGUNO"
+          ]
+        },
+        "clientDocumentNumber": {
+          "type": "string"
+        },
+        "customerId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "customerName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "customerEmail": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "customerAddress": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "transport": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "NIO",
+            "USD"
+          ]
+        },
+        "exchangeRate": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "EFECTIVO",
+            "TRANSFERENCIA",
+            "TARJETA",
+            "CREDITO"
+          ]
+        },
+        "paymentReference": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "returned",
+            "cancelled"
+          ]
+        }
       },
-      "required": ["date", "items", "subtotal", "tax", "total", "documentType", "clientDocumentType", "invoiceNumber", "currency", "exchangeRate", "paymentMethod", "ownerId", "status"]
+      "required": [
+        "date",
+        "items",
+        "subtotal",
+        "tax",
+        "total",
+        "documentType",
+        "clientDocumentType",
+        "invoiceNumber",
+        "currency",
+        "exchangeRate",
+        "paymentMethod",
+        "ownerId",
+        "status"
+      ]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "contactName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "ownerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "createdAt",
+        "ownerId"
+      ]
     },
     "PurchaseItem": {
       "title": "PurchaseItem",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "sku": { "type": "string" },
-        "name": { "type": "string" },
-        "cost": { "type": "number" },
-        "quantity": { "type": "integer", "minimum": 1 },
-        "receivedQuantity": { "type": "integer", "minimum": 0 },
-        "serialNumbers": { "type": "array", "items": { "type": "string" } }
+        "id": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "number"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "receivedQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "color": {
+          "type": "string"
+        },
+        "estimatedWeight": {
+          "type": "number"
+        },
+        "serialNumbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
-      "required": ["id", "sku", "name", "cost", "quantity", "receivedQuantity"]
+      "required": [
+        "id",
+        "sku",
+        "name",
+        "cost",
+        "quantity",
+        "receivedQuantity"
+      ]
     },
     "PurchaseTracking": {
       "title": "PurchaseTracking",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "trackingNumber": { "type": "string" },
-        "status": { "type": "string" },
-        "isReceived": { "type": "boolean" },
-        "itemsInBox": { "type": "array" }
+        "id": {
+          "type": "string"
+        },
+        "trackingNumber": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "agentDeliveryDate": {
+          "type": "integer"
+        },
+        "receptionDate": {
+          "type": "integer"
+        },
+        "finalWeight": {
+          "type": "number"
+        },
+        "isReceived": {
+          "type": "boolean"
+        },
+        "itemsInBox": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "itemId",
+              "quantity"
+            ]
+          }
+        }
       },
-      "required": ["id", "trackingNumber", "status", "isReceived", "itemsInBox"]
+      "required": [
+        "id",
+        "trackingNumber",
+        "status",
+        "isReceived",
+        "itemsInBox"
+      ]
     },
     "Purchase": {
       "title": "Purchase",
       "type": "object",
       "properties": {
-        "date": { "type": "integer" },
-        "supplier": { "type": "string" },
-        "items": { "type": "array", "items": { "$ref": "#/entities/PurchaseItem" } },
-        "totalCost": { "type": "number" },
-        "status": { "type": "string", "enum": ["OPEN", "PARTIAL", "CLOSED"] },
-        "trackings": { "type": "array", "items": { "$ref": "#/entities/PurchaseTracking" } },
-        "currency": { "type": "string", "enum": ["NIO", "USD"] },
-        "exchangeRate": { "type": "number" },
-        "ownerId": { "type": "string" }
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "integer"
+        },
+        "supplier": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/PurchaseItem"
+          }
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "shippingChannel": {
+          "type": "string"
+        },
+        "shippingModality": {
+          "type": "string",
+          "enum": [
+            "Sea Cargo",
+            "Air Cargo"
+          ]
+        },
+        "orderNumber": {
+          "type": "string"
+        },
+        "financing": {
+          "type": "string"
+        },
+        "estimatedWeight": {
+          "type": "number"
+        },
+        "shippingRatePerLb": {
+          "type": "number"
+        },
+        "freightCost": {
+          "type": "number"
+        },
+        "customsTaxes": {
+          "type": "number"
+        },
+        "insuranceCost": {
+          "type": "number"
+        },
+        "trackings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/PurchaseTracking"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OPEN",
+            "PARTIAL",
+            "CLOSED"
+          ]
+        },
+        "stockAdded": {
+          "type": "boolean"
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "NIO",
+            "USD"
+          ]
+        },
+        "exchangeRate": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "invoiceNumber": {
+          "type": "string"
+        }
       },
-      "required": ["date", "supplier", "items", "totalCost", "status", "trackings", "currency", "exchangeRate", "ownerId"]
+      "required": [
+        "date",
+        "supplier",
+        "items",
+        "totalCost",
+        "trackings",
+        "status",
+        "stockAdded",
+        "currency",
+        "exchangeRate",
+        "ownerId"
+      ]
     },
     "Customer": {
       "title": "Customer",
       "type": "object",
       "properties": {
-        "fullName": { "type": "string" },
-        "phone": { "type": "string" },
-        "email": { "type": "string" },
-        "address": { "type": "string" },
-        "documentType": { "type": "string" },
-        "documentNumber": { "type": "string" },
-        "createdAt": { "type": "integer" },
-        "ownerId": { "type": "string" }
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "fullName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "documentType": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "documentNumber": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "ownerId": {
+          "type": "string"
+        }
       },
-      "required": ["fullName", "createdAt", "ownerId"]
+      "required": [
+        "fullName",
+        "createdAt",
+        "ownerId"
+      ]
     },
     "CompanyInfo": {
       "title": "CompanyInfo",
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "phone": { "type": "string" },
-        "address": { "type": "string" },
-        "email": { "type": "string" },
-        "logoBase64": { "type": "string" },
-        "ownerId": { "type": "string" },
-        "defaultExchangeRate": { "type": "number" }
+        "name": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "logoBase64": {
+          "type": "string"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "defaultExchangeRate": {
+          "type": "number",
+          "minimum": 0.01
+        }
       },
-      "required": ["name", "phone", "address", "email", "ownerId", "defaultExchangeRate"]
+      "required": [
+        "name",
+        "phone",
+        "address",
+        "email",
+        "ownerId",
+        "defaultExchangeRate"
+      ]
+    },
+    "SalesBullet": {
+      "title": "SalesBullet",
+      "description": "Bullet/guion de venta para la tablet.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "order": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "text"
+      ]
+    },
+    "ObjectionOverride": {
+      "title": "ObjectionOverride",
+      "description": "Override de una objecion universal para un producto puntual.",
+      "type": "object",
+      "properties": {
+        "objId": {
+          "type": "string"
+        },
+        "titulo": {
+          "type": "string"
+        },
+        "respuesta": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "objId",
+        "respuesta"
+      ]
+    },
+    "ProjectorSpecs": {
+      "title": "ProjectorSpecs",
+      "description": "Ficha tecnica proyectable (extensible).",
+      "type": "object",
+      "properties": {
+        "ansi": {
+          "type": "number"
+        },
+        "throwRatio": {
+          "type": "string"
+        },
+        "distMinEnfoque": {
+          "type": "string"
+        },
+        "autofoco": {
+          "type": "boolean"
+        },
+        "lumens": {
+          "type": "number"
+        },
+        "resolucion": {
+          "type": "string"
+        },
+        "contraste": {
+          "type": "string"
+        },
+        "conectividad": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "garantiaMeses": {
+          "type": "number"
+        },
+        "extra": {
+          "type": "object"
+        }
+      },
+      "required": []
+    },
+    "TabletMedia": {
+      "title": "TabletMedia",
+      "type": "object",
+      "properties": {
+        "heroImage": {
+          "type": "string"
+        },
+        "gallery": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "videoUrl": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "PublicCatalogProduct": {
+      "title": "PublicCatalogProduct",
+      "description": "Proyeccion publica de Product (coleccion catalogo_publico). NUNCA contiene `cost`. La escribe solo el servidor (Cloud Function).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "categorySlug": {
+          "type": "string"
+        },
+        "precio": {
+          "type": "object",
+          "properties": {
+            "lista": {
+              "type": "number"
+            },
+            "promo": {
+              "type": "number"
+            },
+            "actual": {
+              "type": "number"
+            },
+            "descEfectivoPct": {
+              "type": "number"
+            },
+            "efectivo": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "lista",
+            "actual",
+            "efectivo"
+          ]
+        },
+        "disponible": {
+          "type": "boolean"
+        },
+        "campania": {
+          "type": "string"
+        },
+        "beneficio": {
+          "type": "string"
+        },
+        "bullets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/SalesBullet"
+          }
+        },
+        "specsProyector": {
+          "$ref": "#/entities/ProjectorSpecs"
+        },
+        "objecionesOverride": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/ObjectionOverride"
+          }
+        },
+        "media": {
+          "$ref": "#/entities/TabletMedia"
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "espejoActualizadoAt": {
+          "type": "string",
+          "description": "serverTimestamp seteado por la Cloud Function."
+        }
+      },
+      "required": [
+        "id",
+        "sku",
+        "name",
+        "category",
+        "categorySlug",
+        "precio",
+        "disponible",
+        "updatedAt"
+      ]
+    },
+    "UniversalObjection": {
+      "title": "UniversalObjection",
+      "description": "Objecion universal global (garantia, factura, conexion). Editable desde el OS.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "titulo": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "respuesta": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "categoria": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "order": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "ownerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "titulo",
+        "respuesta",
+        "ownerId"
+      ]
     }
   },
   "firestore": {
-    "products/{productId}": { "schema": { "$ref": "#/entities/Product" }, "description": "Inventory products" },
-    "sales/{saleId}": { "schema": { "$ref": "#/entities/Sale" }, "description": "Sales transactions" },
-    "purchases/{purchaseId}": { "schema": { "$ref": "#/entities/Purchase" }, "description": "Inventory purchases" },
-    "customers/{customerId}": { "schema": { "$ref": "#/entities/Customer" }, "description": "Customer profiles" },
-    "company/{uid}": { "schema": { "$ref": "#/entities/CompanyInfo" }, "description": "Business settings" }
+    "products/{productId}": {
+      "schema": {
+        "$ref": "#/entities/Product"
+      },
+      "description": "Productos de inventario (privado)."
+    },
+    "sales/{saleId}": {
+      "schema": {
+        "$ref": "#/entities/Sale"
+      },
+      "description": "Transacciones de venta."
+    },
+    "purchases/{purchaseId}": {
+      "schema": {
+        "$ref": "#/entities/Purchase"
+      },
+      "description": "Compras / ingresos."
+    },
+    "customers/{customerId}": {
+      "schema": {
+        "$ref": "#/entities/Customer"
+      },
+      "description": "Perfiles de clientes (CRM)."
+    },
+    "suppliers/{supplierId}": {
+      "schema": {
+        "$ref": "#/entities/Supplier"
+      },
+      "description": "Proveedores."
+    },
+    "company/{uid}": {
+      "schema": {
+        "$ref": "#/entities/CompanyInfo"
+      },
+      "description": "Configuracion del negocio."
+    },
+    "objeciones_universales/{objId}": {
+      "schema": {
+        "$ref": "#/entities/UniversalObjection"
+      },
+      "description": "Objeciones universales globales, editables desde el OS."
+    },
+    "catalogo_publico/{productId}": {
+      "schema": {
+        "$ref": "#/entities/PublicCatalogProduct"
+      },
+      "description": "Espejo publico derivado de products (SIN cost). Lo escribe solo la Cloud Function."
+    }
   }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, ChangeEvent, FormEvent } from 'react';
-import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2, Plus, Trash2 } from 'lucide-react';
+import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
 
 export interface CatalogProduct {
   id: string; // SKU o código
@@ -8,6 +9,15 @@ export interface CatalogProduct {
   category: string;
   status: 'Activo' | 'Inactivo' | string;
   imageUrl?: string;
+  publicar?: boolean;
+  precioPromo?: number;
+  descEfectivoPct?: number;
+  campania?: string;
+  beneficio?: string;
+  bullets?: SalesBullet[];
+  objecionesOverride?: ObjectionOverride[];
+  specsProyector?: ProjectorSpecs;
+  media?: TabletMedia;
 }
 
 export interface ProductCatalogProps {
@@ -24,6 +34,15 @@ interface FormData {
   category: string;
   status: 'Activo' | 'Inactivo' | string;
   imageFile: File | null;
+  publicar: boolean;
+  precioPromo: number | string;
+  descEfectivoPct: number | string;
+  campania: string;
+  beneficio: string;
+  bullets: SalesBullet[];
+  objecionesOverride: ObjectionOverride[];
+  specsProyector: any;
+  media: any;
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -33,6 +52,15 @@ const INITIAL_FORM_DATA: FormData = {
   category: '',
   status: 'Activo',
   imageFile: null,
+  publicar: true,
+  precioPromo: '',
+  descEfectivoPct: '',
+  campania: '',
+  beneficio: '',
+  bullets: [],
+  objecionesOverride: [],
+  specsProyector: { ansi: '', throwRatio: '', distMinEnfoque: '', resolucion: '', autofoco: false },
+  media: { heroImage: '', videoUrl: '' },
 };
 
 export default function ProductCatalog({
@@ -78,6 +106,15 @@ export default function ProductCatalog({
         category: product.category,
         status: product.status || 'Activo',
         imageFile: null,
+        publicar: product.publicar !== false,
+        precioPromo: product.precioPromo || '',
+        descEfectivoPct: product.descEfectivoPct || '',
+        campania: product.campania || '',
+        beneficio: product.beneficio || '',
+        bullets: product.bullets || [],
+        objecionesOverride: product.objecionesOverride || [],
+        specsProyector: product.specsProyector || { ansi: '', throwRatio: '', distMinEnfoque: '', resolucion: '', autofoco: false },
+        media: product.media || { heroImage: '', videoUrl: '' },
       });
       setIsCustomCategory(!isStandardCategory);
     } else {
@@ -125,6 +162,24 @@ export default function ProductCatalog({
         category: formData.category,
         status: formData.status,
         imageFile: formData.imageFile,
+        publicar: formData.publicar,
+        precioPromo: formData.precioPromo ? Number(formData.precioPromo) : undefined,
+        descEfectivoPct: formData.descEfectivoPct ? Number(formData.descEfectivoPct) : undefined,
+        campania: formData.campania || undefined,
+        beneficio: formData.beneficio || undefined,
+        bullets: formData.bullets.length > 0 ? formData.bullets : undefined,
+        objecionesOverride: formData.objecionesOverride.length > 0 ? formData.objecionesOverride : undefined,
+        specsProyector: formData.category === 'Projector' ? {
+          ansi: Number(formData.specsProyector.ansi) || undefined,
+          throwRatio: formData.specsProyector.throwRatio || undefined,
+          distMinEnfoque: formData.specsProyector.distMinEnfoque || undefined,
+          resolucion: formData.specsProyector.resolucion || undefined,
+          autofoco: formData.specsProyector.autofoco || false
+        } : undefined,
+        media: (formData.media.heroImage || formData.media.videoUrl) ? {
+          heroImage: formData.media.heroImage || undefined,
+          videoUrl: formData.media.videoUrl || undefined
+        } : undefined,
       };
 
       if (isEditing) {
@@ -155,6 +210,35 @@ export default function ProductCatalog({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // --- Handlers for Complex Fields ---
+  const handleBulletAdd = () => setFormData({ ...formData, bullets: [...formData.bullets, { text: '' }] });
+  const handleBulletChange = (index: number, text: string) => {
+    const newBullets = [...formData.bullets];
+    newBullets[index].text = text;
+    setFormData({ ...formData, bullets: newBullets });
+  };
+  const handleBulletRemove = (index: number) => {
+    setFormData({ ...formData, bullets: formData.bullets.filter((_, i) => i !== index) });
+  };
+
+  const handleObjAdd = () => setFormData({ ...formData, objecionesOverride: [...formData.objecionesOverride, { objId: '', respuesta: '' }] });
+  const handleObjChange = (index: number, field: string, value: string) => {
+    const newObjs = [...formData.objecionesOverride];
+    newObjs[index] = { ...newObjs[index], [field]: value };
+    setFormData({ ...formData, objecionesOverride: newObjs });
+  };
+  const handleObjRemove = (index: number) => {
+    setFormData({ ...formData, objecionesOverride: formData.objecionesOverride.filter((_, i) => i !== index) });
+  };
+
+  const handleSpecChange = (field: string, value: any) => {
+    setFormData({ ...formData, specsProyector: { ...formData.specsProyector, [field]: value } });
+  };
+  
+  const handleMediaChange = (field: string, value: string) => {
+    setFormData({ ...formData, media: { ...formData.media, [field]: value } });
   };
 
   return (
@@ -263,7 +347,7 @@ export default function ProductCatalog({
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">Precio de Venta Sugerido (USD)</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -tranzinc-y-1/2 text-zinc-400 font-bold">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
               <input
                 type="number"
                 name="priceUSD"
@@ -378,6 +462,187 @@ export default function ProductCatalog({
                   <p className="text-xs text-zinc-500 mt-1">Mantendrá la imagen actual si no selecciona otra.</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* --- Public Catalog / Tablet Options --- */}
+        <div className="pt-6 mt-6 border-t border-zinc-800">
+          <h3 className="text-lg font-semibold text-cyan-400 mb-4 flex items-center gap-2">
+            Configuración de Catálogo Público (Tablet)
+          </h3>
+          
+          <div className="mb-6 bg-zinc-800/50 p-4 rounded-xl border border-zinc-700/50">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                name="publicar"
+                checked={formData.publicar}
+                onChange={(e) => setFormData({ ...formData, publicar: e.target.checked })}
+                className="w-5 h-5 bg-zinc-900 border-zinc-600 rounded text-cyan-500 focus:ring-cyan-500 focus:ring-offset-zinc-800"
+              />
+              <div>
+                <span className="block text-sm font-medium text-white">Mostrar producto en el catálogo de la tablet</span>
+                <span className="block text-xs text-zinc-400 mt-0.5">Si se desactiva, el producto solo existirá en el POS y no será visible en la tablet.</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Precio Promocional (USD) - Opcional</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                <input
+                  type="number"
+                  name="precioPromo"
+                  value={formData.precioPromo}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="any"
+                  placeholder="Ej. 150.00"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Descuento por Efectivo (%) - Opcional</label>
+              <div className="relative">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">%</span>
+                <input
+                  type="number"
+                  name="descEfectivoPct"
+                  value={formData.descEfectivoPct}
+                  onChange={handleInputChange}
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="Ej. 5"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-4 pr-8 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Campaña (Etiqueta promocional) - Opcional</label>
+              <input
+                type="text"
+                name="campania"
+                value={formData.campania}
+                onChange={handleInputChange}
+                placeholder="Ej. Black Friday"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Beneficio / Gancho de Venta - Opcional</label>
+              <input
+                type="text"
+                name="beneficio"
+                value={formData.beneficio}
+                onChange={handleInputChange}
+                placeholder="Ej. +10,000 hrs de vida útil"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* --- Specs Proyector --- */}
+        {formData.category === 'Projector' && (
+          <div className="mt-6 border-t border-zinc-800/50 pt-6">
+            <h4 className="text-md font-medium text-blue-400 mb-4">Especificaciones de Proyector</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Brillo (ANSI)</label>
+                <input type="number" value={formData.specsProyector.ansi} onChange={(e) => handleSpecChange('ansi', e.target.value)} placeholder="Ej. 900" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Resolución Nativa</label>
+                <input type="text" value={formData.specsProyector.resolucion} onChange={(e) => handleSpecChange('resolucion', e.target.value)} placeholder="Ej. 1080p, 4K" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Throw Ratio</label>
+                <input type="text" value={formData.specsProyector.throwRatio} onChange={(e) => handleSpecChange('throwRatio', e.target.value)} placeholder="Ej. 1.2:1" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">Distancia Mínima Enfoque</label>
+                <input type="text" value={formData.specsProyector.distMinEnfoque} onChange={(e) => handleSpecChange('distMinEnfoque', e.target.value)} placeholder="Ej. 1.5m" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+              </div>
+              <div className="flex items-center mt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={formData.specsProyector.autofoco} onChange={(e) => handleSpecChange('autofoco', e.target.checked)} className="w-4 h-4 bg-zinc-800 border-zinc-700 rounded text-blue-500 focus:ring-blue-500" />
+                  <span className="text-sm text-zinc-300">Autofoco Automático</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- Bullets --- */}
+        <div className="mt-6 border-t border-zinc-800/50 pt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-md font-medium text-cyan-400">Guiones de Venta (Bullets)</h4>
+            <button type="button" onClick={handleBulletAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
+              <Plus className="w-3 h-3" /> Agregar Bullet
+            </button>
+          </div>
+          {formData.bullets.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">No hay bullets configurados.</p>
+          ) : (
+            <div className="space-y-3">
+              {formData.bullets.map((b, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input type="text" value={b.text} onChange={(e) => handleBulletChange(idx, e.target.value)} placeholder="Ej. Imágenes ultra nítidas de día..." className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
+                  <button type="button" onClick={() => handleBulletRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* --- Objeciones Override --- */}
+        <div className="mt-6 border-t border-zinc-800/50 pt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-md font-medium text-cyan-400">Respuestas a Objeciones (Override)</h4>
+            <button type="button" onClick={handleObjAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
+              <Plus className="w-3 h-3" /> Agregar Objeción
+            </button>
+          </div>
+          {formData.objecionesOverride.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">No hay objeciones configuradas para este producto.</p>
+          ) : (
+            <div className="space-y-3">
+              {formData.objecionesOverride.map((obj, idx) => (
+                <div key={idx} className="flex items-start gap-2 bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
+                  <div className="flex-1 space-y-2">
+                    <input type="text" value={obj.objId} onChange={(e) => handleObjChange(idx, 'objId', e.target.value)} placeholder="ID Objeción (ej. garantia, brillo)" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
+                    <textarea value={obj.respuesta} onChange={(e) => handleObjChange(idx, 'respuesta', e.target.value)} placeholder="Respuesta específica para el cliente..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none resize-none" required />
+                  </div>
+                  <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* --- Media (URLs) --- */}
+        <div className="mt-6 border-t border-zinc-800/50 pt-6">
+          <h4 className="text-md font-medium text-cyan-400 mb-4">Multimedia del Catálogo Público (URLs)</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Imagen Principal (URL Alta Calidad)</label>
+              <input type="url" value={formData.media.heroImage} onChange={(e) => handleMediaChange('heroImage', e.target.value)} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Video Promocional (URL YouTube/Vimeo)</label>
+              <input type="url" value={formData.media.videoUrl} onChange={(e) => handleMediaChange('videoUrl', e.target.value)} placeholder="https://youtube.com/..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
             </div>
           </div>
         </div>

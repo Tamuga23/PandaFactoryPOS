@@ -128,8 +128,9 @@ function buildPublicCatalogDoc(p: ProductLike): Record<string, unknown> {
  * Reconstruye catalogo_publico/{id} ante cualquier cambio en products/{id}.
  * NOTA: `database` debe coincidir con la ubicación/región de la BD nombrada.
  */
+// La region DEBE coincidir con la ubicacion de la BD nombrada (firebase.json -> us-east1).
 export const onProductWritten = onDocumentWritten(
-  { document: 'products/{id}', database: DATABASE_ID },
+  { document: 'products/{id}', database: DATABASE_ID, region: process.env.FUNCTION_REGION || 'us-east1' },
   async (event) => {
     const productId = event.params.id as string;
     const mirrorRef = db.collection('catalogo_publico').doc(productId);
