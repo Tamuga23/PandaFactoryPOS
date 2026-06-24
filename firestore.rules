@@ -17,7 +17,8 @@ service cloud.firestore {
     // Product Validation Blueprint
     function isValidProduct(data) {
       return data.keys().hasAll(['sku', 'name', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'createdAt', 'updatedAt', 'ownerId'])
-        && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId'])
+        && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media'])
         && data.sku is string && data.sku.size() <= 50
         && data.name is string && data.name.size() <= 100
         && data.price is number && data.price >= 0
@@ -31,7 +32,18 @@ service cloud.firestore {
         && (!('id' in data) || (data.id is string && data.id.size() <= 128))
         && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
         && (!('imageBase64' in data) || (data.imageBase64 is string && data.imageBase64.size() <= 1048576))
-        && (!('isReordering' in data) || (data.isReordering is bool));
+        && (!('isReordering' in data) || (data.isReordering is bool))
+        // --- Campos tablet / catálogo público (todos OPCIONALES) ---
+        && (!('categorySlug' in data) || (data.categorySlug is string && data.categorySlug.size() <= 60))
+        && (!('publicar' in data) || (data.publicar is bool))
+        && (!('precioPromo' in data) || (data.precioPromo is number && data.precioPromo >= 0))
+        && (!('descEfectivoPct' in data) || (data.descEfectivoPct is number && data.descEfectivoPct >= 0 && data.descEfectivoPct <= 100))
+        && (!('campania' in data) || (data.campania is string && data.campania.size() <= 100))
+        && (!('beneficio' in data) || (data.beneficio is string && data.beneficio.size() <= 300))
+        && (!('bullets' in data) || (data.bullets is list && data.bullets.size() <= 20))
+        && (!('specsProyector' in data) || (data.specsProyector is map))
+        && (!('objecionesOverride' in data) || (data.objecionesOverride is list && data.objecionesOverride.size() <= 30))
+        && (!('media' in data) || (data.media is map));
     }
 
     // Sale Validation Blueprint
@@ -162,6 +174,21 @@ service cloud.firestore {
         && (!('email' in data) || (data.email is string && data.email.size() <= 100));
     }
 
+    // Universal Objection Validation Blueprint (garantía, factura, conexión, …)
+    function isValidUniversalObjection(data) {
+      return data.keys().hasAll(['titulo', 'respuesta', 'ownerId'])
+        && data.keys().hasOnly(['id', 'key', 'titulo', 'respuesta', 'categoria', 'order', 'createdAt', 'updatedAt', 'ownerId'])
+        && data.titulo is string && data.titulo.size() > 0 && data.titulo.size() <= 120
+        && data.respuesta is string && data.respuesta.size() > 0 && data.respuesta.size() <= 2000
+        && (data.ownerId is string)
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('key' in data) || (data.key is string && data.key.size() <= 60))
+        && (!('categoria' in data) || (data.categoria is string && data.categoria.size() <= 60))
+        && (!('order' in data) || (data.order is number))
+        && (!('createdAt' in data) || (data.createdAt is number || data.createdAt is timestamp))
+        && (!('updatedAt' in data) || (data.updatedAt is number || data.updatedAt is timestamp));
+    }
+
     match /products/{productId} {
       allow get: if isSignedIn() && isValidId(productId);
       allow list: if isSignedIn();
@@ -170,7 +197,8 @@ service cloud.firestore {
         && isValidProduct(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().diff(existing()).affectedKeys().hasOnly([
-            'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt'
+            'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt',
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media'
         ]);
       allow delete: if isSignedIn() && isValidId(productId);
     }
@@ -215,5 +243,46 @@ service cloud.firestore {
       allow update: if isSignedIn() && isValidId(supplierId) && isValidSupplier(incoming());
       allow delete: if isSignedIn() && isValidId(supplierId);
     }
+
+    // ---------------------------------------------------------------------
+    // Catálogo público: espejo derivado de products, SIN `cost`.
+    // Lo escribe ÚNICAMENTE el servidor (Cloud Function vía Admin SDK, que
+    // omite estas reglas). Ningún cliente puede escribirlo.
+    // ---------------------------------------------------------------------
+    match /catalogo_publico/{productId} {
+      allow get: if isSignedIn() && isValidId(productId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Objeciones universales (garantía, factura, conexión, …).
+    // Globales y editables desde el OS por cualquier usuario autenticado.
+    // ---------------------------------------------------------------------
+    match /objeciones_universales/{objId} {
+      allow get: if isSignedIn() && isValidId(objId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow update: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow delete: if isSignedIn() && isValidId(objId);
+    }
+
+    // ===================== FASE 2 (pendiente) ============================
+    // Más adelante: gatear lecturas sensibles detrás de un custom claim `admin`.
+    // Setear el claim con Admin SDK: admin.auth().setCustomUserClaims(uid, { admin: true }).
+    //
+    // function isAdmin() { return isSignedIn() && request.auth.token.admin == true; }
+    //
+    // Ej.: restringir lectura de `products` (incluye `cost`) sólo a admins, dejando
+    // que la tablet consuma el espejo público `catalogo_publico`:
+    //
+    // match /products/{productId} {
+    //   allow get, list: if isAdmin();
+    //   // ... writes igual que arriba pero exigiendo isAdmin() ...
+    // }
+    //
+    // Ej.: catálogo público legible por la tablet sin login:
+    // match /catalogo_publico/{productId} { allow get, list: if true; }
+    // =====================================================================
   }
 }
