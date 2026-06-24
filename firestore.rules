@@ -196,8 +196,9 @@ service cloud.firestore {
       allow update: if isSignedIn() && isValidId(productId) 
         && isValidProduct(incoming())
         && incoming().createdAt == existing().createdAt
+        && incoming().ownerId == existing().ownerId
         && incoming().diff(existing()).affectedKeys().hasOnly([
-            'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt',
+            'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
             'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media'
         ]);
       allow delete: if isSignedIn() && isValidId(productId);
