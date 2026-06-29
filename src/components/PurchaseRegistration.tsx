@@ -258,8 +258,8 @@ export default function PurchaseRegistration({
           const newProductData = {
             name: item.description,
             description: item.description,
-            price: item.catalogPriceUSD * 36.6243, // use exchange rate
-            cost: item.unitCost * 36.6243,
+            price: item.catalogPriceUSD, // Store base USD
+            cost: item.unitCost, // Store base USD
             category: item.category,
             status: 'Activo',
             imageFile: item.imageFile,

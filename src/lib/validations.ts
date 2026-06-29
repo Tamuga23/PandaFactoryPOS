@@ -82,6 +82,38 @@ export const CartItemSchema = ProductSchema.extend({
   }
 );
 
+export const CustomerSchema = z.object({
+  id: z.string().min(1),
+  fullName: z.string().min(1),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  address: z.string().optional(),
+  documentType: z.string().optional(),
+  documentNumber: z.string().optional(),
+  createdAt: z.number(),
+  ownerId: z.string().min(1),
+});
+
+export const SupplierSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  contactName: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  createdAt: z.number(),
+  ownerId: z.string().min(1),
+});
+
+export const CompanyInfoSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(1),
+  address: z.string().min(1),
+  email: z.string().email(),
+  logoBase64: z.string().optional(),
+  ownerId: z.string().min(1),
+  defaultExchangeRate: z.number().min(0.01),
+});
+
 export const SaleSchema = z.object({
   id: z.string().min(1),
   date: z.number(),
@@ -130,6 +162,9 @@ export const PurchaseItemSchema = z.object({
   sku: z.string().min(1),
   cost: z.number().min(0),
   quantity: z.number().int().min(1),
+  receivedQuantity: z.number().int().min(0),
+  color: z.string().optional(),
+  estimatedWeight: z.number().min(0).optional(),
   serialNumbers: z.array(z.string()).optional(),
 }).refine(
   (data) => {
@@ -144,13 +179,46 @@ export const PurchaseItemSchema = z.object({
   }
 );
 
+export const PurchaseTrackingSchema = z.object({
+  id: z.string().min(1),
+  trackingNumber: z.string().min(1),
+  status: z.string().min(1),
+  agentDeliveryDate: z.number().optional(),
+  receptionDate: z.number().optional(),
+  finalWeight: z.number().min(0).optional(),
+  isReceived: z.boolean(),
+  itemsInBox: z.array(
+    z.object({
+      itemId: z.string().min(1),
+      quantity: z.number().int().min(1),
+    })
+  ),
+});
+
 export const PurchaseSchema = z.object({
   id: z.string().min(1),
   date: z.number(),
   supplier: z.string().min(1),
+  platform: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(PurchaseItemSchema).min(1),
   totalCost: z.number().min(0),
+  
+  shippingChannel: z.string().optional(),
+  shippingModality: z.enum(['Sea Cargo', 'Air Cargo']).optional(),
+  orderNumber: z.string().optional(),
+  financing: z.string().optional(),
+  estimatedWeight: z.number().min(0).optional(),
+  shippingRatePerLb: z.number().min(0).optional(),
+  
+  freightCost: z.number().min(0).optional(),
+  customsTaxes: z.number().min(0).optional(),
+  insuranceCost: z.number().min(0).optional(),
+
+  trackings: z.array(PurchaseTrackingSchema),
+  status: z.enum(['OPEN', 'PARTIAL', 'CLOSED']),
+  stockAdded: z.boolean(),
+  
   currency: z.enum(['NIO', 'USD']),
   exchangeRate: z.number().min(0.01),
   ownerId: z.string().min(1),

@@ -517,7 +517,7 @@ export default function ProductCatalog({
                   onChange={handleInputChange}
                   min="0"
                   max="100"
-                  step="0.1"
+                  step="0.0001"
                   placeholder="Ej. 5"
                   className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-4 pr-8 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
                 />
