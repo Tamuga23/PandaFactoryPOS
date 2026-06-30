@@ -1,6 +1,7 @@
 import { useState, useMemo, type FormEvent, useEffect } from 'react';
 import { Tag, Plus, Pencil, Trash2, CheckCircle, AlertTriangle, X, Filter } from 'lucide-react';
 import { useStoreData } from '../hooks/useStoreData';
+import { slugify } from '../lib/validations';
 import type { CategoryObjection } from '../types';
 
 const EMPTY_FORM = {
@@ -34,7 +35,8 @@ export default function CategoryObjections() {
   const slugOptions = useMemo(() => {
     const set = new Set<string>();
     products.forEach((p) => {
-      if (p.categorySlug) set.add(p.categorySlug);
+      const slug = p.categorySlug || slugify(p.category || '');
+      if (slug) set.add(slug);
     });
     categoryObjections.forEach((o) => set.add(o.categorySlug));
     return [...set].sort();
