@@ -103,11 +103,9 @@ export function useStoreData() {
       setUniversalObjections(data);
     }, (error) => handleFirestoreError(error, 'list', 'objeciones_universales'));
 
-    // Composite index required: categorySlug ASC + orden ASC
     const qCategoryObjections = query(
       collection(db, 'objeciones_categoria'),
       orderBy('categorySlug', 'asc'),
-      orderBy('orden', 'asc'),
     );
     const unsubCategoryObjections = onSnapshot(qCategoryObjections, (snapshot) => {
       const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as CategoryObjection));
