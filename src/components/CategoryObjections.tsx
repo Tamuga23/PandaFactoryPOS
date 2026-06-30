@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent, useEffect } from 'react';
 import { Tag, Plus, Pencil, Trash2, CheckCircle, AlertTriangle, X, Filter } from 'lucide-react';
 import { useStoreData } from '../hooks/useStoreData';
 import type { CategoryObjection } from '../types';
@@ -24,6 +24,7 @@ export default function CategoryObjections() {
 
   const [filterSlug, setFilterSlug] = useState('');
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [customSlug, setCustomSlug] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -55,13 +56,27 @@ export default function CategoryObjections() {
     setTimeout(() => setFeedback(null), 3500);
   };
 
+  const CUSTOM_SENTINEL = '__otro__';
+
+  const isCustomSlug = (slug: string) =>
+    slug !== '' && !slugOptions.includes(slug);
+
+  useEffect(() => {
+    if (form.categorySlug === CUSTOM_SENTINEL) {
+      setForm((f) => ({ ...f, categorySlug: customSlug }));
+    }
+  }, [customSlug]);
+
   const openCreate = () => {
-    setForm({ ...EMPTY_FORM, categorySlug: filterSlug });
+    const preSlug = filterSlug;
+    setCustomSlug(isCustomSlug(preSlug) ? preSlug : '');
+    setForm({ ...EMPTY_FORM, categorySlug: preSlug });
     setEditingId(null);
     setShowForm(true);
   };
 
   const openEdit = (obj: CategoryObjection) => {
+    setCustomSlug(isCustomSlug(obj.categorySlug) ? obj.categorySlug : '');
     setForm({
       id: obj.id,
       categorySlug: obj.categorySlug,
@@ -77,6 +92,7 @@ export default function CategoryObjections() {
     setShowForm(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setCustomSlug('');
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -217,40 +233,40 @@ export default function CategoryObjections() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                  Categoría (slug) <span className="text-rose-400">*</span>
+                  Categoría <span className="text-rose-400">*</span>
                 </label>
-                {slugOptions.length > 0 ? (
-                  <div className="flex gap-2">
-                    <select
-                      value={form.categorySlug}
-                      onChange={(e) => setForm((f) => ({ ...f, categorySlug: e.target.value }))}
-                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
-                    >
-                      <option value="">— elegir —</option>
-                      {slugOptions.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={form.categorySlug}
-                      onChange={(e) => setForm((f) => ({ ...f, categorySlug: e.target.value }))}
-                      required
-                      placeholder="proyector"
-                      className="w-32 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
-                      title="O escribe un slug personalizado"
-                    />
-                  </div>
-                ) : (
+                <select
+                  value={isCustomSlug(form.categorySlug) ? CUSTOM_SENTINEL : form.categorySlug}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === CUSTOM_SENTINEL) {
+                      setForm((f) => ({ ...f, categorySlug: customSlug }));
+                    } else {
+                      setCustomSlug('');
+                      setForm((f) => ({ ...f, categorySlug: val }));
+                    }
+                  }}
+                  required={!isCustomSlug(form.categorySlug)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                >
+                  <option value="">— elegir categoría —</option>
+                  {slugOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                  <option value={CUSTOM_SENTINEL}>Otra (escribir)</option>
+                </select>
+                {isCustomSlug(form.categorySlug) && (
                   <input
                     type="text"
-                    value={form.categorySlug}
-                    onChange={(e) => setForm((f) => ({ ...f, categorySlug: e.target.value }))}
+                    value={customSlug}
+                    onChange={(e) => {
+                      setCustomSlug(e.target.value);
+                      setForm((f) => ({ ...f, categorySlug: e.target.value }));
+                    }}
                     required
-                    placeholder="proyector"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
+                    autoFocus
+                    placeholder="mi-categoria"
+                    className="mt-2 w-full bg-zinc-800 border border-cyan-500/50 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
                   />
                 )}
               </div>
