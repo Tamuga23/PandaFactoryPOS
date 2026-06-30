@@ -14,14 +14,25 @@
 //    node carga_masiva_objeciones.mjs            # PRUEBA (no escribe)
 //    node carga_masiva_objeciones.mjs --apply    # aplica (solo lo que falta)
 // ============================================================================
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const DATABASE_ID = 'REEMPLAZAR_CON_TU_firestoreDatabaseId';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const cfg = JSON.parse(
+  readFileSync(join(__dirname, '..', 'firebase-applet-config.json'), 'utf8'),
+);
+const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || cfg.firestoreDatabaseId || '(default)';
+const PROJECT_ID  = cfg.projectId;
 const APPLY = process.argv.includes('--apply');
 
-initializeApp({ credential: applicationDefault() });
+initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID });
 const db = getFirestore(DATABASE_ID);
+db.settings({ ignoreUndefinedProperties: true });
+
+console.log(`[carga-masiva] projectId=${PROJECT_ID} database=${DATABASE_ID} apply=${APPLY}`);
 const now = Date.now();
 
 // --- UNIVERSALES (toda la tienda) -> objeciones_universales ------------------

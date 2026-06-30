@@ -8,3 +8,6 @@ coverage/
 !.env.example
 _probe.tmp
 _sandbox_probe.txt
+*firebase-adminsdk*.json
+*service-account*.json
+serviceAccount.json
