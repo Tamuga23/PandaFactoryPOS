@@ -226,6 +226,30 @@ export const PurchaseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Objeciones
+// ---------------------------------------------------------------------------
+
+export const UniversalObjectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  key: z.string().max(60).optional(),
+  titulo: z.string().min(1).max(120),
+  respuesta: z.string().min(1).max(2000),
+  categoria: z.string().max(60).optional(),
+  order: z.number().optional(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  ownerId: z.string().min(1),
+});
+
+export const CategoryObjectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  categorySlug: z.string().min(1).max(60),
+  pregunta: z.string().min(1).max(120),
+  respuesta: z.string().min(1).max(2000),
+  orden: z.number(),
+});
+
+// ---------------------------------------------------------------------------
 // Helpers puros + proyección al catálogo público
 // ---------------------------------------------------------------------------
 

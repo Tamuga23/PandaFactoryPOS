@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth, handleFirestoreError } from '../lib/db';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier } from '../types';
+import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection } from '../types';
+import { UniversalObjectionSchema, CategoryObjectionSchema } from '../lib/validations';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
 // isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
@@ -26,6 +27,8 @@ export function useStoreData() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [universalObjections, setUniversalObjections] = useState<UniversalObjection[]>([]);
+  const [categoryObjections, setCategoryObjections] = useState<CategoryObjection[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
@@ -39,6 +42,8 @@ export function useStoreData() {
         setCustomers([]);
         setSuppliers([]);
         setCompanyInfo(null);
+        setUniversalObjections([]);
+        setCategoryObjections([]);
         setLoading(false);
       }
     });
@@ -89,6 +94,26 @@ export function useStoreData() {
       }
     }, (error) => handleFirestoreError(error, 'list', 'company'));
 
+    const qUniversalObjections = query(
+      collection(db, 'objeciones_universales'),
+      orderBy('order', 'asc'),
+    );
+    const unsubUniversalObjections = onSnapshot(qUniversalObjections, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as UniversalObjection));
+      setUniversalObjections(data);
+    }, (error) => handleFirestoreError(error, 'list', 'objeciones_universales'));
+
+    // Composite index required: categorySlug ASC + orden ASC
+    const qCategoryObjections = query(
+      collection(db, 'objeciones_categoria'),
+      orderBy('categorySlug', 'asc'),
+      orderBy('orden', 'asc'),
+    );
+    const unsubCategoryObjections = onSnapshot(qCategoryObjections, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as CategoryObjection));
+      setCategoryObjections(data);
+    }, (error) => handleFirestoreError(error, 'list', 'objeciones_categoria'));
+
     return () => {
       unsubProducts();
       unsubSales();
@@ -96,6 +121,8 @@ export function useStoreData() {
       unsubCustomers();
       unsubSuppliers();
       unsubCompany();
+      unsubUniversalObjections();
+      unsubCategoryObjections();
     };
   }, [user]);
 
@@ -451,6 +478,108 @@ export function useStoreData() {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Objeciones universales
+  // ---------------------------------------------------------------------------
+
+  const addUniversalObjection = async (objection: Omit<UniversalObjection, 'ownerId'>) => {
+    if (!user) return;
+    const payload = { ...objection, ownerId: 'shared_store' as const };
+    const result = UniversalObjectionSchema.safeParse(payload);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      handleFirestoreError(new Error(msg), 'create', `objeciones_universales/${objection.id}`);
+      throw new Error(msg);
+    }
+    try {
+      const data: any = { ...result.data };
+      Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      await setDoc(doc(db, 'objeciones_universales', objection.id), data);
+    } catch (e) {
+      handleFirestoreError(e, 'create', `objeciones_universales/${objection.id}`);
+      throw e;
+    }
+  };
+
+  const updateUniversalObjection = async (objection: UniversalObjection) => {
+    if (!user) return;
+    const payload = { ...objection, ownerId: objection.ownerId || 'shared_store', updatedAt: Date.now() };
+    const result = UniversalObjectionSchema.safeParse(payload);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      handleFirestoreError(new Error(msg), 'update', `objeciones_universales/${objection.id}`);
+      throw new Error(msg);
+    }
+    try {
+      const data: any = { ...result.data };
+      Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      await updateDoc(doc(db, 'objeciones_universales', objection.id), data);
+    } catch (e) {
+      handleFirestoreError(e, 'update', `objeciones_universales/${objection.id}`);
+      throw e;
+    }
+  };
+
+  const deleteUniversalObjection = async (id: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'objeciones_universales', id));
+    } catch (e) {
+      handleFirestoreError(e, 'delete', `objeciones_universales/${id}`);
+      throw e;
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Objeciones por categoría
+  // ---------------------------------------------------------------------------
+
+  const addCategoryObjection = async (objection: CategoryObjection) => {
+    if (!user) return;
+    const result = CategoryObjectionSchema.safeParse(objection);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      handleFirestoreError(new Error(msg), 'create', `objeciones_categoria/${objection.id}`);
+      throw new Error(msg);
+    }
+    try {
+      const data: any = { ...result.data };
+      Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      await setDoc(doc(db, 'objeciones_categoria', objection.id), data);
+    } catch (e) {
+      handleFirestoreError(e, 'create', `objeciones_categoria/${objection.id}`);
+      throw e;
+    }
+  };
+
+  const updateCategoryObjection = async (objection: CategoryObjection) => {
+    if (!user) return;
+    const result = CategoryObjectionSchema.safeParse(objection);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      handleFirestoreError(new Error(msg), 'update', `objeciones_categoria/${objection.id}`);
+      throw new Error(msg);
+    }
+    try {
+      const data: any = { ...result.data };
+      Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      await updateDoc(doc(db, 'objeciones_categoria', objection.id), data);
+    } catch (e) {
+      handleFirestoreError(e, 'update', `objeciones_categoria/${objection.id}`);
+      throw e;
+    }
+  };
+
+  const deleteCategoryObjection = async (id: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'objeciones_categoria', id));
+    } catch (e) {
+      handleFirestoreError(e, 'delete', `objeciones_categoria/${id}`);
+      throw e;
+    }
+  };
+
   const stats: DashboardStats = useMemo(() => {
     const realSales = sales.filter(s => s.documentType !== 'PROFORMA');
     return {
@@ -470,6 +599,8 @@ export function useStoreData() {
     customers,
     suppliers,
     companyInfo,
+    universalObjections,
+    categoryObjections,
     loading,
     stats,
     addProduct,
@@ -489,6 +620,12 @@ export function useStoreData() {
     updatePurchase,
     deletePurchase,
     updateCompanyInfo,
+    addUniversalObjection,
+    updateUniversalObjection,
+    deleteUniversalObjection,
+    addCategoryObjection,
+    updateCategoryObjection,
+    deleteCategoryObjection,
     refreshMetrics: () => {}
   };
 }

@@ -175,6 +175,17 @@ service cloud.firestore {
         && (!('email' in data) || (data.email is string && data.email.size() <= 100));
     }
 
+    // Category Objection Validation Blueprint (proyector, tablet, …)
+    function isValidCategoryObjection(data) {
+      return data.keys().hasAll(['categorySlug', 'pregunta', 'respuesta', 'orden'])
+        && data.keys().hasOnly(['id', 'categorySlug', 'pregunta', 'respuesta', 'orden'])
+        && data.categorySlug is string && data.categorySlug.size() > 0 && data.categorySlug.size() <= 60
+        && data.pregunta is string && data.pregunta.size() > 0 && data.pregunta.size() <= 120
+        && data.respuesta is string && data.respuesta.size() > 0 && data.respuesta.size() <= 2000
+        && data.orden is number
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128));
+    }
+
     // Universal Objection Validation Blueprint (garantía, factura, conexión, …)
     function isValidUniversalObjection(data) {
       return data.keys().hasAll(['titulo', 'respuesta', 'ownerId'])
@@ -266,6 +277,18 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
       allow update: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow delete: if isSignedIn() && isValidId(objId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Objeciones por categoría (proyector, tablet, …).
+    // Globales y editables desde el OS por cualquier usuario autenticado.
+    // ---------------------------------------------------------------------
+    match /objeciones_categoria/{objId} {
+      allow get: if isSignedIn() && isValidId(objId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(objId) && isValidCategoryObjection(incoming());
+      allow update: if isSignedIn() && isValidId(objId) && isValidCategoryObjection(incoming());
       allow delete: if isSignedIn() && isValidId(objId);
     }
 

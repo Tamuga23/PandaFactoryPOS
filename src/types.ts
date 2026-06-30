@@ -263,6 +263,15 @@ export interface PublicCatalogProduct {
   updatedAt: number;
 }
 
+/** Objeción por categoría: aplica a todos los productos de un categorySlug. */
+export interface CategoryObjection {
+  id: string;
+  categorySlug: string;
+  pregunta: string;
+  respuesta: string;
+  orden: number;
+}
+
 /** Objeción universal global (garantía, factura, conexión, …). Editable desde el OS. */
 export interface UniversalObjection {
   id: string;

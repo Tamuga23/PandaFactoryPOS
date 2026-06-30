@@ -1,6 +1,6 @@
 import { useState, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStoreData } from '../hooks/useStoreData';
 import { logout } from '../lib/db';
@@ -14,6 +14,8 @@ const navigation = [
   { name: 'Clientes', href: '/customers', icon: Users },
   { name: 'Historial de Ventas', href: '/history', icon: History },
   { name: 'Reportes', href: '/reports', icon: BarChart3 },
+  { name: 'Objeciones Generales', href: '/objeciones-universales', icon: HelpCircle },
+  { name: 'Objeciones por Categoría', href: '/objeciones-categoria', icon: Tag },
   { name: 'Configuración', href: '/settings', icon: SettingsIcon },
 ];
 

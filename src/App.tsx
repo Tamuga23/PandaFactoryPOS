@@ -14,6 +14,8 @@ import SalesHistory from './pages/SalesHistory';
 import Settings from './pages/Settings';
 import Catalog from './pages/Catalog';
 import Customers from './pages/Customers';
+import UniversalObjections from './components/UniversalObjections';
+import CategoryObjections from './components/CategoryObjections';
 import { useStoreData } from './hooks/useStoreData';
 import { loginAnonymouslyUser } from './lib/db';
 import { Store, LogIn } from 'lucide-react';
@@ -91,6 +93,8 @@ export default function App() {
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/history" element={<SalesHistory />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/objeciones-universales" element={<UniversalObjections />} />
+          <Route path="/objeciones-categoria" element={<CategoryObjections />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
