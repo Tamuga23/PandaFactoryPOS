@@ -3,6 +3,7 @@ import { Sale } from '../types';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { X, Download, Printer, Truck, MapPin, Phone, User, Info, Package } from 'lucide-react';
+import { toast } from './Toast';
 
 interface ShippingLabelPreviewProps {
   sale: Sale;
@@ -41,7 +42,7 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
       pdf.save(`Etiqueta_${sale.customerName?.replace(/\s+/g, '_') || 'Envio'}.pdf`);
     } catch (error: any) {
       console.error('Error generating shipping label:', error);
-      alert('Error generando etiqueta: ' + (error?.message || JSON.stringify(error) || 'Error desconocido'));
+      toast.error('Error generando la etiqueta: ' + (error?.message || 'Error desconocido'));
     } finally {
       setIsGenerating(false);
     }

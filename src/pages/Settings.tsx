@@ -118,15 +118,15 @@ export default function Settings() {
       {notification && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg font-bold text-white shadow-xl transition-all ${
           notification.type === 'success' ? 'bg-emerald-600' :
-          notification.type === 'error' ? 'bg-rose-600' : 'bg-sky-600'
+          notification.type === 'error' ? 'bg-rose-600' : 'bg-cyan-600'
         }`}>
           {notification.message}
         </div>
       )}
 
       <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-lg">
-        <div className="p-2 bg-sky-500/10 rounded-lg">
-          <SettingsIcon className="w-6 h-6 text-sky-400" />
+        <div className="p-2 bg-cyan-500/10 rounded-lg">
+          <SettingsIcon className="w-6 h-6 text-cyan-400" />
         </div>
         <div>
           <h2 className="text-xl font-bold text-zinc-100">Configuración de la Empresa</h2>
@@ -147,7 +147,7 @@ export default function Settings() {
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                 />
               </div>
 
@@ -160,7 +160,7 @@ export default function Settings() {
                   type="text"
                   value={formData.phone}
                   onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                 />
               </div>
             </div>
@@ -174,7 +174,7 @@ export default function Settings() {
                 rows={3}
                 value={formData.address}
                 onChange={e => setFormData(p => ({ ...p, address: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
               />
             </div>
 
@@ -187,7 +187,7 @@ export default function Settings() {
                 type="email"
                 value={formData.email}
                 onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
               />
             </div>
 
@@ -205,7 +205,7 @@ export default function Settings() {
                     min="1"
                     value={formData.defaultExchangeRate}
                     onChange={e => setFormData(p => ({ ...p, defaultExchangeRate: parseFloat(e.target.value) || 0 }))}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                   />
                   <p className="text-[10px] text-zinc-500">Tasa de cambio del BCN congelada por ley (Ej. 36.6243).</p>
                 </div>

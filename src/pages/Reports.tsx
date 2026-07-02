@@ -122,29 +122,29 @@ export default function Reports() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
         <div>
           <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-tight italic flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-sky-400" /> Financial Dashboard
+            <TrendingUp className="w-6 h-6 text-cyan-400" /> Panel Financiero
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">Advanced BI interface for analyzing Gross Profit and Margins.</p>
+          <p className="text-sm text-zinc-500 mt-1">Análisis de ganancia bruta y márgenes por período.</p>
         </div>
         
         <div className="flex items-center gap-3 bg-zinc-950 p-2 rounded-xl border border-zinc-800">
            <div className="flex items-center gap-2 px-2">
-              <span className="text-[10px] uppercase font-bold text-zinc-500">From</span>
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Desde</span>
               <input 
                 type="date" 
                 value={dateRange.start}
                 onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-sky-400" 
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400" 
               />
            </div>
            <div className="h-6 w-px bg-zinc-800"></div>
            <div className="flex items-center gap-2 px-2">
-              <span className="text-[10px] uppercase font-bold text-zinc-500">To</span>
+              <span className="text-[10px] uppercase font-bold text-zinc-500">Hasta</span>
               <input 
                 type="date" 
                 value={dateRange.end}
                 onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-sky-400" 
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400" 
               />
            </div>
         </div>

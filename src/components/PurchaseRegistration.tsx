@@ -339,7 +339,7 @@ export default function PurchaseRegistration({
           {/* Order Details Section */}
           <div className="bg-zinc-800/30 p-6 rounded-xl border border-zinc-800">
              <h4 className="text-zinc-100 font-bold mb-4 flex items-center gap-2 border-b border-zinc-700/50 pb-2">
-                <ShoppingBag className="w-4 h-4 text-sky-400" /> Detalles Generales de la Orden
+                <ShoppingBag className="w-4 h-4 text-cyan-400" /> Detalles Generales de la Orden
              </h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -348,7 +348,7 @@ export default function PurchaseRegistration({
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={supplier}
                         onChange={(e) => setSupplier(e.target.value)}
                         placeholder="Nombre del proveedor"
@@ -357,7 +357,7 @@ export default function PurchaseRegistration({
                     </div>
                   ) : (
                     <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={supplier}
                       onChange={handleSupplierChange}
                     >
@@ -365,7 +365,7 @@ export default function PurchaseRegistration({
                       {suppliers.map((sup) => (
                         <option key={sup.id} value={sup.id}>{sup.name}</option>
                       ))}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar nuevo proveedor</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar nuevo proveedor</option>
                     </select>
                   )}
                 </div>
@@ -376,7 +376,7 @@ export default function PurchaseRegistration({
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={platform}
                         onChange={(e) => setPlatform(e.target.value)}
                         placeholder="Nombre de la plataforma"
@@ -385,12 +385,12 @@ export default function PurchaseRegistration({
                     </div>
                   ) : (
                     <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={platform}
                       onChange={handlePlatformChange}
                     >
                       {PLATFORMS.map((plat) => <option key={plat} value={plat}>{plat}</option>)}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar plataforma</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar plataforma</option>
                     </select>
                   )}
                 </div>
@@ -411,7 +411,7 @@ export default function PurchaseRegistration({
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={financing}
                         onChange={(e) => setFinancing(e.target.value)}
                         placeholder="Tipo de financiación"
@@ -420,7 +420,7 @@ export default function PurchaseRegistration({
                     </div>
                   ) : (
                     <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={financing}
                       onChange={handleFinancingChange}
                     >
@@ -429,7 +429,7 @@ export default function PurchaseRegistration({
                       <option value="Tarjeta Socio A">Tarjeta Socio A</option>
                       <option value="Tarjeta B">Tarjeta B</option>
                       <option value="Crédito Proveedor">Crédito Proveedor</option>
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar financiación</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar financiación</option>
                     </select>
                   )}
                 </div>
@@ -440,7 +440,7 @@ export default function PurchaseRegistration({
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={shippingChannel}
                         onChange={(e) => setShippingChannel(e.target.value)}
                         placeholder="Canal de envío"
@@ -449,12 +449,12 @@ export default function PurchaseRegistration({
                     </div>
                   ) : (
                     <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={shippingChannel}
                       onChange={handleShippingChannelChange}
                     >
                       {SHIPPING_CHANNELS.map((ch) => <option key={ch} value={ch}>{ch}</option>)}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar canal</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar canal</option>
                     </select>
                   )}
                 </div>
@@ -465,7 +465,7 @@ export default function PurchaseRegistration({
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={shippingMode}
                         onChange={(e) => setShippingMode(e.target.value)}
                         placeholder="Modalidad de envío"
@@ -474,12 +474,12 @@ export default function PurchaseRegistration({
                     </div>
                   ) : (
                     <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={shippingMode}
                       onChange={handleShippingModeChange}
                     >
                       {SHIPPING_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar modalidad</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar modalidad</option>
                     </select>
                   )}
                 </div>
@@ -514,7 +514,7 @@ export default function PurchaseRegistration({
                            {item.imagePreview ? <img src={item.imagePreview} className="w-full h-full object-cover rounded" /> : <Package className="w-4 h-4 text-zinc-500" />}
                          </div>
                          <div>
-                            <div className="text-sm font-bold text-zinc-200">{item.description} {item.isNewProduct && <span className="text-[9px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded-full ml-1">NUEVO</span>}</div>
+                            <div className="text-sm font-bold text-zinc-200">{item.description} {item.isNewProduct && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full ml-1">NUEVO</span>}</div>
                             <div className="text-[10px] text-zinc-400">Cant: {item.quantity} × ${item.unitCost.toFixed(2)} = <span className="text-zinc-200 font-bold">${(item.quantity * item.unitCost).toFixed(2)}</span> {item.color && ` • Color: ${item.color}`} {item.estimatedWeight && ` • Peso: ${item.estimatedWeight}lbs`}</div>
                          </div>
                       </div>
@@ -549,7 +549,7 @@ export default function PurchaseRegistration({
                       <div className="space-y-2 md:col-span-2">
                         <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Buscar Inventario</label>
                         <select
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 outline-none"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 outline-none"
                           value={itemForm.itemId}
                           onChange={handleExistingItemChange}
                         >
@@ -591,7 +591,7 @@ export default function PurchaseRegistration({
                           >
                             <option value="">-- Seleccionar --</option>
                             {uniqueCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                            <option value="CUSTOM" className="text-sky-400">+ Nueva</option>
+                            <option value="CUSTOM" className="text-cyan-400">+ Nueva</option>
                           </select>
                         )}
                       </div>
@@ -639,7 +639,7 @@ export default function PurchaseRegistration({
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-sky-400">Cantidad</label>
+                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-cyan-400">Cantidad</label>
                     <input
                       type="number"
                       min="1"
@@ -676,7 +676,7 @@ export default function PurchaseRegistration({
                      <button
                        type="button"
                        onClick={handleAddItem}
-                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-sky-400 border border-zinc-700 font-bold py-2.5 px-4 rounded-lg transition-all flex justify-center items-center gap-2 text-sm"
+                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-cyan-400 border border-zinc-700 font-bold py-2.5 px-4 rounded-lg transition-all flex justify-center items-center gap-2 text-sm"
                      >
                        <Plus className="w-4 h-4" /> Agregar Item a la Orden
                      </button>

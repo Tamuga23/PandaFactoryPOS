@@ -5,6 +5,7 @@ import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Trash2, Calendar, User, Plus, Package, Clock, CheckCircle2, Navigation, Edit } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import PurchaseRegistration from '../components/PurchaseRegistration';
+import { toast } from '../components/Toast';
 
 export default function Purchases() {
   const { products, purchases, recordPurchase, updatePurchase, deletePurchase, addProduct, companyInfo, loading, suppliers, addSupplier } = useStoreData();
@@ -81,7 +82,7 @@ export default function Purchases() {
     if (!trackingModalPurchase) return;
 
     if (boxItems.length === 0) {
-        alert("Please add at least one item to this box.");
+        toast.error('Agregue al menos un ítem a esta caja.');
         return;
     }
 
@@ -115,27 +116,27 @@ export default function Purchases() {
       await updatePurchase(updatedPurchase);
       closeTrackingForm();
     } catch (error) {
-      alert("Error saving tracking");
+      toast.error('Error al guardar el tracking.');
     } finally {
       setIsSavingPhase2(false);
     }
   };
 
 
-  if (loading) return <div className="text-zinc-500">Loading purchases...</div>;
+  if (loading) return <div className="text-zinc-500">Cargando compras…</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div>
           <h2 className="text-xl font-bold text-zinc-100 italic flex items-center gap-2">
-            <Package className="w-5 h-5 text-sky-400" /> Inventory Inbound (Compras)
+            <Package className="w-5 h-5 text-cyan-400" /> Entradas de Inventario (Compras)
           </h2>
-          <p className="text-xs text-zinc-400">Track and register stock purchases from suppliers.</p>
+          <p className="text-xs text-zinc-400">Registro y seguimiento de compras a proveedores.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+          className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           REGISTRAR ORDEN (FASE 1)
@@ -147,13 +148,13 @@ export default function Purchases() {
           <table className="w-full text-sm text-left">
             <thead className="bg-zinc-800 text-zinc-400 text-[10px] uppercase font-bold tracking-wider">
               <tr>
-                <th className="px-6 py-4">Status & Ref</th>
-                <th className="px-6 py-4">Order Date</th>
-                <th className="px-6 py-4">Supplier & Channel</th>
-                <th className="px-6 py-4">Items & Info</th>
-                <th className="px-6 py-4 text-right">Total Cost</th>
+                <th className="px-6 py-4">Estado y Ref</th>
+                <th className="px-6 py-4">Fecha de Orden</th>
+                <th className="px-6 py-4">Proveedor y Canal</th>
+                <th className="px-6 py-4">Ítems</th>
+                <th className="px-6 py-4 text-right">Costo Total</th>
                 <th className="px-6 py-4 text-center">Tracking (Fase 2)</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
@@ -183,7 +184,7 @@ export default function Purchases() {
                     <td className="px-6 py-4 text-xs whitespace-nowrap">
                       <div className="space-y-1.5 flex flex-col items-start w-fit">
                          <div className="flex items-center gap-2 w-full justify-between">
-                            <span className="text-zinc-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> Order:</span> 
+                            <span className="text-zinc-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> Orden:</span> 
                             <span className="text-zinc-200 font-medium">{new Date(p.date).toLocaleDateString()}</span>
                          </div>
                       </div>
@@ -193,7 +194,7 @@ export default function Purchases() {
                       <div className="text-zinc-500 text-[10px]">{p.shippingModality} via {p.shippingChannel}</div>
                     </td>
                     <td className="px-6 py-4 text-xs">
-                      <div className="text-zinc-300">{p.items.length} items</div>
+                      <div className="text-zinc-300">{p.items.length} ítems</div>
                       <div className="text-zinc-500 line-clamp-1 max-w-[150px]" title={p.items.map(i=>i.name).join(', ')}>
                         {p.items[0]?.name}
                       </div>
@@ -204,9 +205,9 @@ export default function Purchases() {
                     <td className="px-6 py-4 text-center">
                        <button
                          onClick={() => openTrackingModal(p)}
-                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isClosed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20'}`}
+                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isClosed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20'}`}
                        >
-                         {trackings.length > 0 ? `${receivedTrackings} / ${trackings.length} Boxes RCVD` : 'Actualizar Track'}
+                         {trackings.length > 0 ? `${receivedTrackings} / ${trackings.length} cajas recibidas` : 'Gestionar cajas'}
                        </button>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -214,7 +215,7 @@ export default function Purchases() {
                         onClick={() => handleDeleteClick(p.id)}
                         className={`transition-colors text-xs font-bold ${confirmingDelete === p.id ? 'text-rose-500' : 'text-zinc-500 hover:text-rose-400'}`}
                       >
-                        {confirmingDelete === p.id ? 'Delete?' : <Trash2 className="w-4 h-4" />}
+                        {confirmingDelete === p.id ? '¿Eliminar?' : <Trash2 className="w-4 h-4" />}
                       </button>
                     </td>
                   </tr>
@@ -222,7 +223,7 @@ export default function Purchases() {
               })}
               {purchases.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-zinc-500 italic">No purchase history found.</td>
+                  <td colSpan={7} className="px-6 py-10 text-center text-zinc-500 italic">Sin compras registradas todavía.</td>
                 </tr>
               )}
             </tbody>
@@ -237,7 +238,7 @@ export default function Purchases() {
             <div className="p-4 border-b border-zinc-700 flex justify-between items-center bg-zinc-800/50 shrink-0">
                <div>
                   <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                     <Package className="w-5 h-5 text-sky-400" /> Tracking y Recepción (Fase 2)
+                     <Package className="w-5 h-5 text-cyan-400" /> Tracking y Recepción (Fase 2)
                   </h3>
                   <p className="text-xs text-zinc-400">Orden original a: {trackingModalPurchase.supplier}</p>
                </div>
@@ -251,7 +252,7 @@ export default function Purchases() {
                      <h4 className="text-sm font-bold text-zinc-300 uppercase">Trackings de esta Orden</h4>
                      <button
                        onClick={() => setIsAddingTracking(true)}
-                       className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
+                       className="text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
                      >
                        <Plus className="w-3 h-3" /> Agregar Tracking
                      </button>
@@ -309,7 +310,7 @@ export default function Purchases() {
                ) : (
                  <form onSubmit={saveTracking} className="space-y-4">
                    <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-800">
-                     <h4 className="text-sm font-bold text-sky-400 flex items-center gap-2">
+                     <h4 className="text-sm font-bold text-cyan-400 flex items-center gap-2">
                        {editingTracking ? 'Actualizar Status de Caja' : 'Nuevo Envío/Tracking'}
                      </h4>
                      <button type="button" onClick={closeTrackingForm} className="text-xs text-zinc-500 hover:text-white bg-zinc-800 px-3 py-1 rounded">Cancelar</button>
@@ -318,11 +319,11 @@ export default function Purchases() {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                          <label className="text-[10px] uppercase text-zinc-500 font-bold">Tracking / Guía ID</label>
-                         <input type="text" disabled={editingTracking?.isReceived} value={trackNumber} onChange={e=>setTrackNumber(e.target.value)} required className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-sky-500" />
+                         <input type="text" disabled={editingTracking?.isReceived} value={trackNumber} onChange={e=>setTrackNumber(e.target.value)} required className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] uppercase text-zinc-500 font-bold">Estado Logístico</label>
-                         <select disabled={editingTracking?.isReceived} value={trackStatus} onChange={e=>setTrackStatus(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-sky-500">
+                         <select disabled={editingTracking?.isReceived} value={trackStatus} onChange={e=>setTrackStatus(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500">
                             <option value="">Seleccionar...</option>
                             <option value="Procesando">Procesando</option>
                             <option value="Enviado a Miami">Enviado a Miami</option>
@@ -364,7 +365,7 @@ export default function Purchases() {
                                     value={inBox || ''}
                                     onChange={(e) => handleBoxItemChange(pItem.id, maxAllowed, e.target.value)}
                                     placeholder="0"
-                                    className="w-16 bg-zinc-900 border disabled:opacity-50 border-zinc-600 rounded p-1 text-center text-sm text-white focus:border-sky-500 outline-none font-mono" 
+                                    className="w-16 bg-zinc-900 border disabled:opacity-50 border-zinc-600 rounded p-1 text-center text-sm text-white focus:border-cyan-500 outline-none font-mono" 
                                   />
                                 </div>
                               </div>
@@ -376,11 +377,11 @@ export default function Purchases() {
                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div className="space-y-1">
                          <label className="text-[10px] uppercase text-zinc-500 font-bold">Peso Final Cobradas (lbs)</label>
-                         <input disabled={editingTracking?.isReceived} type="number" step="any" value={finalWeight} onChange={e=>setFinalWeight(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-sky-500" placeholder="Ej. 5.5" />
+                         <input disabled={editingTracking?.isReceived} type="number" step="any" value={finalWeight} onChange={e=>setFinalWeight(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" placeholder="Ej. 5.5" />
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] uppercase text-zinc-500 font-bold">Agente Recibe (Miami)</label>
-                         <input disabled={editingTracking?.isReceived} type="date" value={agentDate} onChange={e=>setAgentDate(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-sky-500" />
+                         <input disabled={editingTracking?.isReceived} type="date" value={agentDate} onChange={e=>setAgentDate(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
                       </div>
                       <div className="space-y-1 col-span-2 md:col-span-1">
                          <label className="text-[10px] uppercase text-emerald-500 font-bold">Recepción en Bodega (NIC)</label>
@@ -397,7 +398,7 @@ export default function Purchases() {
                       )}
                       
                       {!editingTracking?.isReceived && (
-                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-sky-600 hover:bg-sky-500 disabled:bg-sky-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
+                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
                            {isSavingPhase2 ? 'Guardando...' : 'Guardar y Asociar a Orden'}
                         </button>
                       )}

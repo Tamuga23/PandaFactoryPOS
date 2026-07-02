@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 import { formatCurrencyNIO } from '../lib/utils';
 import { Download, X, Loader2, Check } from 'lucide-react';
+import { toast } from './Toast';
 
 export interface InvoiceItem {
   id: string;
@@ -141,7 +142,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
       pdf.save(fileName);
     } catch (err: any) {
       console.error('Error al generar PDF:', err);
-      alert('Hubo un error al generar el PDF: ' + (err?.message || JSON.stringify(err) || 'Error desconocido'));
+      toast.error('Hubo un error al generar el PDF: ' + (err?.message || 'Error desconocido'));
     } finally {
       setIsGenerating(false);
     }

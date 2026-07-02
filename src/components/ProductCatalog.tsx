@@ -268,7 +268,7 @@ export default function ProductCatalog({
             type="button"
             onClick={() => handleModeToggle(true)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-              isEditing ? 'bg-blue-500/20 text-blue-400 shadow-sm' : 'text-zinc-400 hover:text-white'
+              isEditing ? 'bg-cyan-500/20 text-cyan-400 shadow-sm' : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Edit className="w-4 h-4" />
@@ -301,7 +301,7 @@ export default function ProductCatalog({
               value={formData.id}
               onChange={handleProductSelect}
               required
-              className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
             >
               <option value="">-- Seleccione un producto --</option>
               {catalog.map(product => (
@@ -553,27 +553,27 @@ export default function ProductCatalog({
         {/* --- Specs Proyector --- */}
         {formData.category === 'Projector' && (
           <div className="mt-6 border-t border-zinc-800/50 pt-6">
-            <h4 className="text-md font-medium text-blue-400 mb-4">Especificaciones de Proyector</h4>
+            <h4 className="text-md font-medium text-cyan-400 mb-4">Especificaciones de Proyector</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Brillo (ANSI)</label>
-                <input type="number" value={formData.specsProyector.ansi} onChange={(e) => handleSpecChange('ansi', e.target.value)} placeholder="Ej. 900" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+                <input type="number" value={formData.specsProyector.ansi} onChange={(e) => handleSpecChange('ansi', e.target.value)} placeholder="Ej. 900" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
               </div>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Resolución Nativa</label>
-                <input type="text" value={formData.specsProyector.resolucion} onChange={(e) => handleSpecChange('resolucion', e.target.value)} placeholder="Ej. 1080p, 4K" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+                <input type="text" value={formData.specsProyector.resolucion} onChange={(e) => handleSpecChange('resolucion', e.target.value)} placeholder="Ej. 1080p, 4K" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
               </div>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Throw Ratio</label>
-                <input type="text" value={formData.specsProyector.throwRatio} onChange={(e) => handleSpecChange('throwRatio', e.target.value)} placeholder="Ej. 1.2:1" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+                <input type="text" value={formData.specsProyector.throwRatio} onChange={(e) => handleSpecChange('throwRatio', e.target.value)} placeholder="Ej. 1.2:1" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
               </div>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Distancia Mínima Enfoque</label>
-                <input type="text" value={formData.specsProyector.distMinEnfoque} onChange={(e) => handleSpecChange('distMinEnfoque', e.target.value)} placeholder="Ej. 1.5m" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+                <input type="text" value={formData.specsProyector.distMinEnfoque} onChange={(e) => handleSpecChange('distMinEnfoque', e.target.value)} placeholder="Ej. 1.5m" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
               </div>
               <div className="flex items-center mt-6">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={formData.specsProyector.autofoco} onChange={(e) => handleSpecChange('autofoco', e.target.checked)} className="w-4 h-4 bg-zinc-800 border-zinc-700 rounded text-blue-500 focus:ring-blue-500" />
+                  <input type="checkbox" checked={formData.specsProyector.autofoco} onChange={(e) => handleSpecChange('autofoco', e.target.checked)} className="w-4 h-4 bg-zinc-800 border-zinc-700 rounded text-cyan-500 focus:ring-cyan-500" />
                   <span className="text-sm text-zinc-300">Autofoco Automático</span>
                 </label>
               </div>
@@ -661,7 +661,7 @@ export default function ProductCatalog({
             type="submit"
             disabled={isSubmitting}
             className={`px-6 py-2.5 rounded-lg font-bold text-white transition-all flex items-center gap-2 ${
-              isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-cyan-600 hover:bg-cyan-700'
+              isEditing ? 'bg-cyan-600 hover:bg-cyan-700' : 'bg-cyan-600 hover:bg-cyan-700'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isSubmitting ? (

@@ -49,6 +49,8 @@ Recordatorios operativos del flujo (plan Spark):
 ## 4. UI/UX — hallazgos y prioridades
 
 ### POS (línea: zinc + cyan, dark)
+> **ESTADO: puntos 1, 2, 3 y parte del 5 IMPLEMENTADOS el 2026-07-02** (verificados con tsc). Detalle al final de esta sección.
+
 Diagnóstico: funcional y decente, pero le falta pulido. Los 5 cambios de mayor impacto:
 
 1. **Eliminar los `alert()` nativos** (POS.tsx:59,65,77,215; Purchases.tsx:84,118,133; Inventory.tsx:134). Rompen la estética dark, bloquean el flujo y varios están en inglés. Reemplazar por un toast/banner inline (como el que ya tenés en ProductCatalog:280 — ese patrón está bien).
@@ -59,7 +61,16 @@ Diagnóstico: funcional y decente, pero le falta pulido. Los 5 cambios de mayor 
 
 Menores: touch targets chicos (botones +/- del carrito `p-1`, trash `w-4`), `text-[10px]` en headers de tabla, z-index ad-hoc (50/60/100/101), y el PDF de factura usa azules hardcodeados (`#1a6ba0`) ajenos a la línea.
 
+**Implementado (2026-07-02):**
+- **Toast global** (`src/components/Toast.tsx` + `<Toaster/>` en Layout): los 11 `alert()` de POS/Purchases/Inventory/SalesHistory/InvoicePreview/ShippingLabelPreview ahora son notificaciones dark con icono y color semántico (error rose, éxito emerald, info cyan), auto-cierre a 4.5s. Único alert que queda: el de bootstrap de auth en App.tsx (intencional: ocurre antes de montar el Toaster).
+- **Paleta unificada**: 0 usos de `sky-*` y `blue-*` en `src/` — todo el acento es cyan (POS, Purchases, PurchaseRegistration ×32, Settings, Reports, Dashboard, SalesHistory, ProductCatalog). Emerald/rose/amber quedan como semánticos.
+- **Español 100% en UI visible**: loaders ("Cargando…"), placeholders de búsqueda, labels del checkout (Nombre del Cliente/Teléfono/Dirección/Transporte/Descuento/Envío con unidad NIO), headers de tabla de Compras, títulos ("Entradas de Inventario", "Gestión de Ventas", "Panel Financiero"), botones ("GUARDAR CAMBIOS", "Gestionar cajas", "¿Eliminar?"), estados vacíos y mensajes de error.
+- **Checkout agrupado** (parte del punto 5): secciones "Cliente" y "Entrega y ajustes" con headers cyan en el panel de cobro; touch targets del carrito ampliados (+/- y trash a `p-2`).
+- Pendiente (decisión aparte): componentes base Button/Input/Card (punto 4 — el Toast ya existe) y la reestructuración profunda del checkout en tabs + preview solo-lectura (resto del punto 5). Ambos tocan más superficie y conviene hacerlos con la app corriendo a la vista.
+
 ### PandaLink (tablet, vendedor con cliente enfrente)
+> **ESTADO: los 5 puntos + menores fueron IMPLEMENTADOS el 2026-07-02** (misma sesión, verificados con tsc). Detalle de lo aplicado al final de esta sección.
+
 Diagnóstico: arquitectura y estados muy bien resueltos; los ajustes son de ergonomía de venta:
 
 1. **Precio efectivo siempre visible cuando hay descuento**: hoy el precio de cierre vive detrás del botón "Empujón final" (Ficha:200-219). En la práctica el vendedor olvida tocarlo. Mostrar tarjeta/efectivo lado a lado desde el inicio y dejar el botón como énfasis, no como compuerta.
@@ -69,6 +80,15 @@ Diagnóstico: arquitectura y estados muy bien resueltos; los ajustes son de ergo
 5. **Layout landscape**: la Ficha es `grid-cols-2` fija y el catálogo `grid-cols-4`; en tablet 10" horizontal sobra aire y el panel derecho del Demo es `w-72` fijo. Ajustar con breakpoints (`lg:grid-cols-3` en ficha, panel demo `w-80 xl:w-96`). Además `tailwind.config.js` está casi vacío: definir ahí el token de acento para no repetir `cyan-500` a mano.
 
 Menores: copy "Mostrar al cliente (girar tablet)" no aplica en landscape → "Mostrar demo al cliente"; "en la voz de Carlos" hardcodeado en ObjecionDrawer (si algún día atiende otro vendedor, leerlo de config.ts); borde del drawer invisible en dark (`border-zinc-800` sobre fondo zinc → usar cyan).
+
+**Implementado (2026-07-02):**
+- Ficha: precio efectivo/transferencia SIEMPRE visible en bloque emerald cuando hay descuento (se eliminó la compuerta "Empujón final" y el estado `empujon` en App); si el producto está agotado, el bloque de cierre se reemplaza por aviso rojo "Agotado — confirmá reposición" y el botón de demo queda deshabilitado.
+- Header: búsqueda global con overlay de resultados (nombre + precio o "Agotado", mínimo 2 letras, máx. 8 resultados, tap → ficha directa desde cualquier pantalla).
+- Botones de objeción: `min-h-[52px]`, `text-sm`, estado `active:` para feedback táctil.
+- PCard agotado: `opacity-60 saturate-50` + overlay "AGOTADO" sobre la foto; hover de cards ahora en cyan (antes zinc).
+- Landscape: catálogo `grid-cols-3 lg:4 2xl:5`; panel del Demo `w-72 lg:w-80 xl:w-96`; Ficha `xl:gap-10`.
+- Dark coherente: variantes dark en todos los badges/avisos emerald/red/amber que no las tenían, sliders de la calculadora en cyan, borde del drawer de objeciones en cyan, BackBtn más visible y con más área táctil, labels de sección a `text-xs`.
+- Copy: "Mostrar demo al cliente"; "en la voz de {VOZ_ASESOR}" leído de `config.ts` (nuevo export, default "Carlos").
 
 ### Coherencia entre las dos apps
 La dirección es correcta (commit "design: alinear estilo visual con PandaStore POS"). Para cerrarla: mismo acento (cyan-500/600 en ambas — PandaLink a veces usa `stone-*` de la fase light donde el POS usa `zinc-*`), mismos colores semánticos (emerald/rose/amber con igual significado), y misma tipografía de labels (los `text-[11px] uppercase tracking-wide` de PandaLink son un buen patrón — llevarlos al POS en vez de los headers `text-[10px]`).

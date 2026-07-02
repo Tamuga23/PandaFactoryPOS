@@ -4,6 +4,7 @@ import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, Histo
 import { cn } from '../lib/utils';
 import { useStoreData } from '../hooks/useStoreData';
 import { logout } from '../lib/db';
+import { Toaster } from './Toast';
 
 const navigation = [
   { name: 'Panel Principal', href: '/', icon: LayoutDashboard },
@@ -30,6 +31,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex text-zinc-200 overflow-hidden relative">
+      {/* Notificaciones globales (reemplazo de alert()) */}
+      <Toaster />
       {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
         <div 

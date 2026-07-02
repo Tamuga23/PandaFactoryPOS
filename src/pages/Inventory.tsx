@@ -4,6 +4,7 @@ import { Product } from '../types';
 import { formatCurrency, fileToBase64, compressImage } from '../lib/utils';
 import { Plus, Edit2, Trash2, Image as ImageIcon, Search, PackagePlus, AlertTriangle, ShoppingCart, Check, Layers } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { toast } from '../components/Toast';
 
 export default function Inventory() {
   const { products, loading, addProduct, updateProduct, deleteProduct, bulkUpdateProducts } = useStoreData();
@@ -60,7 +61,7 @@ export default function Inventory() {
     });
   }, [products, searchTerm, sortConfig]);
 
-  if (loading) return <div className="text-zinc-500">Loading inventory...</div>;
+  if (loading) return <div className="text-zinc-500">Cargando inventario…</div>;
 
   const openModal = (product?: Product) => {
     if (product) {
@@ -130,7 +131,7 @@ export default function Inventory() {
       });
     } catch (error) {
       console.error('Error toggling reorder status:', error);
-      alert('Error updating reorder status.');
+      toast.error('Error al actualizar el estado de re-orden.');
     }
   };
 
@@ -158,7 +159,7 @@ export default function Inventory() {
       closeModal();
     } catch (error) {
       console.error('Error updating stock:', error);
-      alert('Error updating stock. Please try again.');
+      toast.error('Error al actualizar el stock. Intente de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -201,7 +202,7 @@ export default function Inventory() {
       closeModal();
     } catch (error) {
       console.error('Error saving product:', error);
-      alert('Error saving product. Please try again.');
+      toast.error('Error al guardar el producto. Intente de nuevo.');
     } finally {
       setIsSaving(false);
     }

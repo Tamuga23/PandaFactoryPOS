@@ -7,12 +7,12 @@ export default function Dashboard() {
   const { stats, loading } = useStoreData();
 
   if (loading) {
-    return <div className="text-zinc-500">Loading dashboard...</div>;
+    return <div className="text-zinc-500">Cargando panel…</div>;
   }
 
   const kpis = [
     { title: 'Ventas Totales', value: formatCurrency(stats.totalSalesValue), icon: DollarSign, color: 'text-cyan-400', border: '' },
-    { title: 'Valor Inventario (a costo)', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-sky-400', border: '' },
+    { title: 'Valor Inventario (a costo)', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-cyan-400', border: '' },
     { title: 'Productos', value: stats.totalProducts.toString(), icon: Package, color: 'text-white', border: '' },
     { title: 'Inventario Crítico', value: stats.lowStockItems.length.toString(), icon: AlertTriangle, color: 'text-rose-400', border: 'border-l-rose-500 border-l-2' },
   ];

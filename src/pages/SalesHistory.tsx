@@ -4,6 +4,7 @@ import { Sale } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { Calendar, User, Phone, MapPin, Trash2, Edit, CheckCircle, RotateCcw, XCircle, Search, FileText, Truck } from 'lucide-react';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
+import { toast } from '../components/Toast';
 
 export default function SalesHistory() {
   const { sales, deleteSale, updateSale, loading, companyInfo } = useStoreData();
@@ -55,23 +56,23 @@ export default function SalesHistory() {
     await updateSale(updatedSale);
     setIsEditModalOpen(false);
     setEditingSale(null);
-    alert('Sale record updated!');
+    toast.success('Venta actualizada.');
   };
 
-  if (loading) return <div className="text-zinc-500 p-8">Loading history...</div>;
+  if (loading) return <div className="text-zinc-500 p-8">Cargando historial…</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div>
-          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Sales Management (CRUD)</h2>
-          <p className="text-xs text-zinc-500">Edit, delete or manage sales and returns.</p>
+          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Gestión de Ventas</h2>
+          <p className="text-xs text-zinc-500">Edite, elimine o gestione ventas y devoluciones.</p>
         </div>
         <div className="relative w-full md:w-64">
            <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
            <input 
             type="text" 
-            placeholder="Invoice # or Customer..." 
+            placeholder="N° de factura o cliente…"
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -110,12 +111,12 @@ export default function SalesHistory() {
 
                <div className="flex-1 w-full lg:px-8 grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="text-xs space-y-1 min-w-0">
-                     <p className="text-zinc-500 font-bold uppercase">Customer</p>
+                     <p className="text-zinc-500 font-bold uppercase">Cliente</p>
                      <p className="text-zinc-300 flex items-center gap-1 truncate"><User className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerName || 'N/A'}</span></p>
                      <p className="text-zinc-400 flex items-center gap-1 truncate"><Phone className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerPhone || '-'}</span></p>
                   </div>
                   <div className="text-xs space-y-1 hidden md:block min-w-0">
-                     <p className="text-zinc-500 font-bold uppercase">Location/Transp</p>
+                     <p className="text-zinc-500 font-bold uppercase">Dirección/Transp</p>
                      <p className="text-zinc-300 flex items-center gap-1 truncate"><MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerAddress || 'N/A'}</span></p>
                      <p className="text-cyan-500 font-bold uppercase truncate">{sale.transport}</p>
                   </div>
@@ -151,7 +152,7 @@ export default function SalesHistory() {
                     </button>
                   </div>
                   
-                  <button onClick={() => handleEdit(sale)} className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-sky-400 rounded-lg transition-colors">
+                  <button onClick={() => handleEdit(sale)} className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors">
                     <Edit className="w-4 h-4" />
                   </button>
                   {['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(sale.transport || '') && (
@@ -227,7 +228,7 @@ export default function SalesHistory() {
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3">
                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200">Cancel</button>
-                   <button type="submit" className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg transition-all">SAVE CHANGES</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition-all">GUARDAR CAMBIOS</button>
                 </div>
              </form>
           </div>

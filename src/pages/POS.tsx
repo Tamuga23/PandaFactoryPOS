@@ -6,6 +6,7 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package } from 'lu
 import { v4 as uuidv4 } from 'uuid';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
+import { toast } from '../components/Toast';
 
 export default function POS() {
   const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer } = useStoreData();
@@ -56,13 +57,13 @@ export default function POS() {
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock) {
-        alert('Cannot add more than available stock.');
+        toast.error(`No hay más stock disponible de "${product.name}".`);
         return;
       }
       setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
     } else {
       if (product.stock <= 0) {
-        alert('Out of stock.');
+        toast.error('Producto sin stock.');
         return;
       }
       setCart([...cart, { ...product, quantity: 1 }]);
@@ -74,7 +75,7 @@ export default function POS() {
       if (item.id === id) {
         const newQ = item.quantity + delta;
         if (newQ > item.stock) {
-          alert('Cannot exceed available stock.');
+          toast.error('No se puede superar el stock disponible.');
           return item;
         }
         return { ...item, quantity: Math.max(1, newQ) };
@@ -212,7 +213,7 @@ export default function POS() {
     try {
         await recordSale(sale);
     } catch (e) {
-        alert("Transaction could not be completed. Stock might be insufficient.");
+        toast.error('No se pudo completar la venta. Verifique el stock e intente de nuevo.');
         setIsConfirming(false);
         return;
     }
@@ -235,7 +236,7 @@ export default function POS() {
     setIsConfirming(false);
   };
 
-  if (loading) return <div className="text-zinc-500">Loading POS...</div>;
+  if (loading) return <div className="text-zinc-500">Cargando POS…</div>;
 
   return (
     <>
@@ -264,7 +265,7 @@ export default function POS() {
       {/* Product Selection */}
       <div className={`${showMobileCart ? 'hidden lg:flex' : 'flex'} w-full lg:w-2/3 flex-col bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden h-[calc(100vh-12rem)] lg:h-full`}>
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
-          <h3 className="font-semibold text-zinc-200">Catalog</h3>
+          <h3 className="font-semibold text-zinc-200">Catálogo</h3>
           <div className="relative w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-zinc-500" />
@@ -272,7 +273,7 @@ export default function POS() {
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-1.5 border border-zinc-700 rounded-lg leading-5 bg-zinc-800 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-              placeholder="Search products to add..."
+              placeholder="Buscar por nombre, SKU o categoría…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -305,7 +306,7 @@ export default function POS() {
                 <div className="mt-3 flex justify-between items-center">
                   <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-cyan-500/10 text-cyan-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                    {product.stock} left
+                    Stock: {product.stock}
                   </span>
                 </div>
               </div>
@@ -342,14 +343,14 @@ export default function POS() {
                <span className="text-lg leading-none mb-0.5">←</span> Volver al Catálogo
              </button>
              <h3 className="font-semibold text-cyan-400 flex items-center gap-2">
-                <span className="w-2 h-2 bg-cyan-500 rounded-full hidden lg:block"></span> POS Terminal
+                <span className="w-2 h-2 bg-cyan-500 rounded-full hidden lg:block"></span> Terminal POS
              </h3>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-[30vh]">
           {cart.length === 0 ? (
-            <div className="text-center text-zinc-500 py-10 text-sm">Cart is empty</div>
+            <div className="text-center text-zinc-500 py-10 text-sm">El carrito está vacío</div>
           ) : (
             cart.map(item => (
               <div key={item.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-zinc-700/50">
@@ -358,15 +359,15 @@ export default function POS() {
                   <div className="text-xs font-semibold text-cyan-400">{formatCurrency(item.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</div>
                 </div>
                 <div className="flex items-center space-x-1 bg-zinc-800 rounded-md border border-zinc-700 p-0.5">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
+                  <button onClick={() => updateQuantity(item.id, -1)} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                   <span className="text-xs font-medium w-6 text-center text-zinc-200">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
+                  <button onClick={() => updateQuantity(item.id, 1)} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <button onClick={() => removeFromCart(item.id)} className="p-1.5 ml-2 text-zinc-500 hover:text-rose-400 transition-colors">
+                <button onClick={() => removeFromCart(item.id)} className="p-2 ml-1 text-zinc-500 hover:text-rose-400 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -375,9 +376,13 @@ export default function POS() {
         </div>
 
         <div className="p-4 border-t border-zinc-700 bg-zinc-900 overflow-y-auto lg:max-h-[50vh] custom-scrollbar">
+          {/* Sección: Cliente */}
+          <p className="text-[10px] uppercase tracking-wider text-cyan-400/80 font-bold mb-2 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-cyan-500"></span> Cliente
+          </p>
           <div className="grid grid-cols-2 gap-3 mb-4 relative">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-500 font-bold">Customer Name</label>
+              <label className="text-[10px] uppercase text-zinc-500 font-bold">Nombre del Cliente</label>
               <input 
                 type="text" 
                 placeholder="Ignacio Lula..." 
@@ -416,7 +421,7 @@ export default function POS() {
               )}
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-500 font-bold">Phone</label>
+              <label className="text-[10px] uppercase text-zinc-500 font-bold">Teléfono</label>
               <input 
                 type="text" 
                 placeholder="8765 9876" 
@@ -428,7 +433,7 @@ export default function POS() {
           </div>
 
           <div className="space-y-1 mb-4">
-            <label className="text-[10px] uppercase text-zinc-500 font-bold">Address</label>
+            <label className="text-[10px] uppercase text-zinc-500 font-bold">Dirección</label>
             <textarea 
               rows={2}
               placeholder="Barrio Avenida Brasil..." 
@@ -438,9 +443,13 @@ export default function POS() {
             />
           </div>
 
+          {/* Sección: Entrega y ajustes */}
+          <p className="text-[10px] uppercase tracking-wider text-cyan-400/80 font-bold mb-2 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-cyan-500"></span> Entrega y ajustes
+          </p>
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-500 font-bold">Transport</label>
+              <label className="text-[10px] uppercase text-zinc-500 font-bold">Transporte</label>
               <select
                 className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
                 value={transport}
@@ -453,7 +462,7 @@ export default function POS() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-500 font-bold text-rose-400">Discount</label>
+              <label className="text-[10px] uppercase font-bold text-rose-400">Descuento (NIO)</label>
               <input 
                 type="number" 
                 className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
@@ -462,7 +471,7 @@ export default function POS() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-500 font-bold text-cyan-400">Shipping</label>
+              <label className="text-[10px] uppercase font-bold text-cyan-400">Envío (NIO)</label>
               <input 
                 type="number" 
                 className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
@@ -503,7 +512,7 @@ export default function POS() {
             <div className="h-px bg-zinc-700 my-2"></div>
             <div className="flex justify-between font-bold text-sm sm:text-lg text-zinc-100 mt-2">
               <span>TOTAL (NIO)</span>
-              <span className="text-sky-400">{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE)) + shipping - discount, 'NIO')}</span>
+              <span className="text-cyan-400">{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE)) + shipping - discount, 'NIO')}</span>
             </div>
           </div>
 
@@ -520,12 +529,12 @@ export default function POS() {
               onClick={() => handleTryCheckout(true)}
               disabled={cart.length === 0}
               title="Generar Proforma (Cotización)"
-              className="w-14 bg-zinc-800 hover:bg-zinc-700 text-sky-400 font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-14 bg-zinc-800 hover:bg-zinc-700 text-cyan-400 font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileText className="w-5 h-5" />
             </button>
           </div>
-          <p className="text-[10px] text-zinc-500 text-center mt-2 italic">Includes auto-check for stock availability</p>
+          <p className="text-[10px] text-zinc-500 text-center mt-2 italic">El stock se verifica automáticamente al facturar</p>
         </div>
       </div>
     </div>
