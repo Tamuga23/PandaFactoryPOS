@@ -60,6 +60,7 @@ export const ProductSchema = z.object({
   minStockAlert: z.number().min(0, "Min stock alert must be non-negative"),
   category: z.string().min(1, "Category is required"),
   imageBase64: z.string().optional(),
+  isReordering: z.boolean().optional(),
   activo: z.boolean().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
@@ -127,6 +128,7 @@ export const SaleSchema = z.object({
   documentType: z.enum(['RECIBO_OFICIAL', 'PROFORMA']),
   clientDocumentType: z.enum(['CEDULA', 'RUC', 'PASAPORTE', 'NINGUNO']),
   clientDocumentNumber: z.string().optional(),
+  customerId: z.string().max(128).optional(),
   customerName: z.string().optional(),
   customerEmail: z.string().email().optional().or(z.literal('')),
   customerPhone: z.string().optional(),
@@ -138,7 +140,8 @@ export const SaleSchema = z.object({
   exchangeRate: z.number().min(0.01),
   paymentMethod: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']),
   paymentReference: z.string().optional(),
-  
+  notes: z.string().optional(),
+
   ownerId: z.string().min(1),
   status: z.enum(['completed', 'returned', 'cancelled']),
 }).refine(

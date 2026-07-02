@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useStoreData } from '../hooks/useStoreData';
 import { Product, CartItem, Sale, ClientData } from '../types';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
@@ -90,7 +90,7 @@ export default function POS() {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const taxRate = 0; // Set to 0 to match screenshot logic (Total = Gross + Shipping - Discount)
   const tax = subtotal * taxRate;
-  const currentExchangeRate = companyInfo?.defaultExchangeRate || 36.6243;
+  const currentExchangeRate = companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE;
   const total = subtotal + tax + (shipping / currentExchangeRate) - (discount / currentExchangeRate);
 
   const handleTryCheckout = async (isProforma: boolean = false) => {
@@ -303,7 +303,7 @@ export default function POS() {
                 <h3 className="text-sm font-medium text-zinc-200 line-clamp-2 leading-tight">{product.name}</h3>
                 <p className="mt-1 text-[10px] text-zinc-500 uppercase">{product.sku}</p>
                 <div className="mt-3 flex justify-between items-center">
-                  <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || 36.6243), 'NIO')}</span>
+                  <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-cyan-500/10 text-cyan-500' : 'bg-rose-500/10 text-rose-500'}`}>
                     {product.stock} left
                   </span>
@@ -325,7 +325,7 @@ export default function POS() {
                <ShoppingCart className="w-5 h-5" /> 
                Ver Carrito ({cart.length} ítems)
              </span>
-             <span>{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || 36.6243)) + shipping - discount, 'NIO')}</span>
+             <span>{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE)) + shipping - discount, 'NIO')}</span>
            </button>
         </div>
       )}
@@ -355,7 +355,7 @@ export default function POS() {
               <div key={item.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-zinc-700/50">
                 <div className="flex-1 pr-3">
                   <h4 className="text-sm font-medium text-zinc-200 leading-tight mb-1">{item.name}</h4>
-                  <div className="text-xs font-semibold text-cyan-400">{formatCurrency(item.price * (companyInfo?.defaultExchangeRate || 36.6243), 'NIO')}</div>
+                  <div className="text-xs font-semibold text-cyan-400">{formatCurrency(item.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</div>
                 </div>
                 <div className="flex items-center space-x-1 bg-zinc-800 rounded-md border border-zinc-700 p-0.5">
                   <button onClick={() => updateQuantity(item.id, -1)} className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
@@ -486,7 +486,7 @@ export default function POS() {
           <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
             <div className="flex justify-between text-xs mb-2 text-zinc-300">
               <span>Monto Bruto</span>
-              <span>{formatCurrency(subtotal * (companyInfo?.defaultExchangeRate || 36.6243), 'NIO')}</span>
+              <span>{formatCurrency(subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
             </div>
             {shipping > 0 && (
               <div className="flex justify-between text-xs mb-2 text-zinc-300">
@@ -503,7 +503,7 @@ export default function POS() {
             <div className="h-px bg-zinc-700 my-2"></div>
             <div className="flex justify-between font-bold text-sm sm:text-lg text-zinc-100 mt-2">
               <span>TOTAL (NIO)</span>
-              <span className="text-sky-400">{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || 36.6243)) + shipping - discount, 'NIO')}</span>
+              <span className="text-sky-400">{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE)) + shipping - discount, 'NIO')}</span>
             </div>
           </div>
 

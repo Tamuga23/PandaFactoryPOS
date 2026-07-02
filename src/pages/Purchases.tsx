@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStoreData } from '../hooks/useStoreData';
 import { Purchase, Product, PurchaseTracking } from '../types';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Trash2, Calendar, User, Plus, Package, Clock, CheckCircle2, Navigation, Edit } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import PurchaseRegistration from '../components/PurchaseRegistration';
@@ -462,7 +462,7 @@ export default function Purchases() {
                      status: 'OPEN',
                      stockAdded: false,
                      currency: 'USD',
-                     exchangeRate: companyInfo?.defaultExchangeRate || 36.6243,
+                     exchangeRate: companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE,
                      items: purchaseData.items.map((item: any) => ({
                        id: item.itemId,
                        name: item.description,

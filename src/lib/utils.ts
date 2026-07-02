@@ -1,3 +1,7 @@
+// Tasa de cambio NIO/USD de RESPALDO, usada solo si company.defaultExchangeRate
+// no está cargada. La tasa real se configura en Settings → Información de empresa.
+export const DEFAULT_EXCHANGE_RATE = 36.6243;
+
 export function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
 }

@@ -347,8 +347,15 @@ export function useStoreData() {
   const updatePurchase = async (purchase: Purchase) => {
     if (!user) return;
     try {
-      const batch = writeBatch(db);
-      let updatedPurchase = { ...purchase };
+      // Copia profunda de lo que vamos a mutar (items/trackings) para no tocar el estado de React.
+      const updatedPurchase: Purchase = {
+        ...purchase,
+        items: (purchase.items || []).map(i => ({ ...i })),
+        trackings: (purchase.trackings || []).map(t => ({
+          ...t,
+          itemsInBox: (t.itemsInBox || []).map(b => ({ ...b })),
+        })),
+      };
 
       // Strip all undefined fields to avoid Firestore errors
       Object.keys(updatedPurchase).forEach(key => {
@@ -356,47 +363,84 @@ export function useStoreData() {
           delete (updatedPurchase as any)[key];
         }
       });
-      if (updatedPurchase.items) {
-        updatedPurchase.items.forEach(item => {
-          Object.keys(item).forEach(key => {
-            if ((item as any)[key] === undefined) delete (item as any)[key];
+      updatedPurchase.items.forEach(item => {
+        Object.keys(item).forEach(key => {
+          if ((item as any)[key] === undefined) delete (item as any)[key];
+        });
+      });
+      updatedPurchase.trackings.forEach((tracking: any) => {
+        Object.keys(tracking).forEach(key => tracking[key] === undefined && delete tracking[key]);
+        if (tracking.itemsInBox) {
+          tracking.itemsInBox.forEach((iib: any) => {
+            Object.keys(iib).forEach(key => iib[key] === undefined && delete iib[key]);
           });
-        });
-      }
+        }
+      });
 
-      if (updatedPurchase.trackings) {
-        updatedPurchase.trackings.forEach((tracking: any) => {
-          Object.keys(tracking).forEach(key => tracking[key] === undefined && delete tracking[key]);
-          if (tracking.itemsInBox) {
-            tracking.itemsInBox.forEach((iib: any) => {
-              Object.keys(iib).forEach(key => iib[key] === undefined && delete iib[key]);
-            });
-          }
-        });
-      }
+      const purchaseRef = doc(db, 'purchases', purchase.id);
 
-      // Check for newly received trackings
-      const oldPurchase = purchases.find(p => p.id === purchase.id);
-      
-      if (updatedPurchase.trackings && oldPurchase) {
+      // Transacción: stock y costo promedio (WAC) se calculan con datos del
+      // SERVIDOR, no del estado local del cliente. Si dos dispositivos reciben
+      // mercadería a la vez, Firestore reintenta y nadie doble-cuenta stock.
+      await runTransaction(db, async (transaction) => {
+        // --- 1. LECTURAS (Firestore exige hacerlas todas antes de escribir) ---
+        const serverSnap = await transaction.get(purchaseRef);
+        if (!serverSnap.exists()) {
+          throw new Error(`Purchase ${purchase.id} does not exist in DB.`);
+        }
+        const serverPurchase = serverSnap.data() as Purchase;
+
+        // Estado real de cada tracking según el servidor (guard contra doble proceso).
+        const serverTrackingReceived = new Map<string, boolean>();
+        (serverPurchase.trackings || []).forEach(t => serverTrackingReceived.set(t.id, !!t.isReceived));
+
+        // Trackings a procesar: tienen receptionDate y NADIE los sincronizó aún.
+        const toProcess = updatedPurchase.trackings.filter(t =>
+          t.receptionDate && !t.isReceived && serverTrackingReceived.get(t.id) !== true
+        );
+
+        const productIds = Array.from(new Set(
+          toProcess.flatMap(t => (t.itemsInBox || []).map(b => b.itemId))
+        ));
+        const productSnaps = await Promise.all(
+          productIds.map(pid => transaction.get(doc(db, 'products', pid)))
+        );
+        const serverProducts = new Map<string, Product>();
+        productSnaps.forEach((snap, i) => {
+          if (snap.exists()) serverProducts.set(productIds[i], { ...(snap.data() as Product), id: productIds[i] });
+        });
+
+        // --- 2. CÁLCULOS ---
+        {
         // Obtenemos la tarifa por defect basada en modalidad o una almacenada (si existiera en el futuro)
         const ratePerLb = updatedPurchase.shippingRatePerLb || (updatedPurchase.shippingModality === 'Air Cargo' ? 6.5 : (updatedPurchase.shippingModality === 'Sea Cargo' ? 2.5 : 0));
         const totalBaseCost = updatedPurchase.items.reduce((acc, item) => acc + (item.cost * item.quantity), 0);
         const totalExpenses = updatedPurchase.freightCost || 0; // Legacy global freight cost fallback
 
-        updatedPurchase.trackings.forEach(tracking => {
-          // If tracking was marked with receptionDate, but hasn't updated inventory yet
-          if (tracking.receptionDate && !tracking.isReceived) {
+        // receivedQuantity parte del estado del SERVIDOR para no pisar recepciones concurrentes.
+        const serverReceived = new Map<string, number>();
+        (serverPurchase.items || []).forEach(i => serverReceived.set(i.id, i.receivedQuantity || 0));
+        updatedPurchase.items.forEach(i => {
+          i.receivedQuantity = serverReceived.get(i.id) ?? (i.receivedQuantity || 0);
+        });
+
+        // Acumulador por producto: un solo write aunque el producto venga en varias cajas.
+        const productChanges = new Map<string, { addStock: number; newCost: number }>();
+
+        toProcess.forEach(tracking => {
+          {
             tracking.isReceived = true; // Mark tracking as synced
             
-            tracking.itemsInBox.forEach(boxItem => {
-              // 1. Update general stock and cost (WAC) of product
-              const productRef = doc(db, 'products', boxItem.itemId);
-              const p = products.find(prod => prod.id === boxItem.itemId);
-              if (p) {
+            (tracking.itemsInBox || []).forEach(boxItem => {
+              // 1. Stock y costo (WAC) con datos del SERVIDOR leídos en la transacción
+              const serverProduct = serverProducts.get(boxItem.itemId);
+              if (serverProduct) {
+                const prev = productChanges.get(boxItem.itemId);
+                const baseStock = serverProduct.stock + (prev?.addStock || 0);
+                const baseCost = prev?.newCost ?? serverProduct.cost;
                 // Find item in purchase to get its cost
                 const pItem = updatedPurchase.items.find(i => i.id === boxItem.itemId);
-                let newCost = p.cost;
+                let newCost = baseCost;
                 
                 if (pItem) {
                   // Calculate freight cost for exactly these items in the box based on weight
@@ -417,18 +461,17 @@ export function useStoreData() {
                   
                   const realUnitCost = pItem.cost + (itemFreightExpense / boxItem.quantity);
                   
-                  // Weighted Average Cost Formula
-                  const currentTotalValue = p.stock * p.cost;
+                  // Weighted Average Cost Formula (sobre datos del servidor)
+                  const currentTotalValue = baseStock * baseCost;
                   const newTotalValue = boxItem.quantity * realUnitCost;
-                  const newStock = p.stock + boxItem.quantity;
+                  const newStock = baseStock + boxItem.quantity;
                   
                   newCost = newStock > 0 ? (currentTotalValue + newTotalValue) / newStock : realUnitCost;
                 }
 
-                batch.update(productRef, {
-                  stock: increment(boxItem.quantity),
-                  cost: newCost,
-                  updatedAt: Date.now()
+                productChanges.set(boxItem.itemId, {
+                  addStock: (prev?.addStock || 0) + boxItem.quantity,
+                  newCost,
                 });
               }
 
@@ -440,28 +483,42 @@ export function useStoreData() {
             });
           }
         });
-      }
 
-      // Re-evaluate Purchase Status based on received vs total quantities
-      let allFullyReceived = true;
-      let anyReceived = false;
-      updatedPurchase.items.forEach(item => {
-        if (item.receivedQuantity > 0) anyReceived = true;
-        if ((item.receivedQuantity || 0) < item.quantity) allFullyReceived = false;
+        // Si el servidor ya procesó un tracking que el cliente traía como pendiente,
+        // respetamos el estado del servidor (evita re-proceso en el próximo save).
+        updatedPurchase.trackings.forEach(t => {
+          if (serverTrackingReceived.get(t.id) === true) t.isReceived = true;
+        });
+
+        // Re-evaluate Purchase Status based on received vs total quantities
+        let allFullyReceived = true;
+        let anyReceived = false;
+        updatedPurchase.items.forEach(item => {
+          if (item.receivedQuantity > 0) anyReceived = true;
+          if ((item.receivedQuantity || 0) < item.quantity) allFullyReceived = false;
+        });
+
+        if (updatedPurchase.items.length === 0) {
+          updatedPurchase.status = 'OPEN';
+        } else if (allFullyReceived) {
+          updatedPurchase.status = 'CLOSED';
+        } else if (anyReceived) {
+          updatedPurchase.status = 'PARTIAL';
+        } else {
+          updatedPurchase.status = 'OPEN';
+        }
+
+        // --- 3. ESCRITURAS ---
+        productChanges.forEach((change, pid) => {
+          transaction.update(doc(db, 'products', pid), {
+            stock: increment(change.addStock),
+            cost: change.newCost,
+            updatedAt: Date.now(),
+          });
+        });
+        transaction.update(purchaseRef, updatedPurchase as any);
+        }
       });
-
-      if (updatedPurchase.items.length === 0) {
-        updatedPurchase.status = 'OPEN';
-      } else if (allFullyReceived) {
-        updatedPurchase.status = 'CLOSED';
-      } else if (anyReceived) {
-        updatedPurchase.status = 'PARTIAL';
-      } else {
-        updatedPurchase.status = 'OPEN';
-      }
-
-      batch.update(doc(db, 'purchases', purchase.id), updatedPurchase as any);
-      await batch.commit();
     } catch (e) {
       handleFirestoreError(e, 'update', `purchases/${purchase.id}`);
     }
@@ -582,7 +639,8 @@ export function useStoreData() {
     const realSales = sales.filter(s => s.documentType !== 'PROFORMA');
     return {
       totalProducts: products.length,
-      totalStockValue: products.reduce((acc, p) => acc + (p.price * p.stock), 0),
+      // Valor de inventario A COSTO (no a precio de venta); guards contra docs viejos sin cost/stock.
+      totalStockValue: products.reduce((acc, p) => acc + ((p.cost || 0) * (p.stock || 0)), 0),
       lowStockItems: products.filter(p => p.stock <= p.minStockAlert && !p.isReordering),
       recentSales: [...realSales].sort((a, b) => b.date - a.date).slice(0, 5),
       totalSalesValue: realSales.reduce((acc, s) => acc + (s.status === 'completed' ? s.total : 0), 0),

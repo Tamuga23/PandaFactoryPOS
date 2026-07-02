@@ -16,18 +16,6 @@ export const auth = getAuth(app);
 export const loginAnonymouslyUser = () => signInAnonymously(auth);
 export const logout = () => signOut(auth);
 
-// Test Connection
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-testConnection();
-
 // Error handler helper
 export const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
   const isMissingPermissions = error?.code === 'permission-denied' || (error instanceof Error && error.message.includes('Missing or insufficient permissions'));

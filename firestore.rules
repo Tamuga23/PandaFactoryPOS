@@ -124,7 +124,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
            'date', 'items', 'totalCost', 'supplier', 'notes', 'invoiceNumber', 'ownerId', 'id', 'currency', 'exchangeRate',
            'platform', 'shippingChannel', 'shippingModality', 'orderNumber', 'financing', 'estimatedWeight',
-           'trackings', 'status', 'stockAdded', 'freightCost', 'customsTaxes', 'insuranceCost'
+           'trackings', 'status', 'stockAdded', 'freightCost', 'customsTaxes', 'insuranceCost', 'shippingRatePerLb'
         ])
         && (data.ownerId is string)
         && data.currency in ['NIO', 'USD']
@@ -142,7 +142,8 @@ service cloud.firestore {
         && (!('estimatedWeight' in data) || (data.estimatedWeight is number))
         && (!('freightCost' in data) || (data.freightCost is number))
         && (!('customsTaxes' in data) || (data.customsTaxes is number))
-        && (!('insuranceCost' in data) || (data.insuranceCost is number));
+        && (!('insuranceCost' in data) || (data.insuranceCost is number))
+        && (!('shippingRatePerLb' in data) || (data.shippingRatePerLb is number && data.shippingRatePerLb >= 0));
     }
 
     function isValidCompany(data) {
