@@ -1,24 +1,23 @@
 #!/usr/bin/env node
 /**
- * Backfill de la colección espejo `catalogo_publico` (script de UN solo uso).
+ * Backfill de la coleccion espejo `catalogo_publico` (rutina semanal / manual).
  *
  * Recorre TODOS los `products` y (re)escribe el espejo derivado, respetando
  * `publicar`. NUNCA copia `cost`. Usa la base de datos NOMBRADA del proyecto.
  *
  * Requisitos:
- *   - Credenciales de Admin:
- *       export GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json
- *     o bien `gcloud auth application-default login`.
- *   - `firebase-admin` instalado (p.ej. `npm i firebase-admin` en la raíz).
+ *   - Credenciales de Admin: usa el service account del repo si esta presente;
+ *     si no, GOOGLE_APPLICATION_CREDENTIALS o `gcloud auth application-default login`.
+ *   - `firebase-admin` instalado (p.ej. `npm i firebase-admin` en la raiz).
  *
- * Uso:
- *   node scripts/backfill_catalogo_publico.mjs            # escribe
- *   node scripts/backfill_catalogo_publico.mjs --dry-run  # sólo muestra
+ * Uso (semanal):
+ *   npm run publicar:tablet:dry    # (o) node scripts/backfill_catalogo_publico.mjs --dry-run   -> solo muestra
+ *   npm run publicar:tablet        # (o) node scripts/backfill_catalogo_publico.mjs             -> escribe
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { initializeApp, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -81,11 +80,21 @@ function buildPublicCatalogDoc(p) {
 }
 
 async function main() {
-  initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID });
+  // Credenciales: service account del repo si existe; si no, applicationDefault().
+  const saCandidates = [
+    process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    join(__dirname, '..', 'gen-lang-client-0460782288-firebase-adminsdk-fbsvc-5e894dbc0a.json'),
+  ].filter(Boolean);
+  const saPath = saCandidates.find((p) => { try { return existsSync(p); } catch { return false; } });
+  initializeApp({
+    credential: saPath ? cert(JSON.parse(readFileSync(saPath, 'utf8'))) : applicationDefault(),
+    projectId: PROJECT_ID,
+  });
   const db = getFirestore(DATABASE_ID);
   db.settings({ ignoreUndefinedProperties: true });
 
   console.log(`[backfill] projectId=${PROJECT_ID} database=${DATABASE_ID} dryRun=${DRY_RUN}`);
+  console.log(`[backfill] credenciales: ${saPath ? 'service account (' + saPath.split(/[\\/]/).pop() + ')' : 'applicationDefault()'}`);
 
   const snap = await db.collection('products').get();
   console.log(`[backfill] ${snap.size} productos encontrados`);
