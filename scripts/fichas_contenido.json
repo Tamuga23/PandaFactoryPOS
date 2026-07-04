@@ -1,0 +1,621 @@
+{
+  "_note": "Generado desde Magcubic_Fichas_Productos.xlsx. Editar el Excel y regenerar, o editar aquí.",
+  "categoryObjections": {
+    "proyector": [
+      {
+        "id": "manta",
+        "pregunta": "¿Incluye manta / pantalla?",
+        "respuesta": "No necesita manta: una pared blanca y lisa funciona muy bien. Hay mantas reflectivas para mejorar el contraste, pero solo se nota de frente y por ahora van por encargo.",
+        "isNew": false
+      },
+      {
+        "id": "apps",
+        "pregunta": "¿Sirve con Netflix / YouTube / HBO?",
+        "respuesta": "Netflix viene preinstalado y YouTube funciona. HBO Max y otras apps se descargan desde la tienda de aplicaciones.",
+        "isNew": false
+      },
+      {
+        "id": "conexion",
+        "pregunta": "¿Cómo conecto mi celular o laptop?",
+        "respuesta": "Por pantalla inalámbrica o cable HDMI; al iPhone con adaptador. Y por Bluetooth conecta bocinas o teatro en casa.",
+        "isNew": false
+      },
+      {
+        "id": "luz",
+        "pregunta": "¿Con cuánta luz se ve bien?",
+        "respuesta": "Depende del modelo: los de menor ANSI rinden en cuarto oscuro; los de mayor ANSI aguantan luz ambiental. Consultanos y te orientamos según el espacio.",
+        "isNew": false
+      },
+      {
+        "id": "enfoque",
+        "pregunta": "¿Tiene autofoco?",
+        "respuesta": "La mayoría tiene autofoco que se ajusta automáticamente al encender. Los modelos de entrada usan enfoque manual con perilla.",
+        "isNew": false
+      },
+      {
+        "id": "sonido",
+        "pregunta": "¿El parlante alcanza / se escucha bien?",
+        "respuesta": "Todos traen parlante integrado; los MAX (HY350/HY450) rinden 12W para sala. Los demás traen 3-5W para un cuarto y, según el modelo, salida AUX/audio o Bluetooth para sumar bocina.",
+        "isNew": true,
+        "orden": 6
+      },
+      {
+        "id": "fluidez",
+        "pregunta": "¿Se pone lento o se llena la memoria?",
+        "respuesta": "Los de 2GB/16GB (HY350/HY450/X7) corren varias apps con fluidez; los de 1GB rinden bien para streaming. Se pueden cerrar apps o usar microSD para más espacio.",
+        "isNew": true,
+        "orden": 7
+      },
+      {
+        "id": "tiro",
+        "pregunta": "¿Sirve en un cuarto pequeño? ¿Qué distancia necesita?",
+        "respuesta": "Los de tiro corto (HY310X, HY300 Max: 0.8:1) logran pantalla grande a poca distancia. Los de 1.0-1.2:1 necesitan algo más de espacio; consultanos la distancia para el tamaño que querés.",
+        "isNew": true,
+        "orden": 8
+      },
+      {
+        "id": "portabilidad",
+        "pregunta": "¿Es portátil / funciona sin toma de corriente?",
+        "respuesta": "Los HY300 y HY310X son compactos y funcionan con 12V (aptos para power bank compatible). Los HY350/HY450/X7/L018 son para toma de corriente (AC). Ninguno trae batería interna.",
+        "isNew": true,
+        "orden": 9
+      },
+      {
+        "id": "nitidez",
+        "pregunta": "¿En HD 720p se ve bien?",
+        "respuesta": "Los 720p (HY300 Pro+/Max) se ven muy bien para películas y series en penumbra a tamaño moderado. Si querés Full HD nativo, desde el HY310X en adelante.",
+        "isNew": true,
+        "orden": 10
+      },
+      {
+        "id": "precio",
+        "pregunta": "¿Por qué este precio / hay algo más barato?",
+        "respuesta": "El precio sube con el brillo, la memoria y el sonido. Decinos tu espacio y presupuesto y te ubicamos el modelo justo: desde el HY300 Pro+ (entrada) hasta el HY450 Max (tope).",
+        "isNew": true,
+        "orden": 11
+      }
+    ],
+    "dashcam": [
+      {
+        "id": "resolucion",
+        "pregunta": "¿Qué tan nítido graba?",
+        "respuesta": "Graba en alta definición; según el modelo, hasta 4K. La placa de los vehículos se lee con claridad.",
+        "isNew": false
+      },
+      {
+        "id": "nocturno",
+        "pregunta": "¿Graba bien de noche?",
+        "respuesta": "Sí, tiene visión nocturna: ajusta automáticamente para grabar con claridad en poca luz.",
+        "isNew": false
+      },
+      {
+        "id": "memoria",
+        "pregunta": "¿Incluye memoria?",
+        "respuesta": "Usa tarjeta microSD. Te recomendamos la capacidad según cuántas horas querés guardar; consultanos y te orientamos.",
+        "isNew": false
+      },
+      {
+        "id": "instalacion",
+        "pregunta": "¿Es difícil de instalar?",
+        "respuesta": "Es sencilla: se conecta al encendedor o se cablea oculto. Te explicamos el proceso y queda lista en minutos.",
+        "isNew": false
+      },
+      {
+        "id": "estacionamiento",
+        "pregunta": "¿Graba estacionado?",
+        "respuesta": "Según el modelo tiene modo estacionamiento: detecta movimiento o golpes y graba aunque el carro esté apagado.",
+        "isNew": false
+      },
+      {
+        "id": "doble",
+        "pregunta": "¿Graba adelante y atrás?",
+        "respuesta": "Los sets con cámara trasera graban adelante y atrás a la vez; el resto solo frontal. Consultanos si el modelo incluye la trasera.",
+        "isNew": true,
+        "orden": 6
+      },
+      {
+        "id": "wifi",
+        "pregunta": "¿Cómo paso los videos al celular?",
+        "respuesta": "Por Wi-Fi a la app del fabricante, sin sacar la tarjeta: ves en vivo, reproducís, ajustás y actualizás el firmware.",
+        "isNew": true,
+        "orden": 7
+      },
+      {
+        "id": "remoto4g",
+        "pregunta": "¿Puedo verla a distancia?",
+        "respuesta": "Los modelos con 4G permiten ver en vivo y rastrear la ubicación desde la app. Suele requerir un kit 4G aparte.",
+        "isNew": true,
+        "orden": 8
+      },
+      {
+        "id": "gps",
+        "pregunta": "¿Marca velocidad y recorrido?",
+        "respuesta": "Los modelos con GPS registran velocidad, ruta y ubicación para la reproducción.",
+        "isNew": true,
+        "orden": 9
+      },
+      {
+        "id": "voz",
+        "pregunta": "¿Se maneja sin tocarla?",
+        "respuesta": "Los modelos con control por voz permiten operarla manos libres para no distraerte al manejar.",
+        "isNew": true,
+        "orden": 10
+      },
+      {
+        "id": "calor",
+        "pregunta": "¿Aguanta el calor del carro?",
+        "respuesta": "Los modelos con supercondensador resisten mejor el calor que los de batería, con más vida útil en temperaturas extremas.",
+        "isNew": true,
+        "orden": 11
+      },
+      {
+        "id": "vehiculos",
+        "pregunta": "¿Sirve para mi tipo de vehículo?",
+        "respuesta": "Sirve para autos, camionetas, buses, camiones, tractores y flotas; ideal para uso diario, viajes y conductores de plataformas.",
+        "isNew": true,
+        "orden": 12
+      }
+    ]
+  },
+  "productContent": [
+    {
+      "label": "HY450MAX (HOT)",
+      "matchBy": {
+        "id": "9b7b26de-ac11-4c4a-bdba-83b3e1ce5e66"
+      },
+      "beneficio": "El más potente y brillante: imagen grande y nítida incluso con luz.",
+      "description": "Tope de la línea Full HD de Magcubic. Con 1100 ANSI es el proyector más brillante del catálogo, así que rinde incluso en salas con luz encendida, y suma parlante de 12W, 2GB/16GB y funciones inteligentes: autofoco, detección de obstáculos y reconocimiento de pantalla. Para quien quiere la mejor imagen sin hacer concesiones.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo con HDR10+ (archivos hasta 8K@24fps)",
+          "order": 1
+        },
+        {
+          "text": "Brillo 1100 ANSI: el más brillante de la línea, se ve con luz",
+          "order": 2
+        },
+        {
+          "text": "Sonido potente: parlante integrado de 12W",
+          "order": 3
+        },
+        {
+          "text": "Inteligente: autofoco + evita obstáculos + reconoce pantalla",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 2GB/16GB · Wi-Fi 6 doble banda · BT 5.4 · 2.37kg",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "1100 ANSI: el más brillante de la línea; se ve bien incluso con luz encendida."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 12W integrado: volumen de sobra para sala; podés sumar bocina por Bluetooth."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "2GB de RAM y 16GB: corre las apps con fluidez y hay espacio para instalar varias."
+        },
+        {
+          "objId": "precio",
+          "respuesta": "Es el tope de línea: máximo brillo (1100 ANSI), 2GB/16GB, parlante 12W y funciones inteligentes. Si querés lo mejor es este; si preferís ahorrar, el HY350 Max da el mejor equilibrio."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: se ajusta solo al encender y al mover el proyector."
+        }
+      ]
+    },
+    {
+      "label": "HY350MAX (HOT)",
+      "matchBy": {
+        "id": "28aeba65-5d25-4e30-9b6f-ba672b5debcf"
+      },
+      "beneficio": "El más vendido: mucho brillo, sonido potente y precio equilibrado.",
+      "description": "El equilibrio perfecto entre brillo, sonido y precio, y por eso el más vendido. Proyecta 1080p nativo con 900 ANSI (cómodo con luz ambiental) y trae parlante de 12W potente, 2GB/16GB y autofoco con detección de obstáculos y reconocimiento de pantalla. La opción segura para cine en casa.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo; HDR10+ y hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Brillo 900 ANSI: cómodo con luz ambiental",
+          "order": 2
+        },
+        {
+          "text": "Parlante de 12W potente, sin bocina extra",
+          "order": 3
+        },
+        {
+          "text": "Autofoco + detección de obstáculos + reconocimiento de pantalla",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 2GB/16GB · Wi-Fi 6 doble banda · BT 5.4 · 1.41kg",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "900 ANSI: se ve muy bien con luz ambiental; el equilibrio brillo/precio más elegido."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 12W potente: no necesitás bocina extra para una sala."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "2GB/16GB: apps fluidas y espacio para instalar lo que uses."
+        },
+        {
+          "objId": "precio",
+          "respuesta": "El más vendido por su equilibrio. Frente al HY450 Max la única diferencia real es el brillo (900 vs 1100 ANSI): si tu espacio no tiene mucha luz, rinde igual por menos."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco automático al encender."
+        }
+      ]
+    },
+    {
+      "label": "X7",
+      "matchBy": {
+        "id": "49a576b4-5231-43ef-bdc6-b1b85b61fa78"
+      },
+      "beneficio": "Brillo alto y compacto, con salida AUX para tu propio sonido.",
+      "description": "Proyector Full HD compacto y muy brillante (hasta 1000 ANSI), pensado para quien ya tiene equipo de sonido: incluye salida AUX para conectar tu bocina o teatro en casa. Suma autofoco, detección de obstáculos, reconocimiento de pantalla y 2GB/16GB en un cuerpo pequeño.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo; HDR10+ y compatibilidad 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Brillo alto: hasta 1000 ANSI en modo alta luz",
+          "order": 2
+        },
+        {
+          "text": "Salida AUX para tu equipo de sonido (parlante interno 5W)",
+          "order": 3
+        },
+        {
+          "text": "Autofoco inteligente, evita obstáculos y reconoce la pantalla",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 2GB/16GB · Wi-Fi 6 doble banda · BT 5.4 · con AUX",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "1000 ANSI: excelente con luz ambiental, incluso en lugares bien iluminados."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "El parlante interno es de 5W (algo justo para sala grande); por eso trae salida AUX para conectar tu bocina o teatro en casa."
+        },
+        {
+          "objId": "precio",
+          "respuesta": "Cuesta un poco más que el HY350 Max porque prioriza brillo alto (1000 ANSI) en cuerpo compacto y salida AUX. Si valorás más contraste y parlante, el HY350 Max; si ya tenés equipo de sonido, el X7."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "2GB/16GB: rendimiento fluido para streaming y varias apps."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: enfoca solo al encender y al reubicar el proyector."
+        }
+      ]
+    },
+    {
+      "label": "L018",
+      "matchBy": {
+        "id": "651ffc08-4c3c-44b7-adfa-e61139da807b"
+      },
+      "beneficio": "Full HD que ya se defiende con algo de luz, a buen precio.",
+      "description": "Full HD accesible que ya se defiende con algo de luz ambiental (650 ANSI en modo alto). Trae autofoco, keystone automático, detección de obstáculos y salida de audio para conectar tu bocina. Ideal para dar el salto a 1080p sin gastar de más.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo; HDR10+ y reproduce hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Brillo 650 ANSI (modo alto): aguanta algo de luz",
+          "order": 2
+        },
+        {
+          "text": "Parlante 3W + salida de audio para bocina externa",
+          "order": 3
+        },
+        {
+          "text": "Autofoco + keystone automático + evita obstáculos",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 1GB/16GB · Wi-Fi 6 doble banda · BT 5.4",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "650 ANSI (modo alto): ya rinde con algo de luz ambiental. Para máximo brillo, HY350 Max o HY450 Max."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 3W para cuarto; incluye salida de audio para conectar una bocina si querés más volumen."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "1GB de RAM y 16GB: bien para streaming; para multitarea pesada subí al HY350 Max (2GB)."
+        },
+        {
+          "objId": "tiro",
+          "respuesta": "Relación de tiro 1.2:1: necesita algo más de distancia. Para un cuarto muy chico, el HY310X (tiro corto) aprovecha mejor el espacio."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: se ajusta automáticamente al encender."
+        }
+      ]
+    },
+    {
+      "label": "HY310X",
+      "matchBy": {
+        "id": "5311256c-fa23-40b2-9c2e-155abb6a2a25"
+      },
+      "beneficio": "Full HD de tiro corto: imagen nítida y grande en espacios pequeños.",
+      "description": "El Full HD más económico del catálogo, con tiro corto 0.8:1 para llenar la pared en cuartos pequeños. Imagen 1080p nativa, autofoco y un cuerpo liviano (649g) que funciona con 12V. Perfecto para dormitorios y espacios reducidos.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo (el 1080p más económico)",
+          "order": 1
+        },
+        {
+          "text": "Tiro corto 0.8:1: pantalla grande a poca distancia",
+          "order": 2
+        },
+        {
+          "text": "Autofoco; keystone vertical automático",
+          "order": 3
+        },
+        {
+          "text": "Brillo 420 ANSI: ideal en penumbra",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 1GB/8GB · Wi-Fi 6 doble banda · BT 5.4 · 649g",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "420 ANSI: mejor en penumbra. Si el lugar tiene bastante luz, subí al L018 o HY350 Max."
+        },
+        {
+          "objId": "tiro",
+          "respuesta": "Tiro corto 0.8:1: llena una pantalla grande a poca distancia, ideal para cuartos pequeños."
+        },
+        {
+          "objId": "portabilidad",
+          "respuesta": "Compacto y liviano (649g). Funciona con 12V; no trae batería interna, necesita toma de corriente o power bank compatible."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "1GB/8GB: perfecto para Netflix y YouTube; no para muchas apps abiertas a la vez."
+        },
+        {
+          "objId": "nitidez",
+          "respuesta": "Es 1080p Full HD real, más nítido que los modelos 720p más económicos."
+        }
+      ]
+    },
+    {
+      "label": "HY300PRO+",
+      "matchBy": {
+        "id": "5a41ba3b-0e5f-434c-a5c6-89f429a7fe72"
+      },
+      "beneficio": "Tu primer cine en casa: compacto, económico y fácil de llevar.",
+      "description": "El modelo de entrada: el más económico y portátil (0.4kg), tu primer cine en casa para estrenar en cuarto oscuro. HD 720p con Android 14, Netflix y YouTube, enfoque manual y conexión Wi-Fi doble banda y Bluetooth. La puerta de entrada a la marca.",
+      "bullets": [
+        {
+          "text": "HD 720p; HDR10+ y compatible hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Ultraportátil: apenas 0.4kg, tu primer cine para llevar",
+          "order": 2
+        },
+        {
+          "text": "Enfoque manual con perilla; keystone vertical automático",
+          "order": 3
+        },
+        {
+          "text": "Brillo 260 ANSI: para cuarto oscuro",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · Netflix y YouTube · Wi-Fi 6 doble banda · BT 5.4",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "260 ANSI: pensado para cuarto oscuro. Para usar con algo de luz, subí a un Full HD brillante (HY310X o superior)."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "El enfoque es manual: se ajusta con la perilla del proyector."
+        },
+        {
+          "objId": "nitidez",
+          "respuesta": "Es HD 720p: se ve bien para películas y series a tamaño moderado en penumbra. Si querés Full HD real, el HY310X."
+        },
+        {
+          "objId": "apps",
+          "respuesta": "Netflix preinstalado y YouTube funcionan; en este modelo HBO Max no está confirmado."
+        },
+        {
+          "objId": "portabilidad",
+          "respuesta": "El más liviano (0.4kg): tu primer cine para llevar a cualquier cuarto. Funciona con 12V."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 3W para un cuarto; para más volumen conectá una bocina por Bluetooth."
+        }
+      ]
+    },
+    {
+      "label": "HY300MAX",
+      "matchBy": {
+        "id": "f5c6e608-3d3d-45bd-b9a1-6748b24b617b"
+      },
+      "beneficio": "Compacto con autofoco y tiro corto: pantalla grande en poco espacio.",
+      "description": "Compacto y portátil (575g) con autofoco y tiro corto 0.8:1: pantalla grande a poca distancia sin complicarte. Resolución HD 720p con Android 14; ideal como cine secundario o para llevar de un cuarto a otro. El salto lógico sobre el HY300 Pro+ por su enfoque automático.",
+      "bullets": [
+        {
+          "text": "HD 720p con HDR10+; reproduce hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Autofoco: se ajusta solo (ventaja sobre el HY300 Pro+)",
+          "order": 2
+        },
+        {
+          "text": "Tiro corto 0.8:1: pantalla grande en poco espacio",
+          "order": 3
+        },
+        {
+          "text": "Brillo 400 ANSI: ideal en penumbra · liviano (575g)",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · Wi-Fi 6 doble banda · BT 5.4",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "400 ANSI: ideal en penumbra. Con mucha luz, subí al L018 o superior."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: se ajusta solo (a diferencia del HY300 Pro+, que es manual)."
+        },
+        {
+          "objId": "tiro",
+          "respuesta": "Tiro corto 0.8:1: pantalla grande a poca distancia, ideal para cuartos chicos."
+        },
+        {
+          "objId": "nitidez",
+          "respuesta": "Es HD 720p con autofoco; si querés Full HD real, el HY310X."
+        },
+        {
+          "objId": "portabilidad",
+          "respuesta": "Compacto y liviano (575g). Funciona con 12V."
+        }
+      ]
+    },
+    {
+      "label": "70mai A810 Lite",
+      "matchBy": {
+        "id": null,
+        "nameContains": "A810",
+        "sku": null,
+        "category": "dashcam"
+      },
+      "beneficio": "Doble cámara 4K + 1080p con visión nocturna HDR, GPS y estacionamiento 24h.",
+      "description": "Cámara de tablero doble 70mai A810 Lite: graba el frente en 4K real (3840×2160) y atrás en 1080p con la cámara RC21 incluida, para leer matrículas y señales con evidencia clara de día y de noche. Suma visión nocturna HDR con apertura F1.55, GPS de 3 modos, control por voz y supercondensador que aguanta el calor mejor que una batería. Se instala en minutos detrás del retrovisor y trae microSD de 64GB lista para usar.",
+      "bullets": [
+        {
+          "text": "Doble grabación: 4K real adelante (3840×2160) + 1080p atrás (cámara RC21 incluida)",
+          "order": 1
+        },
+        {
+          "text": "Visión nocturna HDR con apertura F1.55: reduce el deslumbramiento de los faros",
+          "order": 2
+        },
+        {
+          "text": "GPS de 3 modos (GPS+GLONASS+BDS): registra velocidad, ruta y ubicación",
+          "order": 3
+        },
+        {
+          "text": "Wi-Fi 6 de 5 GHz: transferencia rápida (hasta 25 MB/s) sin sacar la tarjeta",
+          "order": 4
+        },
+        {
+          "text": "Control por voz manos libres + app 70mai (vista en vivo, reproducción, OTA)",
+          "order": 5
+        },
+        {
+          "text": "Modo estacionamiento 24h: sensor G + timelapse + bucle (requiere kit hardwire)",
+          "order": 6
+        },
+        {
+          "text": "Supercondensador (sin batería): aguanta mejor el calor · microSD 64GB incluida",
+          "order": 7
+        },
+        {
+          "text": "Campo de visión 140°, tamaño tarjeta de crédito, instalación en minutos",
+          "order": 8
+        },
+        {
+          "text": "4G LTE opcional: vista en vivo y rastreo remoto (requiere kit UP05)",
+          "order": 9
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "resolucion",
+          "respuesta": "Frontal 4K real (3840×2160) y trasera 1080p: se leen matrículas y señales con claridad, ideal como evidencia para seguros."
+        },
+        {
+          "objId": "doble",
+          "respuesta": "Sí, graba adelante y atrás a la vez: viene con la cámara trasera RC21 incluida (4K adelante + 1080p atrás)."
+        },
+        {
+          "objId": "nocturno",
+          "respuesta": "Muy bien de noche: visión nocturna con HDR y apertura F1.55; reduce el deslumbramiento de los faros y aclara zonas oscuras en túneles y lluvia."
+        },
+        {
+          "objId": "calor",
+          "respuesta": "Sí, aguanta el calor: usa supercondensador en lugar de batería, con mejor resistencia a altas temperaturas y más vida útil."
+        },
+        {
+          "objId": "estacionamiento",
+          "respuesta": "Sí, modo 24h: el sensor G graba y bloquea ante golpes y el timelapse hace monitoreo continuo de bajo consumo, con protección contra bajo voltaje. Requiere kit de cableado directo (UP03/UP05/UP06), que va aparte."
+        },
+        {
+          "objId": "wifi",
+          "respuesta": "Pasás los videos por Wi-Fi 6 de 5 GHz a la app 70mai (hasta 25 MB/s), sin sacar la tarjeta. Desde la app ves en vivo, reproducís, cambiás ajustes y actualizás el firmware."
+        },
+        {
+          "objId": "remoto4g",
+          "respuesta": "Sí, con soporte 4G LTE ves en vivo, rastreás la ubicación y recibís alertas estés donde estés. Requiere el kit 4G UP05 (va aparte)."
+        },
+        {
+          "objId": "gps",
+          "respuesta": "GPS de 3 modos (GPS+GLONASS+BDS): registra velocidad, ruta y ubicación para verlos en la reproducción."
+        },
+        {
+          "objId": "memoria",
+          "respuesta": "Ya incluye microSD de 64GB (U3) y usa grabación en bucle (sobrescribe lo más viejo). Si querés guardar más horas, admite una tarjeta de mayor capacidad."
+        },
+        {
+          "objId": "instalacion",
+          "respuesta": "Fácil: es del tamaño de una tarjeta de crédito, va detrás del retrovisor sin tapar la visión y queda lista en minutos."
+        }
+      ]
+    }
+  ]
+}
