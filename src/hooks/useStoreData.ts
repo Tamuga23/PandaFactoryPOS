@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, auth, handleFirestoreError } from '../lib/db';
-import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment } from 'firebase/firestore';
+import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection } from '../types';
 import { UniversalObjectionSchema, CategoryObjectionSchema } from '../lib/validations';
@@ -148,8 +148,19 @@ export function useStoreData() {
     if (!user) return;
     try {
       const pData: any = { ...product, updatedAt: Date.now() };
-      Object.keys(pData).forEach(key => pData[key] === undefined && delete pData[key]);
-      await updateDoc(doc(db, 'products', product.id), pData);
+      // Campos opcionales que el usuario puede borrar explícitamente:
+      // si son undefined usamos deleteField() para que Firestore los elimine.
+      const CLEARABLE = ['precioPromo', 'descEfectivoPct', 'campania'];
+      const writeData: any = {};
+      for (const [key, val] of Object.entries(pData)) {
+        if (val === undefined) {
+          if (CLEARABLE.includes(key)) writeData[key] = deleteField();
+          // otros undefined se omiten (no tocar el campo)
+        } else {
+          writeData[key] = val;
+        }
+      }
+      await updateDoc(doc(db, 'products', product.id), writeData);
     } catch (e) {
       handleFirestoreError(e, 'update', `products/${product.id}`);
     }
