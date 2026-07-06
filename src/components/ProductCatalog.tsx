@@ -304,11 +304,18 @@ export default function ProductCatalog({
               className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
             >
               <option value="">-- Seleccione un producto --</option>
-              {catalog.map(product => (
-                <option key={product.id} value={product.id}>
-                  {product.description}
-                </option>
-              ))}
+              {[...catalog]
+                .sort((a, b) => {
+                  const aInactive = a.status === 'Inactivo' ? 1 : 0;
+                  const bInactive = b.status === 'Inactivo' ? 1 : 0;
+                  if (aInactive !== bInactive) return aInactive - bInactive;
+                  return a.description.localeCompare(b.description, 'es');
+                })
+                .map(product => (
+                  <option key={product.id} value={product.id}>
+                    {product.status === 'Inactivo' ? `[Inactivo] ${product.description}` : product.description}
+                  </option>
+                ))}
             </select>
           </div>
         )}
