@@ -1,5 +1,54 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — P4 aplicado el 2026-07-08 (excepto P4.6)
+
+- **P4.1 Español al 100%**: Inventario, Clientes e Historial traducidos por completo (tablas, modales, placeholders, chips de estado — "Completada/Devuelta/Cancelada").
+- **P4.2 Filtros en Historial**: rango de fechas (parseo local), estado y método de pago + botón "Limpiar filtros" + contador de resultados. Operan sobre las ventas cargadas (ventana + páginas).
+- **P4.3 Inventario**: chips de filtro por categoría (con conteo por categoría) y orden clickeable por Nombre y Precio además de Stock.
+- **P4.4 Dashboard temporal**: card de Ventas con selector Hoy / 7 días / 30 días, consultado POR RANGO a Firestore (sin tope de 100) y **comparación % contra el período anterior** de igual longitud (↑ verde / ↓ rojo).
+- **P4.5 Confirmación de borrado en ventas**: modal con resumen (factura, cliente, total C$/USD) y consecuencias explícitas; reemplaza el doble-clic solo en Historial (productos/clientes/compras mantienen el doble-clic, decisión de alcance).
+- **P4.7 Menores**: `index.html` con `lang="es"` y título "pandastore — Sistema de Gestión"; login sin `<img>` rota (icono directo); columna Estado de Inventario refleja `activo=false` ("Inactivo"); **ESC cierra modales** en Inventario, Clientes, Historial, Compras y el preview de factura (hook `useEscapeKey`, cierra el de más arriba primero). Focus-trap queda pendiente (requiere lib para hacerlo bien).
+- **P4.6 PDF nativo (jspdf-autotable) + ticket 80mm: PENDIENTE a propósito** — rediseñar la factura sin poder previsualizarla antes del deploy es riesgo de regresión visual; el raster actual funciona. Hacerlo con la app corriendo a la vista.
+
+---
+
+## ESTADO — P3.5 aplicado el 2026-07-08
+
+- **Ids unificados**: los productos nuevos SIEMPRE llevan id `uuid` (Catálogo ya no usa el SKU tipeado como id → muere el riesgo de charset A4). El **SKU es campo propio con check de unicidad** (case-insensitive) en `addProduct`/`updateProduct`; el SKU autogenerado de compras ahora es único (timestamp base36). Los productos legacy conservan su id.
+- **Form consolidado (versión pragmática)**: el Catálogo Maestro es la ficha COMPLETA — ganó sección "Datos POS" (costo, stock inicial solo en alta, alerta mínima) y campo SKU editable. Inventario **ya no crea productos** (su botón lleva al Catálogo); conserva edición rápida, ajuste de stock con kardex, bulk y borrado. El stock NO se edita desde Catálogo (siempre vía Inventario → kardex con motivo). Nota: se optó por secciones claras en un solo form en vez de pestañas literales (ocultar campos required rompe la validación nativa).
+- **specsProyector por slug**: `isProjectorCategory()` compara el slug normalizado (acepta "Projector", "Proyectores", etc.); antes renombrar la categoría perdía las specs en silencio.
+- **Errores humanos**: `handleFirestoreError` ahora lanza mensajes legibles por código (`permission-denied` sugiere desplegar reglas, `unavailable` → sin conexión, `resource-exhausted` → cuota Spark, etc.); el detalle técnico va a console.error.
+- **Limpieza**: eliminados `_probe_fichas.mjs` y `firebase-blueprint.json`; `Magcubic_Fichas_Productos.xlsx` movido a `docs/`; README actualizado; scripts duplicados `publicar:tablet*` removidos de package.json (quedan `backfill`/`backfill:dry`).
+
+---
+
+## ESTADO — P3.1 aplicado el 2026-07-08
+
+**StoreDataProvider** (`src/context/StoreContext.tsx`, nuevo): `useStoreData()` ahora se instancia UNA sola vez en `App.tsx` (que quedó como `<StoreDataProvider><AppContent/></StoreDataProvider>`); los 13 consumidores (Layout + 9 páginas + 2 componentes de objeciones + AppContent) migraron a `useStore()`. Resultado: 1 set de 8 `onSnapshot` en vez de ≥3 simultáneos → ~3× menos lecturas facturadas de Firestore y menos memoria/re-renders. Cambio mecánico verificado: ningún archivo fuera del provider importa ya `useStoreData`.
+
+Bonus del cambio: `olderSales`/`loadMoreSales` (P1.4) ahora son estado compartido de una sola instancia, como correspondía.
+
+---
+
+## ESTADO — P2.5–P2.8 aplicado el 2026-07-08
+
+- **P2.5 Flujos de venta:** pestaña Facturas/Proformas en Historial con botón **FACTURAR** (convierte proforma en factura con verificación de stock en transacción; la proforma queda anulada con referencia cruzada "Facturada como A-xxxx"); **reimprimir PDF** de cualquier venta desde Historial y CRM (builder compartido `src/lib/invoice.ts`, que también arregló el "[3] meses" literal de la garantía); **precio negociable por línea** en el carrito (clic sobre el precio, se edita en C$, alerta roja si queda bajo el costo); **selector de método de pago** + referencia (EFECTIVO/TRANSFERENCIA/TARJETA/CRÉDITO — base para cuentas por cobrar); **descuento por efectivo**: banner "Aplicar" cuando el método es EFECTIVO y hay productos con `descEfectivoPct` (se quita solo al cambiar de método); **Enter agrega** el match exacto de SKU en la búsqueda (listo para lector de barras).
+- **P2.6 CRM:** botón "Historial" por cliente → drawer con total gastado, nº de compras, última compra y lista de ventas con reimprimir + **WhatsApp** (`src/lib/invoice.ts → buildWhatsAppLink`, normaliza +505; el PDF se descarga y se adjunta a mano). Query por `customerId` sin índice compuesto (orden en cliente).
+- **P2.7 Kardex:** colección **`movimientos`** (inmutable: solo create en reglas) alimentada DENTRO de las transacciones de venta, devolución/cancelación, recepción de compra y reversión, más ajustes manuales: el modal de stock ahora **exige motivo**, el bulk edit lo acepta, y la edición de producto registra el delta. Botón kardex (🕘) por producto en Inventario con la historia completa. **Export CSV**: inventario (Inventario → Exportar CSV) y ventas del período (Reportes → Exportar CSV), con BOM UTF-8 para Excel.
+- **P2.8 Importación:** **editar orden** (ítems: costo/cantidad/peso/color con guard de unidades ya asignadas a cajas; datos generales; landed cost) mientras no haya cajas recibidas; **cancelar orden** (estado `CANCELLED`, preservado por updatePurchase, bloquea recepción); **fix timezone**: fechas de tracking parseadas como fecha LOCAL a mediodía (adiós al hack `+86400000`, que además corría un día al reeditar); **días en tránsito** por caja en el modal de tracking (agente→recepción u hoy).
+
+Archivos: los 10 de P1 + `src/lib/invoice.ts` y `src/lib/csv.ts` (nuevos), `Customers.tsx`, `Inventory.tsx`. Reglas: + `movimientos` y estado `CANCELLED`.
+
+**Pendiente de Carlos (un solo deploy cubre P1+P2):**
+1. `npm run lint` — verificación local obligatoria (esta sesión validó consistencia de imports/símbolos sobre los archivos reales, pero el entorno no pudo correr tsc esta ronda).
+2. `firebase deploy --only firestore:rules` — **sin esto**: facturar falla (counters), el kardex falla (movimientos) y cancelar órdenes falla (CANCELLED).
+3. Smoke test: venta con método TARJETA → reimprimir → proforma → FACTURAR → devolución (ver stock y kardex) → ajuste manual con motivo → export CSV → editar una orden abierta.
+4. Commit de todo.
+
+Notas de diseño: el kardex registra desde ahora (sin historial retroactivo); "Quitar" el precio efectivo restaura el precio de catálogo (pierde negociación manual en esas líneas); el link de WhatsApp lleva resumen (wa.me no adjunta PDF); limpiar `freightCost/aduana/seguro` a vacío en "Editar orden" no borra el valor viejo en Firestore (limitación menor de update-merge, apuntada para después).
+
+---
+
 ## ESTADO — P1 COMPLETO aplicado el 2026-07-07 (misma sesión)
 
 Todo el bloque P1 quedó implementado y verificado con `tsc --noEmit` (0 errores):

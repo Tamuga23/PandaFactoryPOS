@@ -16,13 +16,23 @@ import Catalog from './pages/Catalog';
 import Customers from './pages/Customers';
 import UniversalObjections from './components/UniversalObjections';
 import CategoryObjections from './components/CategoryObjections';
-import { useStoreData } from './hooks/useStoreData';
+import { StoreDataProvider, useStore } from './context/StoreContext';
 import { loginAnonymouslyUser } from './lib/db';
 import { Store, LogIn } from 'lucide-react';
 import { useState } from 'react';
 
+// P3.1: el provider monta las suscripciones UNA sola vez; AppContent y todos
+// los hijos (Layout, páginas) consumen la misma instancia vía useStore().
 export default function App() {
-  const { user, loading } = useStoreData();
+  return (
+    <StoreDataProvider>
+      <AppContent />
+    </StoreDataProvider>
+  );
+}
+
+function AppContent() {
+  const { user, loading } = useStore();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const handleLogin = async () => {
@@ -52,9 +62,9 @@ export default function App() {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-950 p-4">
         <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-8 text-center space-y-6">
-          <div className="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-cyan-500/20 overflow-hidden">
-            <img src="/logo.png" alt="pandastore" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display='none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-            <Store className="w-8 h-8 text-cyan-400 hidden" />
+          {/* P4.7: /logo.png no existe en public/ — icono directo, sin img rota */}
+          <div className="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-cyan-500/20">
+            <Store className="w-8 h-8 text-cyan-400" />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">

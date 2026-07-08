@@ -42,6 +42,8 @@ export interface Product {
 export interface CartItem extends Product {
   quantity: number;
   serialNumbers?: string[]; // Pilar 1: Seriales/IMEI para electrónicos
+  /** Solo UI del carrito: precio efectivo aplicado a esta línea (se limpia al guardar). */
+  efectivoApplied?: boolean;
 }
 
 export interface Customer {
@@ -111,7 +113,7 @@ export interface PurchaseItem {
   serialNumbers?: string[]; // Pilar 1: Seriales para ingresos
 }
 
-export type PurchaseStatus = 'OPEN' | 'PARTIAL' | 'CLOSED';
+export type PurchaseStatus = 'OPEN' | 'PARTIAL' | 'CLOSED' | 'CANCELLED';
 export type ShippingModality = 'Sea Cargo' | 'Air Cargo';
 
 export interface PurchaseTracking {
@@ -169,6 +171,24 @@ export interface CompanyInfo {
   logoBase64?: string;
   ownerId: string;
   defaultExchangeRate: number; // Pilar 4: Tasa de cambio congelada (ej. 36.6243)
+}
+
+/** P2.7: movimiento de inventario (kardex). Colección `movimientos`, inmutable. */
+export interface Movimiento {
+  id?: string;
+  productId: string;
+  productName?: string;
+  sku?: string;
+  tipo: 'venta' | 'devolucion' | 'compra' | 'reversion' | 'ajuste';
+  /** Cambio de stock (+entra / -sale). */
+  delta: number;
+  /** Stock resultante después del movimiento (si se conoce). */
+  stockDespues?: number;
+  motivo?: string;
+  /** Id de la venta/compra que originó el movimiento. */
+  refId?: string;
+  fecha: number;
+  ownerId: string;
 }
 
 export interface DashboardStats {

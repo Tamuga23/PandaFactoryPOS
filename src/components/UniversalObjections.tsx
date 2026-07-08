@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { HelpCircle, Plus, Pencil, Trash2, CheckCircle, AlertTriangle, X } from 'lucide-react';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import type { UniversalObjection } from '../types';
 
 const EMPTY_FORM = {
@@ -19,7 +19,7 @@ export default function UniversalObjections() {
     addUniversalObjection,
     updateUniversalObjection,
     deleteUniversalObjection,
-  } = useStoreData();
+  } = useStore();
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);

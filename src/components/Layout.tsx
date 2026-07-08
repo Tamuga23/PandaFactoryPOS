@@ -2,7 +2,7 @@ import { useState, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import { logout } from '../lib/db';
 import { Toaster } from './Toast';
 
@@ -22,7 +22,7 @@ const navigation = [
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { stats, user, companyInfo } = useStoreData();
+  const { stats, user, companyInfo } = useStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const logoSrc = companyInfo?.logoBase64 || "/logo.png";

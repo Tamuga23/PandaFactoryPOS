@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth, handleFirestoreError } from '../lib/db';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection } from '../types';
+import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
 import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
@@ -10,7 +10,15 @@ import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductS
 const TABLET_ONLY_SALE_ITEM_FIELDS = [
   'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania',
   'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo',
+  'efectivoApplied', // P2.5: flag de UI del carrito, no viaja a Firestore
 ];
+
+// P2.7: arma el doc de un movimiento de kardex (sin claves undefined).
+const buildMovimiento = (m: Omit<Movimiento, 'ownerId' | 'id'>) => {
+  const data: any = { ...m, ownerId: 'shared_store' };
+  Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
+  return data;
+};
 
 // Devuelve una copia del ítem sin los campos de tablet ni claves `undefined`.
 const sanitizeSaleItem = (item: any) => {
@@ -154,6 +162,11 @@ export function useStoreData() {
     try {
       const fullProduct: any = { ...product, ownerId: 'shared_store' };
       Object.keys(fullProduct).forEach(key => fullProduct[key] === undefined && delete fullProduct[key]);
+      // P3.5: SKU único (case-insensitive) — antes se podían crear duplicados en silencio.
+      const skuNorm = String(fullProduct.sku || '').trim().toLowerCase();
+      if (skuNorm && products.some(p => (p.sku || '').trim().toLowerCase() === skuNorm)) {
+        throw new Error(`Ya existe un producto con el SKU "${fullProduct.sku}". Usá otro SKU.`);
+      }
       // P1.7: validar ANTES de escribir (evita permission-denied crípticos de las reglas).
       const parsed = ProductSchema.safeParse(fullProduct);
       if (!parsed.success) throw new Error(`Producto inválido — ${zodErrorMsg(parsed)}`);
@@ -166,6 +179,11 @@ export function useStoreData() {
   const updateProduct = async (product: Product) => {
     if (!user) return;
     try {
+      // P3.5: SKU único también al editar.
+      const skuNorm = String(product.sku || '').trim().toLowerCase();
+      if (skuNorm && products.some(p => p.id !== product.id && (p.sku || '').trim().toLowerCase() === skuNorm)) {
+        throw new Error(`Ya existe otro producto con el SKU "${product.sku}".`);
+      }
       const pData: any = { ...product, updatedAt: Date.now() };
       // Campos opcionales que el usuario puede borrar explícitamente:
       // si son undefined usamos deleteField() para que Firestore los elimine.
@@ -185,7 +203,7 @@ export function useStoreData() {
     }
   };
 
-  const bulkUpdateProducts = async (ids: string[], updates: Partial<Product>) => {
+  const bulkUpdateProducts = async (ids: string[], updates: Partial<Product>, motivo?: string) => {
     if (!user) return;
     try {
       const batch = writeBatch(db);
@@ -195,10 +213,72 @@ export function useStoreData() {
 
       ids.forEach((id) => {
         batch.update(doc(db, 'products', id), safeUpdates);
+        // P2.7: si el bulk cambia stock, dejar rastro en el kardex.
+        if (typeof updates.stock === 'number') {
+          const p = products.find(pr => pr.id === id);
+          batch.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: id, productName: p?.name, sku: p?.sku,
+            tipo: 'ajuste', delta: updates.stock - (p?.stock || 0),
+            stockDespues: updates.stock, fecha: Date.now(),
+            motivo: motivo || 'Ajuste masivo',
+          }));
+        }
       });
       await batch.commit();
     } catch (e) {
       handleFirestoreError(e, 'update', `products/bulk`);
+    }
+  };
+
+  /**
+   * P2.7: ajuste manual de stock CON motivo y rastro en el kardex.
+   * `extraFields` permite actualizar en el mismo write otros campos del
+   * producto (p.ej. minStockAlert desde el modal de stock).
+   */
+  const adjustStock = async (
+    product: Product,
+    newStock: number,
+    motivo: string,
+    extraFields: Partial<Product> = {},
+  ) => {
+    if (!user) return;
+    const productRef = doc(db, 'products', product.id);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(productRef);
+        if (!snap.exists()) throw new Error('El producto ya no existe.');
+        const server = snap.data() as Product;
+        const delta = newStock - (server.stock || 0);
+
+        const upd: any = { ...extraFields, stock: newStock, updatedAt: Date.now() };
+        Object.keys(upd).forEach(k => upd[k] === undefined && delete upd[k]);
+        transaction.update(productRef, upd);
+
+        if (delta !== 0) {
+          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: product.id, productName: server.name, sku: server.sku,
+            tipo: 'ajuste', delta, stockDespues: newStock,
+            fecha: Date.now(), motivo: motivo || 'Ajuste manual',
+          }));
+        }
+      });
+    } catch (e) {
+      handleFirestoreError(e, 'update', `products/${product.id}`);
+    }
+  };
+
+  /** P2.7: kardex de un producto (equality query, sin índice compuesto; orden en cliente). */
+  const fetchMovimientos = async (productId: string): Promise<Movimiento[]> => {
+    if (!user) return [];
+    try {
+      const q = query(collection(db, 'movimientos'), where('productId', '==', productId));
+      const snap = await getDocs(q);
+      return snap.docs
+        .map(d => ({ ...d.data(), id: d.id } as Movimiento))
+        .sort((a, b) => b.fecha - a.fecha);
+    } catch (e) {
+      handleFirestoreError(e, 'list', `movimientos(${productId})`);
+      return [];
     }
   };
 
@@ -342,6 +422,16 @@ export function useStoreData() {
               stock: newStock,
               updatedAt: Date.now(),
             });
+            // P2.7: kardex
+            transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+              productId: items[idx].id, productName: items[idx].name, sku: items[idx].sku,
+              tipo: direction > 0 ? 'devolucion' : 'venta',
+              delta: direction * items[idx].quantity, stockDespues: newStock,
+              refId: sale.id, fecha: Date.now(),
+              motivo: direction > 0
+                ? `Venta ${serverSale.invoiceNumber} → ${newStatus}`
+                : `Venta ${serverSale.invoiceNumber} re-completada`,
+            }));
           });
         }
 
@@ -405,6 +495,21 @@ export function useStoreData() {
     }
   };
 
+  /** P2.6: compras de un cliente (equality query, sin índice compuesto; orden en cliente). */
+  const fetchSalesByCustomer = async (customerId: string): Promise<Sale[]> => {
+    if (!user) return [];
+    try {
+      const q = query(collection(db, 'sales'), where('customerId', '==', customerId));
+      const snap = await getDocs(q);
+      return snap.docs
+        .map(d => ({ ...d.data(), id: d.id } as Sale))
+        .sort((a, b) => b.date - a.date);
+    } catch (e) {
+      handleFirestoreError(e, 'list', `sales(customer ${customerId})`);
+      return [];
+    }
+  };
+
   /**
    * Registra la venta en una transacción atómica y le asigna el número de
    * documento CORRELATIVO (P1.1) desde counters/invoices (A-000001) o
@@ -461,11 +566,18 @@ export function useStoreData() {
         productDocs.forEach((pDoc, index) => {
           if (sale.documentType !== 'PROFORMA') {
             const productData = pDoc.data() as Product;
-            const newStock = productData.stock - productRefs[index].item.quantity;
+            const item = productRefs[index].item;
+            const newStock = productData.stock - item.quantity;
             transaction.update(productRefs[index].ref, {
                stock: newStock,
                updatedAt: Date.now()
             });
+            // P2.7: kardex
+            transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+              productId: item.id, productName: item.name, sku: item.sku,
+              tipo: 'venta', delta: -item.quantity, stockDespues: newStock,
+              refId: sale.id, fecha: Date.now(),
+            }));
           }
         });
 
@@ -686,6 +798,10 @@ export function useStoreData() {
         } else {
           updatedPurchase.status = 'OPEN';
         }
+        // P2.8: una orden CANCELADA no se "des-cancela" por recomputación.
+        if (serverPurchase.status === 'CANCELLED') {
+          updatedPurchase.status = 'CANCELLED';
+        }
 
         // --- 3. ESCRITURAS ---
         productChanges.forEach((change, pid) => {
@@ -694,6 +810,14 @@ export function useStoreData() {
             cost: change.newCost,
             updatedAt: Date.now(),
           });
+          // P2.7: kardex (stockDespues calculado sobre el stock del servidor)
+          const sp = serverProducts.get(pid);
+          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: pid, productName: sp?.name, sku: sp?.sku,
+            tipo: 'compra', delta: change.addStock,
+            stockDespues: sp ? (sp.stock || 0) + change.addStock : undefined,
+            refId: purchase.id, fecha: Date.now(),
+          }));
         });
         transaction.update(purchaseRef, updatedPurchase as any);
         }
@@ -709,6 +833,19 @@ export function useStoreData() {
       await deleteDoc(doc(db, 'purchases', id));
     } catch (e) {
       handleFirestoreError(e, 'delete', `purchases/${id}`);
+    }
+  };
+
+  /**
+   * P2.8: cancela una orden (solo si no tiene cajas recibidas; el caller lo
+   * valida en UI, y updatePurchase preserva CANCELLED en recomputaciones).
+   */
+  const cancelPurchase = async (id: string) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'purchases', id), { status: 'CANCELLED' });
+    } catch (e) {
+      handleFirestoreError(e, 'update', `purchases/${id}`);
     }
   };
 
@@ -772,10 +909,18 @@ export function useStoreData() {
         removeByProduct.forEach((qty, pid) => {
           const p = serverProducts.get(pid);
           if (!p) return; // producto borrado: no hay stock que ajustar
+          const newStock = Math.max(0, (p.stock || 0) - qty);
           transaction.update(doc(db, 'products', pid), {
-            stock: Math.max(0, (p.stock || 0) - qty),
+            stock: newStock,
             updatedAt: Date.now(),
           });
+          // P2.7: kardex
+          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: pid, productName: p.name, sku: p.sku,
+            tipo: 'reversion', delta: -qty, stockDespues: newStock,
+            refId: purchaseId, fecha: Date.now(),
+            motivo: 'Recepción revertida',
+          }));
         });
         transaction.update(purchaseRef, { items, trackings, status });
       });
@@ -936,10 +1081,14 @@ export function useStoreData() {
     loadingOlderSales,
     loadMoreSales,
     fetchSalesInRange,
+    fetchSalesByCustomer,
     recordPurchase,
     updatePurchase,
     deletePurchase,
+    cancelPurchase,
     revertTrackingReception,
+    adjustStock,
+    fetchMovimientos,
     updateCompanyInfo,
     addUniversalObjection,
     updateUniversalObjection,

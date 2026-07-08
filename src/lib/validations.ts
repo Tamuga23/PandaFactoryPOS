@@ -221,13 +221,31 @@ export const PurchaseSchema = z.object({
   insuranceCost: z.number().min(0).optional(),
 
   trackings: z.array(PurchaseTrackingSchema),
-  status: z.enum(['OPEN', 'PARTIAL', 'CLOSED']),
+  status: z.enum(['OPEN', 'PARTIAL', 'CLOSED', 'CANCELLED']),
   stockAdded: z.boolean(),
   
   currency: z.enum(['NIO', 'USD']),
   exchangeRate: z.number().min(0.01),
   ownerId: z.string().min(1),
   invoiceNumber: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Kardex (P2.7)
+// ---------------------------------------------------------------------------
+
+export const MovimientoSchema = z.object({
+  id: z.string().optional(),
+  productId: z.string().min(1),
+  productName: z.string().optional(),
+  sku: z.string().optional(),
+  tipo: z.enum(['venta', 'devolucion', 'compra', 'reversion', 'ajuste']),
+  delta: z.number(),
+  stockDespues: z.number().optional(),
+  motivo: z.string().max(300).optional(),
+  refId: z.string().optional(),
+  fecha: z.number(),
+  ownerId: z.string().min(1),
 });
 
 // ---------------------------------------------------------------------------

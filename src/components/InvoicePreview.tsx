@@ -4,6 +4,7 @@ import { toPng } from 'html-to-image';
 import { formatCurrencyNIO } from '../lib/utils';
 import { Download, X, Loader2, Check } from 'lucide-react';
 import { toast } from './Toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export interface InvoiceItem {
   id: string;
@@ -60,6 +61,9 @@ const ITEM_WITHOUT_IMAGE_HEIGHT = 40; // Reduced from 65
 export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming }: InvoicePreviewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // P4.7: ESC cierra el preview (no mientras confirma o genera el PDF).
+  useEscapeKey(isOpen && !isConfirming && !isGenerating, onClose);
 
   if (!isOpen) return null;
 

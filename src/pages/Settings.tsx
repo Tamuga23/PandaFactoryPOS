@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import { CompanyInfo, Product } from '../types';
 import { fileToBase64, compressImage } from '../lib/utils';
 import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin, Eraser } from 'lucide-react';
@@ -7,7 +7,7 @@ import { db } from '../lib/db';
 import { writeBatch, doc } from 'firebase/firestore';
 
 export default function Settings() {
-  const { companyInfo, updateCompanyInfo, loading, products } = useStoreData();
+  const { companyInfo, updateCompanyInfo, loading, products } = useStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
   const [isConfirmingClean, setIsConfirmingClean] = useState(false);

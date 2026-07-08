@@ -1,6 +1,6 @@
 import { useState, useMemo, type FormEvent, useEffect } from 'react';
 import { Tag, Plus, Pencil, Trash2, CheckCircle, AlertTriangle, X, Filter } from 'lucide-react';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import { slugify } from '../lib/validations';
 import type { CategoryObjection } from '../types';
 
@@ -21,7 +21,7 @@ export default function CategoryObjections() {
     addCategoryObjection,
     updateCategoryObjection,
     deleteCategoryObjection,
-  } = useStoreData();
+  } = useStore();
 
   const [filterSlug, setFilterSlug] = useState('');
   const [form, setForm] = useState<FormState>(EMPTY_FORM);

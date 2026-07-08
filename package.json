@@ -11,9 +11,7 @@
     "lint": "tsc --noEmit",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run\"",
     "backfill:dry": "node scripts/backfill_catalogo_publico.mjs --dry-run",
-    "backfill": "node scripts/backfill_catalogo_publico.mjs",
-    "publicar:tablet:dry": "node scripts/backfill_catalogo_publico.mjs --dry-run",
-    "publicar:tablet": "node scripts/backfill_catalogo_publico.mjs"
+    "backfill": "node scripts/backfill_catalogo_publico.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

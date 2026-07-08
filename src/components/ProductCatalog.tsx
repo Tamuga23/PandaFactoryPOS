@@ -1,14 +1,27 @@
 import React, { useState, useMemo, ChangeEvent, FormEvent } from 'react';
 import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2, Plus, Trash2 } from 'lucide-react';
+import { slugify } from '../lib/validations';
 import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
 
+// P3.5: las specs de proyector se guardan comparando el SLUG de la categoría
+// (antes era `=== 'Projector'` literal: renombrar la categoría las perdía).
+const isProjectorCategory = (category: string) => {
+  const slug = slugify(category || '');
+  return slug.includes('projector') || slug.includes('proyector');
+};
+
 export interface CatalogProduct {
-  id: string; // SKU o código
+  id: string; // id del documento (uuid en productos nuevos; SKU en legacy)
+  sku?: string; // P3.5: el SKU ahora es campo propio, ya no es el id
   description: string;
   priceUSD: number;
   category: string;
   status: 'Activo' | 'Inactivo' | string;
   imageUrl?: string;
+  // P3.5: datos POS para que este form sea la ficha COMPLETA
+  cost?: number;
+  stock?: number;
+  minStockAlert?: number;
   publicar?: boolean;
   precioPromo?: number;
   descEfectivoPct?: number;
@@ -29,6 +42,10 @@ export interface ProductCatalogProps {
 
 interface FormData {
   id: string;
+  sku: string;
+  cost: number | string;
+  stock: number | string;
+  minStockAlert: number | string;
   description: string;
   priceUSD: number | string;
   category: string;
@@ -47,6 +64,10 @@ interface FormData {
 
 const INITIAL_FORM_DATA: FormData = {
   id: '',
+  sku: '',
+  cost: '',
+  stock: '',
+  minStockAlert: '',
   description: '',
   priceUSD: '',
   category: '',
@@ -101,6 +122,10 @@ export default function ProductCatalog({
       const isStandardCategory = uniqueCategories.includes(product.category);
       setFormData({
         id: product.id,
+        sku: product.sku || product.id,
+        cost: product.cost ?? '',
+        stock: product.stock ?? '',
+        minStockAlert: product.minStockAlert ?? '',
         description: product.description,
         priceUSD: product.priceUSD,
         category: product.category,
@@ -157,8 +182,13 @@ export default function ProductCatalog({
     try {
       // Crear objeto estandarizado
       const productDataToSave = {
+        sku: formData.sku.trim(),
         description: formData.description,
         priceUSD: Number(formData.priceUSD),
+        // P3.5: datos POS en la misma ficha
+        cost: formData.cost !== '' ? Number(formData.cost) : undefined,
+        stock: formData.stock !== '' ? Number(formData.stock) : undefined,
+        minStockAlert: formData.minStockAlert !== '' ? Number(formData.minStockAlert) : undefined,
         category: formData.category,
         status: formData.status,
         imageFile: formData.imageFile,
@@ -169,7 +199,8 @@ export default function ProductCatalog({
         beneficio: formData.beneficio || undefined,
         bullets: formData.bullets.length > 0 ? formData.bullets : undefined,
         objecionesOverride: formData.objecionesOverride.length > 0 ? formData.objecionesOverride : undefined,
-        specsProyector: formData.category === 'Projector' ? {
+        // P3.5: por slug, no por el literal 'Projector'
+        specsProyector: isProjectorCategory(formData.category) ? {
           ansi: Number(formData.specsProyector.ansi) || undefined,
           throwRatio: formData.specsProyector.throwRatio || undefined,
           distMinEnfoque: formData.specsProyector.distMinEnfoque || undefined,
@@ -188,9 +219,9 @@ export default function ProductCatalog({
         await onUpdateProduct(formData.id, productDataToSave);
         setFeedback({ message: 'Producto actualizado exitosamente.', type: 'success' });
       } else {
-        if (!formData.id) throw new Error('El SKU/ID es obligatorio para nuevos productos.');
-        // Create new product (include ID)
-        await onAddProduct({ ...productDataToSave, id: formData.id });
+        if (!formData.sku.trim()) throw new Error('El SKU es obligatorio para nuevos productos.');
+        // P3.5: el id del documento lo genera el caller (uuid); acá viaja solo el SKU.
+        await onAddProduct(productDataToSave);
         setFeedback({ message: 'Producto registrado exitosamente en el catálogo.', type: 'success' });
       }
 
@@ -321,18 +352,17 @@ export default function ProductCatalog({
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* ID / SKU Field */}
+          {/* SKU Field (P3.5: el id del documento ahora es uuid; el SKU es un campo con unicidad) */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">SKU / ID del Producto</label>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">SKU del Producto</label>
             <input
               type="text"
-              name="id"
-              value={formData.id}
+              name="sku"
+              value={formData.sku}
               onChange={handleInputChange}
               required
-              disabled={isEditing}
               placeholder="Ej. PROY-001"
-              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed uppercase"
+              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none uppercase"
             />
           </div>
 
@@ -473,6 +503,53 @@ export default function ProductCatalog({
           </div>
         </div>
 
+        {/* --- Datos POS (P3.5: ficha completa en un solo form) --- */}
+        <div className="pt-6 mt-6 border-t border-zinc-800">
+          <h3 className="text-lg font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+            Datos POS (costo e inventario)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Costo (USD)</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                <input
+                  type="number" name="cost" min="0" step="any"
+                  value={formData.cost}
+                  onChange={handleInputChange}
+                  placeholder="0.00"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                />
+              </div>
+              <p className="text-xs text-zinc-500 mt-1">Las compras lo recalculan (costo promedio).</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                {isEditing ? 'Stock actual (solo lectura)' : 'Stock inicial'}
+              </label>
+              <input
+                type="number" name="stock" min="0"
+                value={formData.stock}
+                onChange={handleInputChange}
+                disabled={isEditing}
+                placeholder="0"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              {isEditing && <p className="text-xs text-zinc-500 mt-1">Ajustalo desde Inventario (queda en el kardex con motivo).</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Alerta de stock mínimo</label>
+              <input
+                type="number" name="minStockAlert" min="0"
+                value={formData.minStockAlert}
+                onChange={handleInputChange}
+                placeholder="5"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* --- Public Catalog / Tablet Options --- */}
         <div className="pt-6 mt-6 border-t border-zinc-800">
           <h3 className="text-lg font-semibold text-cyan-400 mb-4 flex items-center gap-2">
@@ -558,7 +635,7 @@ export default function ProductCatalog({
         </div>
 
         {/* --- Specs Proyector --- */}
-        {formData.category === 'Projector' && (
+        {isProjectorCategory(formData.category) && (
           <div className="mt-6 border-t border-zinc-800/50 pt-6">
             <h4 className="text-md font-medium text-cyan-400 mb-4">Especificaciones de Proyector</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -265,7 +265,8 @@ export default function PurchaseRegistration({
             status: 'Activo',
             imageFile: item.imageFile,
             stock: 0, // stock increases on Phase 2
-            sku: `SKU-${Math.floor(Math.random() * 10000)}`
+            // P3.5: SKU autogenerado único (timestamp base36; el aleatorio colisionaba)
+            sku: `SKU-${Date.now().toString(36).toUpperCase()}`
           };
 
           const newId = await onAddProduct(newProductData);

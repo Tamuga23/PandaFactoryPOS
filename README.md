@@ -43,7 +43,9 @@ En `functions/` hay una Cloud Function (`onProductWritten`) que automatizaría e
 - `CATALOGO_TABLET_RESUMEN.md` — diseño del feature de catálogo público.
 - `REVISION_2026-07.md` — revisión de código y plan de mejoras (incluye la Fase 2 de seguridad, pendiente).
 - `security_spec.md` — invariantes objetivo de seguridad (la Fase 2 los implementa; hoy las reglas solo exigen sesión).
-- `firebase-blueprint.json` — **DESACTUALIZADO**; la fuente de verdad del modelo es `src/types.ts` + `firestore.rules`.
+- `REVISION_2026-07-07_MEJORAS.md` — revisión vigente con el ESTADO de lo aplicado (P1, P2.5–P2.8, P3.1, P3.5).
+- `AGENTS.md` — guía para agentes de IA que trabajen en este repo.
+- La fuente de verdad del modelo de datos es `src/types.ts` + `firestore.rules` (el viejo `firebase-blueprint.json` se eliminó por obsoleto; las fichas Magcubic viven en `docs/`).
 
 ## Pendiente importante
 

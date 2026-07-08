@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { format, parseISO, startOfMonth, subDays } from 'date-fns';
@@ -15,12 +15,14 @@ import {
   ResponsiveContainer,
   ComposedChart
 } from 'recharts';
-import { Sparkles, TrendingUp, DollarSign, Percent, Package } from 'lucide-react';
+import { Sparkles, TrendingUp, DollarSign, Percent, Package, Download } from 'lucide-react';
+import { toCsv, downloadCsv } from '../lib/csv';
+import { toast } from '../components/Toast';
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
 
 export default function Reports() {
-  const { products, loading, user, fetchSalesInRange } = useStoreData();
+  const { products, loading, user, fetchSalesInRange } = useStore();
   // P1.4: default = mes en curso. Los datos se consultan por rango directo a
   // Firestore (sin el límite de 100 de la ventana en vivo).
   const [dateRange, setDateRange] = useState({
@@ -57,6 +59,43 @@ export default function Reports() {
     if (preset === '7d') setDateRange({ start: format(subDays(new Date(), 6), 'yyyy-MM-dd'), end });
     if (preset === 'mes') setDateRange({ start: format(startOfMonth(new Date()), 'yyyy-MM-dd'), end });
     if (preset === '90d') setDateRange({ start: format(subDays(new Date(), 89), 'yyyy-MM-dd'), end });
+  };
+
+  // P2.7: export CSV de las ventas del período (para el contador).
+  const exportSalesCsv = () => {
+    if (filteredSales.length === 0) {
+      toast.info('No hay ventas completadas en el período seleccionado.');
+      return;
+    }
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const rows = filteredSales.map(s => {
+      let costo = 0;
+      s.items.forEach(item => {
+        const p = products.find(prod => prod.id === item.id);
+        costo += (item.cost ?? p?.cost ?? 0) * item.quantity;
+      });
+      return {
+        fecha: format(new Date(s.date), 'yyyy-MM-dd HH:mm'),
+        factura: s.invoiceNumber,
+        cliente: s.customerName || '',
+        metodo: s.paymentMethod || '',
+        unidades: s.items.reduce((a, i) => a + i.quantity, 0),
+        subtotalUSD: r2(s.subtotal),
+        descuentoNIO: s.discount || 0,
+        envioNIO: s.shipping || 0,
+        totalUSD: r2(s.total),
+        costoUSD: r2(costo),
+        utilidadUSD: r2(s.total - costo),
+      };
+    });
+    downloadCsv(`ventas_${dateRange.start}_a_${dateRange.end}`, toCsv(rows, [
+      ['fecha', 'Fecha'], ['factura', 'Factura'], ['cliente', 'Cliente'],
+      ['metodo', 'Método de pago'], ['unidades', 'Unidades'],
+      ['subtotalUSD', 'Subtotal USD'], ['descuentoNIO', 'Descuento C$'],
+      ['envioNIO', 'Envío C$'], ['totalUSD', 'Total USD'],
+      ['costoUSD', 'Costo USD'], ['utilidadUSD', 'Utilidad USD'],
+    ]));
+    toast.success(`Exportadas ${rows.length} ventas del período.`);
   };
 
   const metrics = useMemo(() => {
@@ -161,6 +200,13 @@ export default function Reports() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        {/* P2.7: export CSV del período */}
+        <button
+          onClick={exportSalesCsv}
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-600 text-zinc-300 hover:text-white text-xs font-bold rounded-xl transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" /> Exportar CSV
+        </button>
         <div className="flex items-center gap-1 bg-zinc-950 p-1.5 rounded-xl border border-zinc-800">
           {([['hoy', 'Hoy'], ['7d', '7 días'], ['mes', 'Este mes'], ['90d', '90 días']] as const).map(([key, label]) => (
             <button

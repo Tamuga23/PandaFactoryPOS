@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import ProductCatalog, { CatalogProduct } from '../components/ProductCatalog';
 import { fileToBase64, compressImage } from '../lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,7 +33,7 @@ const PRESET_DATA = [
 ];
 
 export default function Catalog() {
-  const { products, addProduct, updateProduct, loading, companyInfo } = useStoreData();
+  const { products, addProduct, updateProduct, loading, companyInfo } = useStore();
   const [isImporting, setIsImporting] = useState(false);
 
   if (loading) {
@@ -43,6 +43,10 @@ export default function Catalog() {
   // Preparamos los datos para que el componente ProductCatalog los entienda
   const catalogForComponent: CatalogProduct[] = products.map((p) => ({
     id: p.id,
+    sku: p.sku,
+    cost: p.cost,
+    stock: p.stock,
+    minStockAlert: p.minStockAlert,
     description: p.name, // Usamos el nombre del producto como descripcion principal
     priceUSD: p.price,
     category: p.category,
@@ -68,15 +72,17 @@ export default function Catalog() {
     }
     
     // Convertir de formato ProductCatalog a Formato Product BD
+    // P3.5: id SIEMPRE uuid (adiós al riesgo de charset del SKU tipeado, A4);
+    // el SKU es un campo con check de unicidad en el hook.
     const newProduct = {
-      id: productData.id || uuidv4(),
-      sku: productData.id || uuidv4(), // Usamos el ID como SKU también
+      id: uuidv4(),
+      sku: (productData.sku || '').trim(),
       name: productData.description,
       description: productData.description,
       price: Number(productData.priceUSD), // We store USD as base now
-      cost: 0, // Costo base (lo manejaría compras)
-      stock: 0, // Stock inicia en 0 (lo manejaría compras)
-      minStockAlert: 5,
+      cost: productData.cost !== undefined ? Number(productData.cost) : 0,
+      stock: productData.stock !== undefined ? Number(productData.stock) : 0,
+      minStockAlert: productData.minStockAlert !== undefined ? Number(productData.minStockAlert) : 5,
       category: productData.category,
       imageBase64: imageBase64,
       publicar: productData.publicar !== false,
@@ -110,6 +116,11 @@ export default function Catalog() {
 
     const updatedProduct = {
       ...originalProduct,
+      // P3.5: SKU editable (unicidad verificada en el hook); stock NO se toca
+      // desde este form (los ajustes van por Inventario → kardex).
+      sku: (productData.sku || '').trim() || originalProduct.sku,
+      cost: productData.cost !== undefined ? Number(productData.cost) : originalProduct.cost,
+      minStockAlert: productData.minStockAlert !== undefined ? Number(productData.minStockAlert) : originalProduct.minStockAlert,
       name: productData.description,
       // A3: no pisar `description` con el nombre al editar; se preserva la original.
       price: Number(productData.priceUSD), // We store USD as base now

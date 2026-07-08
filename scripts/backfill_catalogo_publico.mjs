@@ -11,8 +11,8 @@
  *   - `firebase-admin` instalado (p.ej. `npm i firebase-admin` en la raiz).
  *
  * Uso (semanal):
- *   npm run publicar:tablet:dry    # (o) node scripts/backfill_catalogo_publico.mjs --dry-run   -> solo muestra
- *   npm run publicar:tablet        # (o) node scripts/backfill_catalogo_publico.mjs             -> escribe
+ *   npm run backfill:dry    # (o) node scripts/backfill_catalogo_publico.mjs --dry-run   -> solo muestra
+ *   npm run backfill        # (o) node scripts/backfill_catalogo_publico.mjs             -> escribe
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
