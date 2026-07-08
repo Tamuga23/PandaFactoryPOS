@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useStore } from '../context/StoreContext';
 import { Product, CartItem, Sale, ClientData } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package } from 'lucide-react';
@@ -7,9 +7,11 @@ import { v4 as uuidv4 } from 'uuid';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import { toast } from '../components/Toast';
+import { buildInvoiceDataFromSale } from '../lib/invoice';
+import { round2 } from '../lib/validations';
 
 export default function POS() {
-  const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer } = useStoreData();
+  const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -25,6 +27,11 @@ export default function POS() {
   const [showCustomerPredictions, setShowCustomerPredictions] = useState(false);
 
   const [transport, setTransport] = useState('ENTREGA LOCAL');
+  // P2.5: método de pago real (antes hardcodeado EFECTIVO) + referencia.
+  const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('EFECTIVO');
+  const [paymentReference, setPaymentReference] = useState('');
+  // P2.5: edición de precio por línea.
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [discount, setDiscount] = useState(0);
   const [shipping, setShipping] = useState(0);
   const [customNote, setCustomNote] = useState('');
@@ -94,6 +101,61 @@ export default function POS() {
   const currentExchangeRate = companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE;
   const total = subtotal + tax + (shipping / currentExchangeRate) - (discount / currentExchangeRate);
 
+  // P2.5: Enter agrega el match exacto de SKU (o el único resultado) — listo
+  // para lector de código de barras (tipea el SKU y manda Enter).
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return;
+    const exact = filteredProducts.find(p => p.sku.toLowerCase() === term);
+    const target = exact || (filteredProducts.length === 1 ? filteredProducts[0] : undefined);
+    if (target) {
+      addToCart(target);
+      setSearchTerm('');
+    } else {
+      toast.info('Sin coincidencia exacta de SKU o nombre único.');
+    }
+  };
+
+  // P2.5: precio negociado por línea (se edita en C$ y se guarda en USD).
+  const commitLinePrice = (id: string, nioValue: string) => {
+    const nio = Math.max(0, Number(nioValue) || 0);
+    setCart(prev => prev.map(item =>
+      item.id === id
+        ? { ...item, price: round2(nio / currentExchangeRate), efectivoApplied: false }
+        : item
+    ));
+    setEditingPriceId(null);
+  };
+
+  // P2.5: descuento por pago en efectivo (descEfectivoPct del catálogo).
+  const pendingCashDiscount = cart.filter(i => (i.descEfectivoPct || 0) > 0 && !i.efectivoApplied);
+  const appliedCashCount = cart.filter(i => i.efectivoApplied).length;
+
+  const applyCashDiscount = () => {
+    setCart(prev => prev.map(item =>
+      (item.descEfectivoPct || 0) > 0 && !item.efectivoApplied
+        ? { ...item, price: round2(item.price * (1 - (item.descEfectivoPct || 0) / 100)), efectivoApplied: true }
+        : item
+    ));
+  };
+
+  const removeCashDiscount = () => {
+    setCart(prev => prev.map(item => {
+      if (!item.efectivoApplied) return item;
+      // Restaura el precio base del catálogo (pierde negociación manual en esa línea).
+      const base = products.find(p => p.id === item.id)?.price ?? item.price;
+      return { ...item, price: base, efectivoApplied: false };
+    }));
+  };
+
+  // Si el método deja de ser EFECTIVO, quitar los precios efectivos aplicados.
+  useEffect(() => {
+    if (paymentMethod !== 'EFECTIVO' && appliedCashCount > 0) removeCashDiscount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod]);
+
   const handleTryCheckout = async (isProforma: boolean = false) => {
     if (cart.length === 0) return;
 
@@ -108,15 +170,6 @@ export default function POS() {
     // recordSale (counters/*). Aquí solo va un placeholder para el preview.
     const newInvoiceNumber = 'POR ASIGNAR';
 
-    // Calculate validity if it's a proforma (10 days from now)
-    let validUntilDateStr: undefined | string = undefined;
-    if (isProforma) {
-        const validityDate = new Date();
-        validityDate.setDate(validityDate.getDate() + 10);
-        validUntilDateStr = validityDate.toLocaleDateString('es-ES');
-    }
-
-    // Defaulting missing UI fields to satisfy Pilar 1 type requirements for now
     const sale: Omit<Sale, "ownerId"> = {
       id: uuidv4(),
       date: Date.now(),
@@ -133,49 +186,20 @@ export default function POS() {
       customerId: selectedCustomerId || undefined,
       transport,
       invoiceNumber: newInvoiceNumber,
-      
+
       documentType: isProforma ? 'PROFORMA' : 'RECIBO_OFICIAL',
       clientDocumentType: 'NINGUNO',
       currency: 'USD',
       exchangeRate: currentExchangeRate,
-      paymentMethod: 'EFECTIVO',
+      // P2.5: método de pago real seleccionado en el checkout.
+      paymentMethod,
+      paymentReference: paymentReference.trim() || undefined,
       status: 'completed',
       notes: customNote
     };
-    
-    // Prepare data for the preview component
-    const invoiceData: InvoiceData = {
-      type: isProforma ? 'PROFORMA' : 'RECIBO_OFICIAL',
-      invoiceNumber: newInvoiceNumber,
-      date: new Date(sale.date).toLocaleDateString('es-ES'),
-      validUntil: validUntilDateStr,
-      client: {
-        fullName: sale.customerName || 'CLIENTE FINAL',
-        address: sale.customerAddress || 'Dirección no proporcionada',
-        phone: sale.customerPhone || 'N/A',
-        transport: sale.transport || 'ENTREGA LOCAL'
-      },
-      companyInfo: companyInfo ? {
-        name: companyInfo.name,
-        address: companyInfo.address,
-        phone: companyInfo.phone,
-        email: companyInfo.email,
-        logo: companyInfo.logoBase64
-      } : undefined,
-      items: sale.items.map(i => ({
-        id: i.id,
-        productName: i.name,
-        quantity: i.quantity,
-        priceNIO: i.price * currentExchangeRate, // Calculate NIO value for receipt
-        priceUSD: i.price,
-        image: i.imageBase64,
-        sku: i.sku
-      })),
-      shippingCostNIO: sale.shipping || 0, // Exactly as inputted in NIO
-      discountNIO: sale.discount || 0, // Exactly as inputted in NIO
-      customNote: customNote, // Passed dynamically from checkout panel
-      warrantyText: "1. Los productos vendidos por Panda Store tienen una garantía de [3] meses a partir de la fecha de compra.\n2. La garantía cubre defectos de fabricación y no incluye daños causados por mal uso o accidentes."
-    };
+
+    // P2.5: el preview usa el builder compartido (mismo que reimprimir).
+    const invoiceData: InvoiceData = buildInvoiceDataFromSale(sale as Sale, companyInfo);
 
     setPendingSale({ sale: sale as Sale, isProforma });
     setPreviewData(invoiceData);
@@ -243,6 +267,7 @@ export default function POS() {
     setCustomNote('');
     setDiscount(0);
     setShipping(0);
+    setPaymentReference('');
 
     // Prepare label if transport requires it
     if (['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(confirmedSale.transport || '')) {
@@ -290,9 +315,10 @@ export default function POS() {
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-1.5 border border-zinc-700 rounded-lg leading-5 bg-zinc-800 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-              placeholder="Buscar por nombre, SKU o categoría…"
+              placeholder="Buscar por nombre, SKU o categoría… (Enter agrega)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
             />
           </div>
         </div>
@@ -373,7 +399,32 @@ export default function POS() {
               <div key={item.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-zinc-700/50">
                 <div className="flex-1 pr-3">
                   <h4 className="text-sm font-medium text-zinc-200 leading-tight mb-1">{item.name}</h4>
-                  <div className="text-xs font-semibold text-cyan-400">{formatCurrency(item.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</div>
+                  {/* P2.5: precio negociable por línea (clic para editar, en C$) */}
+                  {editingPriceId === item.id ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      min="0"
+                      step="any"
+                      defaultValue={round2(item.price * currentExchangeRate)}
+                      onBlur={(e) => commitLinePrice(item.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        if (e.key === 'Escape') setEditingPriceId(null);
+                      }}
+                      className="w-24 bg-zinc-900 border border-cyan-600 rounded px-1.5 py-0.5 text-xs text-cyan-300 outline-none"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditingPriceId(item.id)}
+                      title={item.price < (item.cost || 0) ? '¡Precio por debajo del costo! Clic para editar' : 'Clic para editar el precio de esta línea'}
+                      className={`text-xs font-semibold hover:underline decoration-dotted ${item.price < (item.cost || 0) ? 'text-rose-400' : 'text-cyan-400'}`}
+                    >
+                      {formatCurrency(item.price * currentExchangeRate, 'NIO')}
+                      {item.efectivoApplied && <span className="text-emerald-400 ml-1 no-underline">·efectivo</span>}
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center space-x-1 bg-zinc-800 rounded-md border border-zinc-700 p-0.5">
                   <button onClick={() => updateQuantity(item.id, -1)} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
@@ -500,6 +551,33 @@ export default function POS() {
             </div>
           </div>
 
+          {/* P2.5: método de pago + referencia */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-zinc-500 font-bold">Método de Pago</label>
+              <select
+                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as Sale['paymentMethod'])}
+              >
+                <option value="EFECTIVO">EFECTIVO</option>
+                <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                <option value="TARJETA">TARJETA</option>
+                <option value="CREDITO">CRÉDITO</option>
+              </select>
+            </div>
+            <div className="space-y-1 col-span-2">
+              <label className="text-[10px] uppercase text-zinc-500 font-bold">Referencia de Pago (Opcional)</label>
+              <input
+                type="text"
+                placeholder="N° de transferencia / voucher…"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="space-y-1 mb-4">
             <label className="text-[10px] uppercase text-zinc-500 font-bold">Nota / Referencia (Opcional)</label>
             <textarea 
@@ -511,6 +589,35 @@ export default function POS() {
             />
           </div>
           
+          {/* P2.5: descuento por pago en efectivo */}
+          {paymentMethod === 'EFECTIVO' && pendingCashDiscount.length > 0 && (
+            <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between gap-2">
+              <span className="text-[11px] text-emerald-400 leading-tight">
+                {pendingCashDiscount.length} producto(s) con descuento por efectivo disponible
+              </span>
+              <button
+                onClick={applyCashDiscount}
+                className="text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded shrink-0"
+              >
+                Aplicar
+              </button>
+            </div>
+          )}
+          {appliedCashCount > 0 && (
+            <div className="mb-3 p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg flex items-center justify-between gap-2">
+              <span className="text-[11px] text-emerald-500/80">
+                Precio efectivo aplicado a {appliedCashCount} línea(s)
+              </span>
+              <button
+                onClick={removeCashDiscount}
+                title="Restaura el precio de catálogo en esas líneas"
+                className="text-[11px] font-bold text-zinc-400 hover:text-rose-400 px-2 py-1"
+              >
+                Quitar
+              </button>
+            </div>
+          )}
+
           <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
             <div className="flex justify-between text-xs mb-2 text-zinc-300">
               <span>Monto Bruto</span>
