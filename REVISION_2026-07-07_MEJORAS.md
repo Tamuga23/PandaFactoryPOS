@@ -1,5 +1,12 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — Fixes del smoke test de Carlos (2026-07-08)
+
+- **WhatsApp CON el PDF adjunto**: el preview de factura (POS post-venta, Historial y CRM) tiene botón "Enviar por WhatsApp" que genera el PDF y lo comparte vía `navigator.share` (Windows 10+/Android/iOS lo enrutan a WhatsApp con el archivo adjunto). Si el navegador no soporta compartir archivos, fallback: descarga el PDF y abre el chat wa.me con el texto para adjuntarlo a mano (con aviso). Los botones de WhatsApp en las filas ahora abren el preview con el envío listo (wa.me solo nunca pudo adjuntar archivos).
+- **Numeración desde el máximo histórico**: (1) auto-siembra — la primera vez que no existe el contador, se toma el número máximo ya usado (soporta legacy "A001543" y nuevo "A-001543") y se arranca desde ahí; (2) **Configuración → "Próximo número de factura"** para fijarlo a mano (caso de Carlos: fijar 1401; el contador ya existía por las pruebas, así que la siembra automática no aplicaba). Las ventas de prueba A-000001… se pueden anular y borrar del Historial.
+
+---
+
 ## ESTADO — P4 aplicado el 2026-07-08 (excepto P4.6)
 
 - **P4.1 Español al 100%**: Inventario, Clientes e Historial traducidos por completo (tablas, modales, placeholders, chips de estado — "Completada/Devuelta/Cancelada").

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, auth, handleFirestoreError } from '../lib/db';
-import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, startAfter } from 'firebase/firestore';
+import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, getDoc, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
 import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
@@ -536,6 +536,34 @@ export function useStoreData() {
     const prefix = isProforma ? 'P' : 'A';
     const saleRef = doc(db, 'sales', sale.id);
     let assignedNumber = fullSale.invoiceNumber as string;
+
+    // Siembra del contador de FACTURAS la primera vez: arranca desde el
+    // número máximo ya usado (soporta el formato legacy "A001543" y el nuevo
+    // "A-001543"), para no reiniciar la numeración de un negocio en marcha.
+    // El número definitivo igual se asigna DENTRO de la transacción.
+    if (!isProforma) {
+      try {
+        const probe = await getDoc(counterRef);
+        if (!probe.exists()) {
+          const topSnap = await getDocs(query(
+            collection(db, 'sales'), orderBy('invoiceNumber', 'desc'), limit(30)
+          ));
+          let maxNum = 0;
+          topSnap.docs.forEach(d => {
+            const inv = String((d.data() as any).invoiceNumber || '');
+            if (!inv.toUpperCase().startsWith('A')) return;
+            const m = inv.match(/(\d+)\s*$/);
+            if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+          });
+          if (maxNum > 0) {
+            await setDoc(counterRef, { value: maxNum, updatedAt: Date.now() });
+          }
+        }
+      } catch {
+        // Si la siembra falla, la transacción arranca desde 0 y el número se
+        // puede corregir en Configuración → Numeración de facturas.
+      }
+    }
 
     try {
       // Pilar 3: Transacción atómica (stock + contador + venta).

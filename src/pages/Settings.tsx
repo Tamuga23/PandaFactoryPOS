@@ -4,7 +4,7 @@ import { CompanyInfo, Product } from '../types';
 import { fileToBase64, compressImage } from '../lib/utils';
 import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin, Eraser } from 'lucide-react';
 import { db } from '../lib/db';
-import { writeBatch, doc } from 'firebase/firestore';
+import { writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function Settings() {
   const { companyInfo, updateCompanyInfo, loading, products } = useStore();
@@ -24,6 +24,37 @@ export default function Settings() {
   const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 5000);
+  };
+
+  // Numeración de facturas: leer/fijar el contador (counters/invoices).
+  // Útil para arrancar desde el máximo histórico (ej. A-001401).
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState('');
+  const [savingCounter, setSavingCounter] = useState(false);
+
+  useEffect(() => {
+    getDoc(doc(db, 'counters', 'invoices'))
+      .then(snap => {
+        const current = (snap.exists() ? (snap.data() as any).value : 0) || 0;
+        setNextInvoiceNumber(String(current + 1));
+      })
+      .catch(() => setNextInvoiceNumber(''));
+  }, []);
+
+  const handleSaveCounter = async () => {
+    const next = parseInt(nextInvoiceNumber, 10);
+    if (!next || next < 1) {
+      showNotification('Ingresá un número de factura válido (≥ 1).', 'error');
+      return;
+    }
+    setSavingCounter(true);
+    try {
+      await setDoc(doc(db, 'counters', 'invoices'), { value: next - 1, updatedAt: Date.now() });
+      showNotification(`Listo: la próxima factura será A-${String(next).padStart(6, '0')}.`, 'success');
+    } catch {
+      showNotification('No se pudo guardar la numeración (¿reglas desplegadas?).', 'error');
+    } finally {
+      setSavingCounter(false);
+    }
   };
 
   useEffect(() => {
@@ -208,6 +239,34 @@ export default function Settings() {
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                   />
                   <p className="text-[10px] text-zinc-500">Tasa de cambio del BCN congelada por ley (Ej. 36.6243).</p>
+                </div>
+
+                {/* Numeración de facturas (contador correlativo) */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
+                    Próximo número de factura
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={nextInvoiceNumber}
+                      onChange={e => setNextInvoiceNumber(e.target.value)}
+                      placeholder="Ej. 1401"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveCounter}
+                      disabled={savingCounter}
+                      className="px-5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm font-bold text-cyan-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      {savingCounter ? 'Fijando…' : 'Fijar'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">
+                    Se emitirá como A-{String(parseInt(nextInvoiceNumber, 10) || 0).padStart(6, '0')}. Cuidado al bajarlo: podrías duplicar números ya usados.
+                  </p>
                 </div>
               </div>
             </div>

@@ -62,16 +62,28 @@ export function buildInvoiceDataFromSale(
 }
 
 /**
- * P2.6: link de WhatsApp con resumen de la factura. Normaliza el teléfono a
- * formato internacional de Nicaragua (+505) si viene local de 8 dígitos.
+ * P2.6: mensaje + link de WhatsApp con resumen de la factura. Normaliza el
+ * teléfono a formato internacional de Nicaragua (+505) si viene local de 8
+ * dígitos. El PDF se adjunta vía navigator.share (ver InvoicePreview);
+ * wa.me solo lleva el texto.
  */
-export function buildWhatsAppLink(sale: Sale, totalNIOFormatted: string): string | null {
+export function buildWhatsAppMessage(
+  sale: Sale,
+  totalNIOFormatted: string,
+): { text: string; link: string | null } {
   const digits = (sale.customerPhone || '').replace(/\D/g, '');
-  if (digits.length < 8) return null;
-  const phone = digits.length === 8 ? `505${digits}` : digits;
+  const phone = digits.length === 8 ? `505${digits}` : digits.length > 8 ? digits : null;
   const docLabel = sale.documentType === 'PROFORMA' ? 'proforma' : 'factura';
-  const msg =
+  const text =
     `Hola ${sale.customerName || ''}! Te comparto tu ${docLabel} ${sale.invoiceNumber} ` +
     `de Panda Store por un total de ${totalNIOFormatted}. ¡Gracias por tu compra!`;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(msg.trim())}`;
+  return {
+    text: text.replace(/\s+/g, ' ').trim(),
+    link: phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text.trim())}` : null,
+  };
+}
+
+/** Compat: versión que devuelve solo el link. */
+export function buildWhatsAppLink(sale: Sale, totalNIOFormatted: string): string | null {
+  return buildWhatsAppMessage(sale, totalNIOFormatted).link;
 }

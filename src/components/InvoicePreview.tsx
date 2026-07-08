@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 import { formatCurrencyNIO } from '../lib/utils';
-import { Download, X, Loader2, Check } from 'lucide-react';
+import { Download, X, Loader2, Check, MessageCircle } from 'lucide-react';
 import { toast } from './Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 
@@ -49,6 +49,9 @@ interface InvoicePreviewProps {
   onClose: () => void;
   onConfirm?: () => void;
   isConfirming?: boolean;
+  /** Si viene, muestra "Enviar por WhatsApp": comparte el PDF vía navigator.share
+   *  (con fallback: descarga el PDF y abre wa.me para adjuntarlo a mano). */
+  whatsApp?: { text: string; link: string | null } | null;
 }
 
 const PAGE_HEIGHT_LIMIT = 980;
@@ -58,12 +61,14 @@ const TABLE_HEADER_HEIGHT = 35; // Reduced from 45
 const ITEM_WITH_IMAGE_HEIGHT = 65; // Reduced from 125
 const ITEM_WITHOUT_IMAGE_HEIGHT = 40; // Reduced from 65
 
-export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming }: InvoicePreviewProps) {
+export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming, whatsApp }: InvoicePreviewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // P4.7: ESC cierra el preview (no mientras confirma o genera el PDF).
-  useEscapeKey(isOpen && !isConfirming && !isGenerating, onClose);
+  useEscapeKey(isOpen && !isConfirming && !isGenerating && !isSharing, onClose);
 
   if (!isOpen) return null;
 
@@ -113,42 +118,76 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
   const subtotal = data.items.reduce((acc, item) => acc + (item.priceNIO * item.quantity), 0);
   const total = subtotal + data.shippingCostNIO - data.discountNIO;
 
-  const handleDownloadPDF = async () => {
-    if (!containerRef.current) return;
-    setIsGenerating(true);
-    try {
-      const pageElements = Array.from(containerRef.current.querySelectorAll('.invoice-page')) as HTMLElement[];
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'px',
-        format: [794, 1123],
-        compress: true
+  // Genera el PDF (compartido por Descargar y Enviar por WhatsApp).
+  const buildPdf = async (): Promise<{ pdf: jsPDF; fileName: string } | null> => {
+    if (!containerRef.current) return null;
+    const pageElements = Array.from(containerRef.current.querySelectorAll('.invoice-page')) as HTMLElement[];
+    const pdf = new jsPDF({
+      orientation: 'p',
+      unit: 'px',
+      format: [794, 1123],
+      compress: true
+    });
+
+    for (let i = 0; i < pageElements.length; i++) {
+      // Safari requires DOM to be rendered multiple times to correctly paint images inside foreignObject
+      await toPng(pageElements[i], { quality: 0.8, pixelRatio: 1 });
+      await toPng(pageElements[i], { quality: 0.8, pixelRatio: 1 });
+
+      const dUrl = await toPng(pageElements[i], {
+        quality: 0.95,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff'
       });
 
-      for (let i = 0; i < pageElements.length; i++) {
-        // Safari requires DOM to be rendered multiple times to correctly paint images inside foreignObject
-        await toPng(pageElements[i], { quality: 0.8, pixelRatio: 1 });
-        await toPng(pageElements[i], { quality: 0.8, pixelRatio: 1 });
-        
-        const dUrl = await toPng(pageElements[i], {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff'
-        });
-        
-        if (i > 0) pdf.addPage([794, 1123], 'p');
-        pdf.addImage(dUrl, 'PNG', 0, 0, 794, 1123);
-      }
+      if (i > 0) pdf.addPage([794, 1123], 'p');
+      pdf.addImage(dUrl, 'PNG', 0, 0, 794, 1123);
+    }
 
-      const formattedName = data.client.fullName.replace(/\s+/g, '_');
-      const invoiceLabel = data.type === 'PROFORMA' ? 'proforma' : 'factura';
-      const fileName = `${invoiceLabel}_${data.invoiceNumber}_${formattedName}.pdf`;
-      pdf.save(fileName);
+    const formattedName = data.client.fullName.replace(/\s+/g, '_');
+    const invoiceLabel = data.type === 'PROFORMA' ? 'proforma' : 'factura';
+    return { pdf, fileName: `${invoiceLabel}_${data.invoiceNumber}_${formattedName}.pdf` };
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsGenerating(true);
+    try {
+      const result = await buildPdf();
+      result?.pdf.save(result.fileName);
     } catch (err: any) {
       console.error('Error al generar PDF:', err);
       toast.error('Hubo un error al generar el PDF: ' + (err?.message || 'Error desconocido'));
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // WhatsApp CON el PDF adjunto: navigator.share (Windows/Android/iOS lo
+  // enrutan a WhatsApp). Fallback: descarga el PDF y abre el chat con el
+  // texto, para adjuntarlo a mano.
+  const handleShareWhatsApp = async () => {
+    if (!whatsApp) return;
+    setIsSharing(true);
+    try {
+      const result = await buildPdf();
+      if (!result) return;
+      const blob = result.pdf.output('blob');
+      const file = new File([blob], result.fileName, { type: 'application/pdf' });
+      const nav: any = navigator;
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], text: whatsApp.text, title: result.fileName });
+      } else {
+        result.pdf.save(result.fileName);
+        if (whatsApp.link) window.open(whatsApp.link, '_blank');
+        toast.info('Este navegador no permite adjuntar directo: descargué el PDF — adjuntalo en el chat de WhatsApp que se abrió.');
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Error al compartir:', err);
+        toast.error('No se pudo compartir el PDF.');
+      }
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -176,9 +215,20 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
             </>
           ) : (
             <>
+              {whatsApp && (
+                <button
+                  onClick={handleShareWhatsApp}
+                  disabled={isSharing || isGenerating}
+                  title="Comparte el PDF por WhatsApp (o lo descarga y abre el chat)"
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
+                >
+                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+                  {isSharing ? 'Preparando…' : 'Enviar por WhatsApp'}
+                </button>
+              )}
               <button
                 onClick={handleDownloadPDF}
-                disabled={isGenerating}
+                disabled={isGenerating || isSharing}
                 className="flex items-center gap-2 bg-[#1a6ba0] hover:bg-[#1a6ba0]/90 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
               >
                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}

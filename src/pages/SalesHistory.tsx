@@ -6,7 +6,7 @@ import { Calendar, User, Phone, MapPin, Trash2, Edit, CheckCircle, RotateCcw, XC
 import { v4 as uuidv4 } from 'uuid';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
-import { buildInvoiceDataFromSale, buildWhatsAppLink } from '../lib/invoice';
+import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 
@@ -66,20 +66,23 @@ export default function SalesHistory() {
     (!fEnd || s.date <= localDayStart(fEnd) + 86399999)
   ).sort((a, b) => b.date - a.date);
 
-  // P2.5: reimprimir factura/proforma desde los datos guardados.
+  // P2.5: reimprimir factura/proforma desde los datos guardados. El preview
+  // incluye "Enviar por WhatsApp" (comparte el PDF) si hay teléfono.
+  const [reprintWa, setReprintWa] = useState<{ text: string; link: string | null } | null>(null);
   const handleReprint = (sale: Sale) => {
+    const rate = sale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
+    setReprintWa(sale.customerPhone ? buildWhatsAppMessage(sale, formatCurrencyNIO(sale.total * rate)) : null);
     setReprintData(buildInvoiceDataFromSale(sale, companyInfo));
   };
 
-  // P2.6: compartir por WhatsApp (link con resumen; el PDF se adjunta a mano).
+  // P2.6: el botón de WhatsApp abre el preview con el envío listo (el PDF se
+  // comparte desde ahí; wa.me solo no puede adjuntar archivos).
   const handleWhatsApp = (sale: Sale) => {
-    const rate = sale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
-    const link = buildWhatsAppLink(sale, formatCurrencyNIO(sale.total * rate));
-    if (!link) {
-      toast.error('El cliente no tiene un teléfono válido registrado.');
+    if (!sale.customerPhone) {
+      toast.error('El cliente no tiene un teléfono registrado.');
       return;
     }
-    window.open(link, '_blank');
+    handleReprint(sale);
   };
 
   // P2.5: convertir proforma en factura (verifica stock en la transacción).
@@ -105,7 +108,10 @@ export default function SalesHistory() {
         notes: `${p.notes ? p.notes + ' · ' : ''}Facturada como ${num}`,
       });
       toast.success(`Proforma facturada como ${num} — stock descontado.`);
-      setReprintData(buildInvoiceDataFromSale({ ...newSale, invoiceNumber: num }, companyInfo));
+      const finalSale = { ...newSale, invoiceNumber: num };
+      const rate = finalSale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
+      setReprintWa(finalSale.customerPhone ? buildWhatsAppMessage(finalSale, formatCurrencyNIO(finalSale.total * rate)) : null);
+      setReprintData(buildInvoiceDataFromSale(finalSale, companyInfo));
     } catch (e: any) {
       toast.error(e?.message?.includes('Stock') || e?.message?.includes('inválida')
         ? e.message
@@ -433,7 +439,8 @@ export default function SalesHistory() {
         <InvoicePreview
           data={reprintData}
           isOpen={!!reprintData}
-          onClose={() => setReprintData(null)}
+          onClose={() => { setReprintData(null); setReprintWa(null); }}
+          whatsApp={reprintWa}
         />
       )}
 

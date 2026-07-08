@@ -4,7 +4,7 @@ import { Customer, Sale } from '../types';
 import { Search, Plus, Trash2, Edit, User, Phone, MapPin, Mail, Calendar, History, Printer, MessageCircle, X, FileText, Loader2 } from 'lucide-react';
 import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
-import { buildInvoiceDataFromSale, buildWhatsAppLink } from '../lib/invoice';
+import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 
@@ -41,14 +41,20 @@ export default function Customers() {
     }
   };
 
-  const handleWhatsAppSale = (sale: Sale) => {
+  // El preview incluye "Enviar por WhatsApp" (comparte el PDF real).
+  const [reprintWa, setReprintWa] = useState<{ text: string; link: string | null } | null>(null);
+  const openSalePreview = (sale: Sale) => {
     const rate = sale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
-    const link = buildWhatsAppLink(sale, formatCurrencyNIO(sale.total * rate));
-    if (!link) {
-      toast.error('El cliente no tiene un teléfono válido en esta venta.');
+    setReprintWa(sale.customerPhone ? buildWhatsAppMessage(sale, formatCurrencyNIO(sale.total * rate)) : null);
+    setReprintData(buildInvoiceDataFromSale(sale, companyInfo));
+  };
+
+  const handleWhatsAppSale = (sale: Sale) => {
+    if (!sale.customerPhone) {
+      toast.error('El cliente no tiene un teléfono en esta venta.');
       return;
     }
-    window.open(link, '_blank');
+    openSalePreview(sale);
   };
 
   const filteredCustomers = customers.filter(c => 
@@ -278,7 +284,7 @@ export default function Customers() {
                     <div className="flex items-center gap-1 shrink-0">
                       <span className="text-sm font-bold text-cyan-400 mr-2">{formatCurrency(sale.total)}</span>
                       <button
-                        onClick={() => setReprintData(buildInvoiceDataFromSale(sale, companyInfo))}
+                        onClick={() => openSalePreview(sale)}
                         title="Reimprimir PDF"
                         className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded"
                       >
@@ -307,7 +313,8 @@ export default function Customers() {
         <InvoicePreview
           data={reprintData}
           isOpen={!!reprintData}
-          onClose={() => setReprintData(null)}
+          onClose={() => { setReprintData(null); setReprintWa(null); }}
+          whatsApp={reprintWa}
         />
       )}
 

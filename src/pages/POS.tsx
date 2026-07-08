@@ -7,7 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import { toast } from '../components/Toast';
-import { buildInvoiceDataFromSale } from '../lib/invoice';
+import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
+import { formatCurrencyNIO } from '../lib/utils';
 import { round2 } from '../lib/validations';
 
 export default function POS() {
@@ -39,6 +40,8 @@ export default function POS() {
   const [labelSaleData, setLabelSaleData] = useState<Sale | null>(null);
   const [pendingSale, setPendingSale] = useState<{sale: Sale, isProforma: boolean} | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  // WhatsApp con PDF adjunto disponible en el preview tras confirmar la venta.
+  const [waShare, setWaShare] = useState<{ text: string; link: string | null } | null>(null);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -258,6 +261,10 @@ export default function POS() {
     const confirmedSale = { ...sale, invoiceNumber: assignedNumber } as Sale;
     // Actualizar el preview abierto (pasa a modo descarga) con el número real.
     setPreviewData(prev => (prev ? { ...prev, invoiceNumber: assignedNumber } : prev));
+    // Habilitar "Enviar por WhatsApp" (comparte el PDF) si hay teléfono.
+    setWaShare(confirmedSale.customerPhone
+      ? buildWhatsAppMessage(confirmedSale, formatCurrencyNIO(confirmedSale.total * currentExchangeRate))
+      : null);
 
     setCart([]);
     setCustomerName('');
@@ -283,15 +290,17 @@ export default function POS() {
   return (
     <>
       {previewData && (
-        <InvoicePreview 
+        <InvoicePreview
           data={previewData}
           isOpen={!!previewData}
           onClose={() => {
             setPreviewData(null);
             setPendingSale(null);
+            setWaShare(null);
           }}
           onConfirm={pendingSale ? handleConfirmCheckout : undefined}
           isConfirming={isConfirming}
+          whatsApp={waShare}
         />
       )}
       {labelSaleData && (
