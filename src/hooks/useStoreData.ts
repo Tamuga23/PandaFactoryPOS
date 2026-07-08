@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, auth, handleFirestoreError } from '../lib/db';
-import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField } from 'firebase/firestore';
+import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection } from '../types';
-import { UniversalObjectionSchema, CategoryObjectionSchema } from '../lib/validations';
+import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
 // isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
@@ -20,6 +20,15 @@ const sanitizeSaleItem = (item: any) => {
   return clean;
 };
 
+// P1.7: mensaje humano a partir de un safeParse fallido de Zod.
+// (acepta el resultado sin discriminar: en éxito `error` viene undefined)
+const zodErrorMsg = (result: { error?: { issues: Array<{ path: PropertyKey[]; message: string }> } }) =>
+  result.error
+    ? result.error.issues.map((i) => `${i.path.map(String).join('.')}: ${i.message}`).join('; ')
+    : 'error de validación';
+
+const SALES_PAGE_SIZE = 100;
+
 export function useStoreData() {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -31,6 +40,11 @@ export function useStoreData() {
   const [categoryObjections, setCategoryObjections] = useState<CategoryObjection[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+
+  // P1.4: páginas adicionales del historial (más allá de las 100 en vivo).
+  const [olderSales, setOlderSales] = useState<Sale[]>([]);
+  const [hasMoreOlderSales, setHasMoreOlderSales] = useState(true);
+  const [loadingOlderSales, setLoadingOlderSales] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -44,6 +58,8 @@ export function useStoreData() {
         setCompanyInfo(null);
         setUniversalObjections([]);
         setCategoryObjections([]);
+        setOlderSales([]);
+        setHasMoreOlderSales(true);
         setLoading(false);
       }
     });
@@ -138,6 +154,9 @@ export function useStoreData() {
     try {
       const fullProduct: any = { ...product, ownerId: 'shared_store' };
       Object.keys(fullProduct).forEach(key => fullProduct[key] === undefined && delete fullProduct[key]);
+      // P1.7: validar ANTES de escribir (evita permission-denied crípticos de las reglas).
+      const parsed = ProductSchema.safeParse(fullProduct);
+      if (!parsed.success) throw new Error(`Producto inválido — ${zodErrorMsg(parsed)}`);
       await setDoc(doc(db, 'products', product.id), fullProduct);
     } catch (e) {
       handleFirestoreError(e, 'create', `products/${product.id}`);
@@ -197,6 +216,8 @@ export function useStoreData() {
     try {
       const fullCustomer: any = { ...customer, ownerId: 'shared_store' };
       Object.keys(fullCustomer).forEach(key => fullCustomer[key] === undefined && delete fullCustomer[key]);
+      const parsed = CustomerSchema.safeParse(fullCustomer);
+      if (!parsed.success) throw new Error(`Cliente inválido — ${zodErrorMsg(parsed)}`);
       await setDoc(doc(db, 'customers', customer.id), fullCustomer);
     } catch (e) {
       handleFirestoreError(e, 'create', `customers/${customer.id}`);
@@ -228,6 +249,8 @@ export function useStoreData() {
     try {
       const fullSupplier: any = { ...supplier, ownerId: 'shared_store' };
       Object.keys(fullSupplier).forEach(key => fullSupplier[key] === undefined && delete fullSupplier[key]);
+      const parsed = SupplierSchema.safeParse(fullSupplier);
+      if (!parsed.success) throw new Error(`Proveedor inválido — ${zodErrorMsg(parsed)}`);
       await setDoc(doc(db, 'suppliers', supplier.id), fullSupplier);
     } catch (e) {
       handleFirestoreError(e, 'create', `suppliers/${supplier.id}`);
@@ -263,6 +286,8 @@ export function useStoreData() {
         fullSale.items = fullSale.items.map(sanitizeSaleItem);
       }
       await updateDoc(doc(db, 'sales', sale.id), fullSale);
+      // Mantener sincronizadas las páginas viejas cargadas manualmente (P1.4).
+      setOlderSales(prev => prev.map(s => (s.id === sale.id ? { ...s, ...fullSale } : s)));
     } catch (e) {
       handleFirestoreError(e, 'update', `sales/${sale.id}`);
     }
@@ -272,44 +297,167 @@ export function useStoreData() {
     if (!user) return;
     try {
       await deleteDoc(doc(db, 'sales', id));
+      setOlderSales(prev => prev.filter(s => s.id !== id));
     } catch (e) {
       handleFirestoreError(e, 'delete', `sales/${id}`);
     }
   };
 
-  const recordSale = async (sale: Omit<Sale, 'ownerId'>) => {
+  /**
+   * P1.2: cambia el estado de una venta con ajuste de stock TRANSACCIONAL.
+   *  - completed → returned/cancelled: repone las unidades al inventario.
+   *  - returned/cancelled → completed: vuelve a descontarlas (piso en 0).
+   *  - returned ↔ cancelled: sin efecto en stock.
+   * Las PROFORMAS nunca tocan stock. Productos borrados se saltan.
+   */
+  const changeSaleStatus = async (sale: Sale, newStatus: Sale['status']) => {
     if (!user) return;
+    const saleRef = doc(db, 'sales', sale.id);
     try {
-      const fullSale: any = { ...sale, ownerId: 'shared_store', status: sale.status || 'completed' };
-      Object.keys(fullSale).forEach(key => fullSale[key] === undefined && delete fullSale[key]);
-      if (fullSale.items) {
-        fullSale.items = fullSale.items.map(sanitizeSaleItem);
-      }
-      
-      const saleRef = doc(db, 'sales', sale.id);
-
-      // Pilar 3: Transacción atómica
       await runTransaction(db, async (transaction) => {
+        const saleSnap = await transaction.get(saleRef);
+        if (!saleSnap.exists()) throw new Error('La venta ya no existe en la base de datos.');
+        const serverSale = saleSnap.data() as Sale;
+        const oldStatus = serverSale.status || 'completed';
+        if (oldStatus === newStatus) return;
+
+        const affectsStock = serverSale.documentType !== 'PROFORMA';
+        const wasDeducted = oldStatus === 'completed';
+        const willBeDeducted = newStatus === 'completed';
+        // +1 repone stock, -1 lo vuelve a descontar, 0 sin cambio.
+        let direction = 0;
+        if (affectsStock && wasDeducted && !willBeDeducted) direction = 1;
+        if (affectsStock && !wasDeducted && willBeDeducted) direction = -1;
+
+        if (direction !== 0) {
+          const items = serverSale.items || [];
+          const productSnaps = await Promise.all(
+            items.map(i => transaction.get(doc(db, 'products', i.id)))
+          );
+          productSnaps.forEach((snap, idx) => {
+            if (!snap.exists()) return; // producto borrado: no se puede ajustar
+            const pData = snap.data() as Product;
+            const newStock = Math.max(0, (pData.stock || 0) + direction * items[idx].quantity);
+            transaction.update(doc(db, 'products', items[idx].id), {
+              stock: newStock,
+              updatedAt: Date.now(),
+            });
+          });
+        }
+
+        transaction.update(saleRef, { status: newStatus });
+      });
+      setOlderSales(prev => prev.map(s => (s.id === sale.id ? { ...s, status: newStatus } : s)));
+    } catch (e) {
+      handleFirestoreError(e, 'update', `sales/${sale.id}`);
+    }
+  };
+
+  /**
+   * P1.4: carga la siguiente página del historial (ventas más viejas que las
+   * 100 en vivo). Devuelve cuántas trajo; setea hasMoreOlderSales.
+   */
+  const loadMoreSales = async () => {
+    if (!user || loadingOlderSales) return;
+    const all = [...sales, ...olderSales];
+    if (all.length === 0) return;
+    const oldestLoaded = Math.min(...all.map(s => s.date));
+    setLoadingOlderSales(true);
+    try {
+      const q = query(
+        collection(db, 'sales'),
+        orderBy('date', 'desc'),
+        startAfter(oldestLoaded),
+        limit(SALES_PAGE_SIZE),
+      );
+      const snap = await getDocs(q);
+      const older = snap.docs.map(d => ({ ...d.data(), id: d.id } as Sale));
+      setOlderSales(prev => {
+        const seen = new Set([...sales, ...prev].map(s => s.id));
+        return [...prev, ...older.filter(s => !seen.has(s.id))];
+      });
+      if (snap.docs.length < SALES_PAGE_SIZE) setHasMoreOlderSales(false);
+    } catch (e) {
+      handleFirestoreError(e, 'list', 'sales(older)');
+    } finally {
+      setLoadingOlderSales(false);
+    }
+  };
+
+  /**
+   * P1.4: ventas de un período SIN el límite de 100 (para Reports).
+   * Query por rango sobre `date` (no requiere índice compuesto).
+   */
+  const fetchSalesInRange = async (startMs: number, endMs: number): Promise<Sale[]> => {
+    if (!user) return [];
+    try {
+      const q = query(
+        collection(db, 'sales'),
+        where('date', '>=', startMs),
+        where('date', '<=', endMs),
+        orderBy('date', 'desc'),
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), id: d.id } as Sale));
+    } catch (e) {
+      handleFirestoreError(e, 'list', 'sales(range)');
+      return [];
+    }
+  };
+
+  /**
+   * Registra la venta en una transacción atómica y le asigna el número de
+   * documento CORRELATIVO (P1.1) desde counters/invoices (A-000001) o
+   * counters/proformas (P-000001). Devuelve el número asignado.
+   */
+  const recordSale = async (sale: Omit<Sale, 'ownerId'>): Promise<string> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    const fullSale: any = { ...sale, ownerId: 'shared_store', status: sale.status || 'completed' };
+    Object.keys(fullSale).forEach(key => fullSale[key] === undefined && delete fullSale[key]);
+    if (fullSale.items) {
+      fullSale.items = fullSale.items.map(sanitizeSaleItem);
+    }
+
+    // P1.7: validar ANTES de escribir (el invoiceNumber definitivo se asigna adentro).
+    const parsedSale = SaleSchema.safeParse(fullSale);
+    if (!parsedSale.success) {
+      const err = new Error(`Venta inválida — ${zodErrorMsg(parsedSale)}`);
+      console.error('Zod validation failed:', err.message);
+      throw err;
+    }
+
+    const isProforma = fullSale.documentType === 'PROFORMA';
+    const counterRef = doc(db, 'counters', isProforma ? 'proformas' : 'invoices');
+    const prefix = isProforma ? 'P' : 'A';
+    const saleRef = doc(db, 'sales', sale.id);
+    let assignedNumber = fullSale.invoiceNumber as string;
+
+    try {
+      // Pilar 3: Transacción atómica (stock + contador + venta).
+      await runTransaction(db, async (transaction) => {
+        // 1. LECTURAS (Firestore exige hacerlas todas antes de escribir)
+        const counterSnap = await transaction.get(counterRef);
+        const nextValue = ((counterSnap.exists() ? counterSnap.data().value : 0) || 0) + 1;
+        assignedNumber = `${prefix}-${String(nextValue).padStart(6, '0')}`;
+
         const productRefs = sale.items.map(item => ({
           ref: doc(db, 'products', item.id),
           item
         }));
-
-        // 1. Read all required documents first (Requirement of Firestore transactions)
         const productDocs = await Promise.all(productRefs.map(pr => transaction.get(pr.ref)));
 
-        // 2. Perform validations (skip stock check for PROFORMA)
+        // 2. Validaciones (las proformas no verifican ni tocan stock)
         productDocs.forEach((pDoc, index) => {
           if (!pDoc.exists()) {
-            throw new Error(`Product ${productRefs[index].item.name} does not exist in DB.`);
+            throw new Error(`El producto ${productRefs[index].item.name} ya no existe en la base de datos.`);
           }
           const productData = pDoc.data() as Product;
           if (sale.documentType !== 'PROFORMA' && productData.stock < productRefs[index].item.quantity) {
-             throw new Error(`Insufficient stock for ${productData.name}. Requested: ${productRefs[index].item.quantity}, Available: ${productData.stock}`);
+             throw new Error(`Stock insuficiente de ${productData.name}. Pedido: ${productRefs[index].item.quantity}, Disponible: ${productData.stock}`);
           }
         });
 
-        // 3. Perform all writes
+        // 3. Escrituras
         productDocs.forEach((pDoc, index) => {
           if (sale.documentType !== 'PROFORMA') {
             const productData = pDoc.data() as Product;
@@ -321,9 +469,11 @@ export function useStoreData() {
           }
         });
 
-        transaction.set(saleRef, fullSale);
+        transaction.set(counterRef, { value: nextValue, updatedAt: Date.now() });
+        transaction.set(saleRef, { ...fullSale, invoiceNumber: assignedNumber });
       });
 
+      return assignedNumber;
     } catch (e) {
       console.error("Transaction failed: ", e);
       handleFirestoreError(e, 'create', `sales/${sale.id}`);
@@ -348,6 +498,10 @@ export function useStoreData() {
           Object.keys(item).forEach(key => item[key] === undefined && delete item[key]);
         });
       }
+
+      // P1.7: validar ANTES de escribir.
+      const parsed = PurchaseSchema.safeParse(fullPurchase);
+      if (!parsed.success) throw new Error(`Compra inválida — ${zodErrorMsg(parsed)}`);
 
       await setDoc(doc(db, 'purchases', purchase.id), fullPurchase);
     } catch (e) {
@@ -423,10 +577,12 @@ export function useStoreData() {
 
         // --- 2. CÁLCULOS ---
         {
-        // Obtenemos la tarifa por defect basada en modalidad o una almacenada (si existiera en el futuro)
+        // Tarifa de flete: la guardada en la orden, o el default por modalidad.
         const ratePerLb = updatedPurchase.shippingRatePerLb || (updatedPurchase.shippingModality === 'Air Cargo' ? 6.5 : (updatedPurchase.shippingModality === 'Sea Cargo' ? 2.5 : 0));
         const totalBaseCost = updatedPurchase.items.reduce((acc, item) => acc + (item.cost * item.quantity), 0);
-        const totalExpenses = updatedPurchase.freightCost || 0; // Legacy global freight cost fallback
+        const totalExpenses = updatedPurchase.freightCost || 0; // Flete global (fallback cuando no hay peso por ítem)
+        // P1.5: aduana + seguro SIEMPRE se prorratean al costo real (landed cost).
+        const extraExpenses = (updatedPurchase.customsTaxes || 0) + (updatedPurchase.insuranceCost || 0);
 
         // receivedQuantity parte del estado del SERVIDOR para no pisar recepciones concurrentes.
         const serverReceived = new Map<string, number>();
@@ -470,8 +626,20 @@ export function useStoreData() {
                     }
                   }
                   
-                  const realUnitCost = pItem.cost + (itemFreightExpense / boxItem.quantity);
-                  
+                  // P1.5: prorratear aduana+seguro por participación en el valor
+                  // de la orden (fallback: por cantidad si los costos base son 0).
+                  let itemExtraExpense = 0;
+                  if (extraExpenses > 0) {
+                    if (totalBaseCost > 0) {
+                      itemExtraExpense = extraExpenses * ((pItem.cost * boxItem.quantity) / totalBaseCost);
+                    } else {
+                      const totalQtyAll = updatedPurchase.items.reduce((acc, i) => acc + i.quantity, 0);
+                      if (totalQtyAll > 0) itemExtraExpense = extraExpenses * (boxItem.quantity / totalQtyAll);
+                    }
+                  }
+
+                  const realUnitCost = pItem.cost + ((itemFreightExpense + itemExtraExpense) / boxItem.quantity);
+
                   // Weighted Average Cost Formula (sobre datos del servidor)
                   const currentTotalValue = baseStock * baseCost;
                   const newTotalValue = boxItem.quantity * realUnitCost;
@@ -541,6 +709,78 @@ export function useStoreData() {
       await deleteDoc(doc(db, 'purchases', id));
     } catch (e) {
       handleFirestoreError(e, 'delete', `purchases/${id}`);
+    }
+  };
+
+  /**
+   * P1.7: revierte una recepción marcada por error. Resta del inventario las
+   * unidades de esa caja (piso en 0), descuenta receivedQuantity, reabre el
+   * tracking (isReceived=false y BORRA receptionDate para que no se
+   * re-procese solo) y recalcula el estado de la orden.
+   * NOTA: el costo promedio (WAC) NO se recalcula hacia atrás.
+   */
+  const revertTrackingReception = async (purchaseId: string, trackingId: string) => {
+    if (!user) return;
+    const purchaseRef = doc(db, 'purchases', purchaseId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        // 1. LECTURAS
+        const snap = await transaction.get(purchaseRef);
+        if (!snap.exists()) throw new Error('La compra ya no existe.');
+        const serverPurchase = snap.data() as Purchase;
+        const tracking = (serverPurchase.trackings || []).find(t => t.id === trackingId);
+        if (!tracking || !tracking.isReceived) {
+          throw new Error('Este tracking no está marcado como recibido.');
+        }
+
+        const boxItems = tracking.itemsInBox || [];
+        const removeByProduct = new Map<string, number>();
+        boxItems.forEach(b => removeByProduct.set(b.itemId, (removeByProduct.get(b.itemId) || 0) + b.quantity));
+
+        const productIds = Array.from(removeByProduct.keys());
+        const productSnaps = await Promise.all(
+          productIds.map(pid => transaction.get(doc(db, 'products', pid)))
+        );
+        const serverProducts = new Map<string, Product>();
+        productSnaps.forEach((s, i) => {
+          if (s.exists()) serverProducts.set(productIds[i], s.data() as Product);
+        });
+
+        // 2. CÁLCULOS
+        const items = (serverPurchase.items || []).map(i => ({
+          ...i,
+          receivedQuantity: Math.max(0, (i.receivedQuantity || 0) - (removeByProduct.get(i.id) || 0)),
+        }));
+
+        const trackings = (serverPurchase.trackings || []).map(t => {
+          if (t.id !== trackingId) return t;
+          const reopened: any = { ...t, isReceived: false };
+          delete reopened.receptionDate;
+          return reopened;
+        });
+
+        let allFullyReceived = items.length > 0;
+        let anyReceived = false;
+        items.forEach(item => {
+          if ((item.receivedQuantity || 0) > 0) anyReceived = true;
+          if ((item.receivedQuantity || 0) < item.quantity) allFullyReceived = false;
+        });
+        const status: Purchase['status'] =
+          items.length === 0 ? 'OPEN' : allFullyReceived ? 'CLOSED' : anyReceived ? 'PARTIAL' : 'OPEN';
+
+        // 3. ESCRITURAS
+        removeByProduct.forEach((qty, pid) => {
+          const p = serverProducts.get(pid);
+          if (!p) return; // producto borrado: no hay stock que ajustar
+          transaction.update(doc(db, 'products', pid), {
+            stock: Math.max(0, (p.stock || 0) - qty),
+            updatedAt: Date.now(),
+          });
+        });
+        transaction.update(purchaseRef, { items, trackings, status });
+      });
+    } catch (e) {
+      handleFirestoreError(e, 'update', `purchases/${purchaseId}`);
     }
   };
 
@@ -648,13 +888,20 @@ export function useStoreData() {
 
   const stats: DashboardStats = useMemo(() => {
     const realSales = sales.filter(s => s.documentType !== 'PROFORMA');
+    const todayStart = new Date().setHours(0, 0, 0, 0);
     return {
       totalProducts: products.length,
       // Valor de inventario A COSTO (no a precio de venta); guards contra docs viejos sin cost/stock.
       totalStockValue: products.reduce((acc, p) => acc + ((p.cost || 0) * (p.stock || 0)), 0),
       lowStockItems: products.filter(p => p.stock <= p.minStockAlert && !p.isReordering),
       recentSales: [...realSales].sort((a, b) => b.date - a.date).slice(0, 5),
-      totalSalesValue: realSales.reduce((acc, s) => acc + (s.status === 'completed' ? s.total : 0), 0),
+      totalSalesValue: realSales.reduce((acc, s) => acc + ((s.status || 'completed') === 'completed' ? s.total : 0), 0),
+      // P1.4: KPI honesto para el Dashboard (la ventana en vivo son 100 ventas;
+      // las de HOY siempre caben ahí en una tienda pequeña).
+      todaySalesValue: realSales.reduce(
+        (acc, s) => acc + (((s.status || 'completed') === 'completed' && s.date >= todayStart) ? s.total : 0),
+        0,
+      ),
     };
   }, [products, sales]);
 
@@ -683,9 +930,16 @@ export function useStoreData() {
     recordSale,
     updateSale,
     deleteSale,
+    changeSaleStatus,
+    olderSales,
+    hasMoreOlderSales,
+    loadingOlderSales,
+    loadMoreSales,
+    fetchSalesInRange,
     recordPurchase,
     updatePurchase,
     deletePurchase,
+    revertTrackingReception,
     updateCompanyInfo,
     addUniversalObjection,
     updateUniversalObjection,

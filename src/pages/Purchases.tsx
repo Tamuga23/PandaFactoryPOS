@@ -8,10 +8,18 @@ import PurchaseRegistration from '../components/PurchaseRegistration';
 import { toast } from '../components/Toast';
 
 export default function Purchases() {
-  const { products, purchases, recordPurchase, updatePurchase, deletePurchase, addProduct, companyInfo, loading, suppliers, addSupplier } = useStoreData();
+  const { products, purchases, recordPurchase, updatePurchase, deletePurchase, revertTrackingReception, addProduct, companyInfo, loading, suppliers, addSupplier } = useStoreData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [trackingModalPurchase, setTrackingModalPurchase] = useState<Purchase | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+
+  // P1.6: `purchase.supplier` guarda el ID del proveedor; resolver el nombre.
+  const supplierName = (idOrName?: string) =>
+    suppliers.find(s => s.id === idOrName)?.name || idOrName || 'N/A';
+
+  // P1.7: reversión de recepciones marcadas por error.
+  const [confirmingRevert, setConfirmingRevert] = useState<string | null>(null);
+  const [isReverting, setIsReverting] = useState(false);
 
   // Tracking CRUD states
   const [editingTracking, setEditingTracking] = useState<PurchaseTracking | null>(null);
@@ -75,6 +83,41 @@ export default function Purchases() {
         return [...prev, { itemId, quantity: clamped }];
       }
     });
+  };
+
+  const handleRevertClick = async (tracking: PurchaseTracking) => {
+    if (!trackingModalPurchase) return;
+    if (confirmingRevert !== tracking.id) {
+      setConfirmingRevert(tracking.id);
+      setTimeout(() => setConfirmingRevert(null), 4000);
+      return;
+    }
+    setConfirmingRevert(null);
+    setIsReverting(true);
+    try {
+      await revertTrackingReception(trackingModalPurchase.id, tracking.id);
+      // Reflejar la reversión en el estado local del modal.
+      setTrackingModalPurchase(prev => {
+        if (!prev) return prev;
+        const removeBy = new Map<string, number>();
+        (tracking.itemsInBox || []).forEach(b => removeBy.set(b.itemId, (removeBy.get(b.itemId) || 0) + b.quantity));
+        return {
+          ...prev,
+          items: prev.items.map(i => ({
+            ...i,
+            receivedQuantity: Math.max(0, (i.receivedQuantity || 0) - (removeBy.get(i.id) || 0)),
+          })),
+          trackings: prev.trackings.map(t =>
+            t.id === tracking.id ? { ...t, isReceived: false, receptionDate: undefined } : t
+          ),
+        };
+      });
+      toast.success('Recepción revertida: el stock de esa caja se descontó del inventario. (El costo promedio no se recalcula.)');
+    } catch {
+      toast.error('No se pudo revertir la recepción.');
+    } finally {
+      setIsReverting(false);
+    }
   };
 
   const saveTracking = async (e: React.FormEvent) => {
@@ -190,7 +233,7 @@ export default function Purchases() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs">
-                      <div className="font-bold text-zinc-200">{p.supplier || 'N/A'}</div>
+                      <div className="font-bold text-zinc-200">{supplierName(p.supplier)}</div>
                       <div className="text-zinc-500 text-[10px]">{p.shippingModality} via {p.shippingChannel}</div>
                     </td>
                     <td className="px-6 py-4 text-xs">
@@ -240,7 +283,7 @@ export default function Purchases() {
                   <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                      <Package className="w-5 h-5 text-cyan-400" /> Tracking y Recepción (Fase 2)
                   </h3>
-                  <p className="text-xs text-zinc-400">Orden original a: {trackingModalPurchase.supplier}</p>
+                  <p className="text-xs text-zinc-400">Orden original a: {supplierName(trackingModalPurchase.supplier)}</p>
                </div>
                <button onClick={() => { setTrackingModalPurchase(null); closeTrackingForm(); }} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">✕</button>
             </div>
@@ -278,9 +321,17 @@ export default function Purchases() {
                             <div className="space-y-1">
                               {t.itemsInBox.map(iib => {
                                  const pItem = trackingModalPurchase.items.find(i => i.id === iib.itemId);
+                                 const missingInCatalog = !products.some(inv => inv.id === iib.itemId);
                                  return (
                                    <div key={iib.itemId} className="text-xs flex justify-between">
-                                      <span className="text-zinc-300">{pItem?.name || iib.itemId}</span>
+                                      <span className="text-zinc-300">
+                                        {pItem?.name || iib.itemId}
+                                        {missingInCatalog && (
+                                          <span className="text-amber-500 ml-1" title="El producto fue borrado del catálogo; al recibir esta caja no sumará stock.">
+                                            ⚠ ya no existe en catálogo
+                                          </span>
+                                        )}
+                                      </span>
                                       <span className="font-mono text-cyan-400 shrink-0 ml-2">Qty: {iib.quantity}</span>
                                    </div>
                                  );
@@ -294,6 +345,20 @@ export default function Purchases() {
                                className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-bold"
                              >
                                <Edit className="w-3 h-3" /> Actualizar o Marcar como Recibido
+                             </button>
+                           )}
+                           {t.isReceived && (
+                             <button
+                               onClick={() => handleRevertClick(t)}
+                               disabled={isReverting}
+                               title="Descuenta del inventario las unidades de esta caja y reabre el tracking."
+                               className={`text-xs py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-bold border disabled:opacity-50 ${
+                                 confirmingRevert === t.id
+                                   ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                                   : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-amber-400 hover:border-amber-500/30'
+                               }`}
+                             >
+                               {isReverting ? 'Revirtiendo…' : confirmingRevert === t.id ? '¿Confirmar reversión? (resta stock)' : 'Revertir recepción'}
                              </button>
                            )}
                          </div>
@@ -350,10 +415,14 @@ export default function Purchases() {
                             }
                             const maxAllowed = pItem.quantity - otherBoxesQty;
                             
+                            const missingInCatalog = !products.some(inv => inv.id === pItem.id);
                             return (
                               <div key={pItem.id} className="flex flex-col sm:flex-row justify-between sm:items-center py-2 border-b border-zinc-700/50 gap-2">
                                 <div className="text-xs text-zinc-300">
-                                  {pItem.name} 
+                                  {pItem.name}
+                                  {missingInCatalog && (
+                                    <span className="block text-[10px] text-amber-500">⚠ Ya no existe en el catálogo: al recibir NO sumará stock.</span>
+                                  )}
                                   <span className="block text-[10px] text-zinc-500">Ordenados: {pItem.quantity} | Disponibles para Asignar en cajas: {maxAllowed}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -460,6 +529,11 @@ export default function Purchases() {
                      orderNumber: purchaseData.orderNumber,
                      financing: purchaseData.financing,
                      estimatedWeight: purchaseData.items.reduce((acc: number, i: any) => acc + (i.estimatedWeight || 0), 0) || undefined,
+                     // P1.5: costos de importación (antes se descartaban aquí)
+                     freightCost: purchaseData.freightCost || undefined,
+                     customsTaxes: purchaseData.customsTaxes || undefined,
+                     insuranceCost: purchaseData.insuranceCost || undefined,
+                     shippingRatePerLb: purchaseData.shippingRatePerLb || undefined,
                      status: 'OPEN',
                      stockAdded: false,
                      currency: 'USD',

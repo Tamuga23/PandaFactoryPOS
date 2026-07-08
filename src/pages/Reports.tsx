@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStoreData } from '../hooks/useStoreData';
+import { Sale } from '../types';
 import { formatCurrency } from '../lib/utils';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, subDays } from 'date-fns';
 import {
   AreaChart,
   Area,
@@ -16,18 +17,47 @@ import {
 } from 'recharts';
 import { Sparkles, TrendingUp, DollarSign, Percent, Package } from 'lucide-react';
 
-export default function Reports() {
-  const { sales, products, loading } = useStoreData();
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+const todayStr = () => format(new Date(), 'yyyy-MM-dd');
 
+export default function Reports() {
+  const { products, loading, user, fetchSalesInRange } = useStoreData();
+  // P1.4: default = mes en curso. Los datos se consultan por rango directo a
+  // Firestore (sin el límite de 100 de la ventana en vivo).
+  const [dateRange, setDateRange] = useState({
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: todayStr(),
+  });
+  const [rangeSales, setRangeSales] = useState<Sale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(true);
+
+  useEffect(() => {
+    if (!user || !dateRange.start || !dateRange.end) return;
+    let cancelled = false;
+    setLoadingSales(true);
+    const endMs = parseISO(dateRange.end).getTime() + 86399999; // fin de día inclusive
+    fetchSalesInRange(parseISO(dateRange.start).getTime(), endMs)
+      .then(data => { if (!cancelled) setRangeSales(data); })
+      .catch(() => { if (!cancelled) setRangeSales([]); })
+      .finally(() => { if (!cancelled) setLoadingSales(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, dateRange.start, dateRange.end]);
+
+  // P1.3: solo ventas COMPLETADAS cuentan como ingreso (excluye proformas,
+  // canceladas y devueltas — antes se sumaban al total).
   const filteredSales = useMemo(() => {
-    return sales.filter(s => {
-      if (s.documentType === 'PROFORMA') return false;
-      if (dateRange.start && s.date < parseISO(dateRange.start).getTime()) return false;
-      if (dateRange.end && s.date > parseISO(dateRange.end).getTime() + 86400000) return false;
-      return true;
-    });
-  }, [sales, dateRange]);
+    return rangeSales.filter(s =>
+      s.documentType !== 'PROFORMA' && (s.status || 'completed') === 'completed'
+    );
+  }, [rangeSales]);
+
+  const setPreset = (preset: 'hoy' | '7d' | 'mes' | '90d') => {
+    const end = todayStr();
+    if (preset === 'hoy') setDateRange({ start: end, end });
+    if (preset === '7d') setDateRange({ start: format(subDays(new Date(), 6), 'yyyy-MM-dd'), end });
+    if (preset === 'mes') setDateRange({ start: format(startOfMonth(new Date()), 'yyyy-MM-dd'), end });
+    if (preset === '90d') setDateRange({ start: format(subDays(new Date(), 89), 'yyyy-MM-dd'), end });
+  };
 
   const metrics = useMemo(() => {
     let totalRevenue = 0;
@@ -124,9 +154,24 @@ export default function Reports() {
           <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-tight italic flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-cyan-400" /> Panel Financiero
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">Análisis de ganancia bruta y márgenes por período.</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            Ganancia bruta y márgenes por período. Solo ventas completadas (excluye proformas, canceladas y devueltas).
+            {loadingSales && <span className="text-cyan-400 ml-2 animate-pulse">Cargando ventas…</span>}
+          </p>
         </div>
-        
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex items-center gap-1 bg-zinc-950 p-1.5 rounded-xl border border-zinc-800">
+          {([['hoy', 'Hoy'], ['7d', '7 días'], ['mes', 'Este mes'], ['90d', '90 días']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setPreset(key)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-3 bg-zinc-950 p-2 rounded-xl border border-zinc-800">
            <div className="flex items-center gap-2 px-2">
               <span className="text-[10px] uppercase font-bold text-zinc-500">Desde</span>
@@ -140,13 +185,14 @@ export default function Reports() {
            <div className="h-6 w-px bg-zinc-800"></div>
            <div className="flex items-center gap-2 px-2">
               <span className="text-[10px] uppercase font-bold text-zinc-500">Hasta</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={dateRange.end}
                 onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400" 
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400"
               />
            </div>
+        </div>
         </div>
       </div>
 

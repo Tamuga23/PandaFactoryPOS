@@ -177,6 +177,8 @@ export interface DashboardStats {
   lowStockItems: Product[];
   recentSales: Sale[];
   totalSalesValue: number;
+  /** Ventas completadas de HOY (ventana en vivo). */
+  todaySalesValue: number;
 }
 
 export interface ClientData {

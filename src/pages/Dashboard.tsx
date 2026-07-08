@@ -11,7 +11,9 @@ export default function Dashboard() {
   }
 
   const kpis = [
-    { title: 'Ventas Totales', value: formatCurrency(stats.totalSalesValue), icon: DollarSign, color: 'text-cyan-400', border: '' },
+    // P1.4: la ventana en vivo son las últimas 100 ventas, así que el KPI
+    // honesto es el de HOY (el total histórico vive en Reportes, por rango).
+    { title: 'Ventas de Hoy', value: formatCurrency(stats.todaySalesValue), icon: DollarSign, color: 'text-cyan-400', border: '' },
     { title: 'Valor Inventario (a costo)', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-cyan-400', border: '' },
     { title: 'Productos', value: stats.totalProducts.toString(), icon: Package, color: 'text-white', border: '' },
     { title: 'Inventario Crítico', value: stats.lowStockItems.length.toString(), icon: AlertTriangle, color: 'text-rose-400', border: 'border-l-rose-500 border-l-2' },

@@ -97,8 +97,17 @@ export default function POS() {
   const handleTryCheckout = async (isProforma: boolean = false) => {
     if (cart.length === 0) return;
 
-    const newInvoiceNumber = `A00${Math.floor(Math.random() * 1000) + 1000}`;
-    
+    // P1.7: el descuento no puede superar el monto de la venta.
+    const grossNIO = subtotal * currentExchangeRate + shipping;
+    if (discount > grossNIO) {
+      toast.error('El descuento no puede superar el total de la venta.');
+      return;
+    }
+
+    // P1.1: el número correlativo definitivo se asigna en la transacción de
+    // recordSale (counters/*). Aquí solo va un placeholder para el preview.
+    const newInvoiceNumber = 'POR ASIGNAR';
+
     // Calculate validity if it's a proforma (10 days from now)
     let validUntilDateStr: undefined | string = undefined;
     if (isProforma) {
@@ -210,13 +219,21 @@ export default function POS() {
 
     sale.customerId = finalCustomerId || undefined;
 
+    // P1.1: recordSale asigna y devuelve el número correlativo definitivo.
+    let assignedNumber: string;
     try {
-        await recordSale(sale);
-    } catch (e) {
-        toast.error('No se pudo completar la venta. Verifique el stock e intente de nuevo.');
+        assignedNumber = await recordSale(sale);
+    } catch (e: any) {
+        toast.error(e?.message?.includes('inválida')
+          ? e.message
+          : 'No se pudo completar la venta. Verifique el stock e intente de nuevo.');
         setIsConfirming(false);
         return;
     }
+
+    const confirmedSale = { ...sale, invoiceNumber: assignedNumber } as Sale;
+    // Actualizar el preview abierto (pasa a modo descarga) con el número real.
+    setPreviewData(prev => (prev ? { ...prev, invoiceNumber: assignedNumber } : prev));
 
     setCart([]);
     setCustomerName('');
@@ -226,10 +243,10 @@ export default function POS() {
     setCustomNote('');
     setDiscount(0);
     setShipping(0);
-    
+
     // Prepare label if transport requires it
-    if (['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(sale.transport)) {
-        setLabelSaleData(sale as Sale);
+    if (['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(confirmedSale.transport || '')) {
+        setLabelSaleData(confirmedSale);
     }
 
     setPendingSale(null);
@@ -467,7 +484,8 @@ export default function POS() {
                 type="number" 
                 className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
                 value={discount}
-                onChange={(e) => setDiscount(Number(e.target.value))}
+                min="0"
+                onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
             <div className="space-y-1">
@@ -476,7 +494,8 @@ export default function POS() {
                 type="number" 
                 className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500"
                 value={shipping}
-                onChange={(e) => setShipping(Number(e.target.value))}
+                min="0"
+                onChange={(e) => setShipping(Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
           </div>

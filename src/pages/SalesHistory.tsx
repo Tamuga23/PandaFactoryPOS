@@ -7,31 +7,60 @@ import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import { toast } from '../components/Toast';
 
 export default function SalesHistory() {
-  const { sales, deleteSale, updateSale, loading, companyInfo } = useStoreData();
+  const {
+    sales, deleteSale, updateSale, changeSaleStatus, loading, companyInfo,
+    olderSales, hasMoreOlderSales, loadingOlderSales, loadMoreSales,
+  } = useStoreData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [labelData, setLabelData] = useState<Sale | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
-  const filteredSales = sales.filter(s => 
+  // P1.4: ventana en vivo (100) + páginas viejas cargadas bajo demanda.
+  const allSales = React.useMemo(() => {
+    const seen = new Set(sales.map(s => s.id));
+    return [...sales, ...olderSales.filter(s => !seen.has(s.id))];
+  }, [sales, olderSales]);
+
+  const filteredSales = allSales.filter(s =>
     s.documentType !== 'PROFORMA' &&
     (s.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.customerName?.toLowerCase().includes(searchTerm.toLowerCase()))
   ).sort((a, b) => b.date - a.date);
 
-  const handleDeleteClick = (id: string) => {
-    if (confirmingDelete === id) {
-      deleteSale(id);
+  // P1.2: no se borran ventas completadas — primero anular (repone stock).
+  const handleDeleteClick = (sale: Sale) => {
+    if ((sale.status || 'completed') === 'completed' && sale.documentType !== 'PROFORMA') {
+      toast.error('Marcá la venta como Devuelta o Cancelada antes de eliminarla (así el stock se repone).');
+      setConfirmingDelete(null);
+      return;
+    }
+    if (confirmingDelete === sale.id) {
+      deleteSale(sale.id);
       setConfirmingDelete(null);
     } else {
-      setConfirmingDelete(id);
+      setConfirmingDelete(sale.id);
       setTimeout(() => setConfirmingDelete(null), 3000);
     }
   };
 
+  // P1.2: el cambio de estado ajusta stock en transacción (changeSaleStatus).
   const handleStatusChange = async (sale: Sale, newStatus: Sale['status']) => {
-    await updateSale({ ...sale, status: newStatus });
+    const prevStatus = sale.status || 'completed';
+    if (prevStatus === newStatus) return;
+    try {
+      await changeSaleStatus(sale, newStatus);
+      if (sale.documentType !== 'PROFORMA' && prevStatus === 'completed' && newStatus !== 'completed') {
+        toast.success('Estado actualizado — stock repuesto al inventario.');
+      } else if (sale.documentType !== 'PROFORMA' && prevStatus !== 'completed' && newStatus === 'completed') {
+        toast.success('Estado actualizado — stock descontado nuevamente.');
+      } else {
+        toast.success('Estado actualizado.');
+      }
+    } catch {
+      toast.error('No se pudo actualizar el estado de la venta.');
+    }
   };
 
   const handleEdit = (sale: Sale) => {
@@ -164,11 +193,11 @@ export default function SalesHistory() {
                       <Truck className="w-4 h-4" />
                     </button>
                   )}
-                  <button 
-                    onClick={() => handleDeleteClick(sale.id)} 
+                  <button
+                    onClick={() => handleDeleteClick(sale)}
                     className={`p-2 transition-colors rounded-lg ${confirmingDelete === sale.id ? 'bg-rose-500/20 text-rose-500 font-bold text-xs' : 'text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500'}`}
                   >
-                    {confirmingDelete === sale.id ? 'Delete?' : <Trash2 className="w-4 h-4" />}
+                    {confirmingDelete === sale.id ? '¿Eliminar?' : <Trash2 className="w-4 h-4" />}
                   </button>
                </div>
             </div>
@@ -185,8 +214,19 @@ export default function SalesHistory() {
         {filteredSales.length === 0 && (
           <div className="p-20 text-center text-zinc-500 flex flex-col items-center gap-4">
              <FileText className="w-12 h-12 opacity-20" />
-             <p className="italic">No sale records match your criteria.</p>
+             <p className="italic">Ninguna venta coincide con la búsqueda.</p>
           </div>
+        )}
+
+        {/* P1.4: paginación hacia atrás (más allá de las 100 en vivo) */}
+        {sales.length >= 100 && hasMoreOlderSales && (
+          <button
+            onClick={loadMoreSales}
+            disabled={loadingOlderSales}
+            className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+          >
+            {loadingOlderSales ? 'Cargando…' : 'Cargar ventas anteriores'}
+          </button>
         )}
       </div>
 

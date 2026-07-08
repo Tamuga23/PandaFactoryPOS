@@ -58,10 +58,11 @@ export default function PurchaseRegistration({
   const [financing, setFinancing] = useState('');
   const [isCustomFinancing, setIsCustomFinancing] = useState(false);
 
-  // Landed Cost State
+  // Landed Cost State (P1.5: ahora sí tienen inputs y viajan a la orden)
   const [freightCost, setFreightCost] = useState(0);
   const [customsTaxes, setCustomsTaxes] = useState(0);
   const [insuranceCost, setInsuranceCost] = useState(0);
+  const [shippingRatePerLb, setShippingRatePerLb] = useState('');
 
   // Items State
   const [items, setItems] = useState<DraftItem[]>([]);
@@ -304,6 +305,7 @@ export default function PurchaseRegistration({
         freightCost,
         customsTaxes,
         insuranceCost,
+        shippingRatePerLb: shippingRatePerLb ? Number(shippingRatePerLb) : undefined,
         date: new Date(acquisitionDate).getTime(),
         items: finalItems
       };
@@ -492,6 +494,59 @@ export default function PurchaseRegistration({
                     value={orderNumber}
                     onChange={(e) => setOrderNumber(e.target.value)}
                     placeholder="Ej. 114-1234567-890"
+                  />
+                </div>
+             </div>
+          </div>
+
+          {/* Landed Cost Section (P1.5) */}
+          <div className="bg-zinc-800/30 p-6 rounded-xl border border-zinc-800">
+             <h4 className="text-zinc-100 font-bold mb-1 flex items-center gap-2 border-b border-zinc-700/50 pb-2">
+                <Tag className="w-4 h-4 text-amber-400" /> Costos de Importación (Landed Cost)
+             </h4>
+             <p className="text-[10px] text-zinc-500 mb-4 leading-relaxed">
+               Estos costos se suman al costo real de cada unidad al recibirla. El flete se calcula por peso con la tarifa $/lb
+               (si un ítem no tiene peso, se prorratea el Flete Total por valor). Aduana y seguro siempre se prorratean por valor.
+             </p>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Tarifa Flete (USD/lb)</label>
+                  <input
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={shippingRatePerLb}
+                    onChange={(e) => setShippingRatePerLb(e.target.value)}
+                    placeholder={shippingMode === 'Air Cargo' ? 'Default: 6.5' : shippingMode === 'Sea Cargo' ? 'Default: 2.5' : 'Ej. 2.5'}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Flete Total (USD)</label>
+                  <input
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={freightCost || ''}
+                    onChange={(e) => setFreightCost(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="Si no usa $/lb"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Aduana / DGA (USD)</label>
+                  <input
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={customsTaxes || ''}
+                    onChange={(e) => setCustomsTaxes(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="Impuestos"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Seguro (USD)</label>
+                  <input
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={insuranceCost || ''}
+                    onChange={(e) => setInsuranceCost(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="Opcional"
                   />
                 </div>
              </div>

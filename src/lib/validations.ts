@@ -208,7 +208,9 @@ export const PurchaseSchema = z.object({
   totalCost: z.number().min(0),
   
   shippingChannel: z.string().optional(),
-  shippingModality: z.enum(['Sea Cargo', 'Air Cargo']).optional(),
+  // La UI permite modalidades custom además de Sea/Air Cargo, así que se
+  // valida como string (las reglas también aceptan cualquier string).
+  shippingModality: z.string().optional(),
   orderNumber: z.string().optional(),
   financing: z.string().optional(),
   estimatedWeight: z.number().min(0).optional(),
@@ -324,3 +326,4 @@ export function buildPublicCatalogDoc(product: Product): PublicCatalogProduct {
 
   return doc;
 }
+// (fin del archivo)

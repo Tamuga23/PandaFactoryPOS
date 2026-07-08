@@ -259,6 +259,22 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // Contadores transaccionales (P1.1): numeración correlativa de facturas
+    // y proformas. Docs: counters/invoices, counters/proformas → { value, updatedAt }.
+    // Se escriben SOLO dentro de la transacción de recordSale.
+    // ---------------------------------------------------------------------
+    match /counters/{counterId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSignedIn()
+        && incoming().keys().hasAll(['value'])
+        && incoming().keys().hasOnly(['value', 'updatedAt'])
+        && incoming().value is number && incoming().value >= 0
+        && (!('updatedAt' in incoming()) || incoming().updatedAt is number);
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // Catálogo público: espejo derivado de products, SIN `cost`.
     // Lo escribe ÚNICAMENTE el servidor (Cloud Function vía Admin SDK, que
     // omite estas reglas). Ningún cliente puede escribirlo.
