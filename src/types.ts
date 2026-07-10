@@ -244,10 +244,18 @@ export interface ProjectorSpecs {
   extra?: Record<string, string | number | boolean>;
 }
 
+/** Foto complementaria de la galería de la tablet (ej. proyector a oscuras / con luz). */
+export interface GalleryItem {
+  url: string;
+  /** Etiqueta corta visible en la tablet (ej. "A oscuras", "Con luz"). Máx ~40 chars. */
+  label?: string;
+}
+
 /** Recursos multimedia para la tablet. */
 export interface TabletMedia {
   heroImage?: string;
-  gallery?: string[];
+  /** Fotos complementarias. Formato nuevo: {url, label?}; docs viejos pueden traer strings (la tablet normaliza ambos). */
+  gallery?: (string | GalleryItem)[];
   videoUrl?: string;
 }
 

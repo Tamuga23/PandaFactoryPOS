@@ -29,9 +29,16 @@ export const ProjectorSpecsSchema = z.object({
   extra: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
+/** Foto complementaria de la galería (formato nuevo). */
+export const GalleryItemSchema = z.object({
+  url: z.string().min(1),
+  label: z.string().max(40).optional(),
+});
+
 export const TabletMediaSchema = z.object({
   heroImage: z.string().optional(),
-  gallery: z.array(z.string()).optional(),
+  /** Acepta strings (legacy) u objetos {url, label} (nuevo). */
+  gallery: z.array(z.union([z.string(), GalleryItemSchema])).optional(),
   videoUrl: z.string().optional(),
 });
 

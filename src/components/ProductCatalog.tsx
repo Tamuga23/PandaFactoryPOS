@@ -10,6 +10,17 @@ const isProjectorCategory = (category: string) => {
   return slug.includes('projector') || slug.includes('proyector');
 };
 
+// Galería de la tablet: el form maneja SIEMPRE 2 filas {url, label} (fotos
+// complementarias, ej. proyector "A oscuras" / "Con luz"). Acepta docs viejos
+// donde gallery era string[].
+const toFormMedia = (media?: TabletMedia) => {
+  const rows = (media?.gallery ?? [])
+    .slice(0, 2)
+    .map((g) => (typeof g === 'string' ? { url: g, label: '' } : { url: g.url || '', label: g.label || '' }));
+  while (rows.length < 2) rows.push({ url: '', label: '' });
+  return { heroImage: media?.heroImage || '', videoUrl: media?.videoUrl || '', gallery: rows };
+};
+
 export interface CatalogProduct {
   id: string; // id del documento (uuid en productos nuevos; SKU en legacy)
   sku?: string; // P3.5: el SKU ahora es campo propio, ya no es el id
@@ -81,7 +92,7 @@ const INITIAL_FORM_DATA: FormData = {
   bullets: [],
   objecionesOverride: [],
   specsProyector: { ansi: '', throwRatio: '', distMinEnfoque: '', resolucion: '', autofoco: false },
-  media: { heroImage: '', videoUrl: '' },
+  media: toFormMedia(undefined),
 };
 
 export default function ProductCatalog({
@@ -139,7 +150,7 @@ export default function ProductCatalog({
         bullets: product.bullets || [],
         objecionesOverride: product.objecionesOverride || [],
         specsProyector: product.specsProyector || { ansi: '', throwRatio: '', distMinEnfoque: '', resolucion: '', autofoco: false },
-        media: product.media || { heroImage: '', videoUrl: '' },
+        media: toFormMedia(product.media),
       });
       setIsCustomCategory(!isStandardCategory);
     } else {
@@ -207,10 +218,19 @@ export default function ProductCatalog({
           resolucion: formData.specsProyector.resolucion || undefined,
           autofoco: formData.specsProyector.autofoco || false
         } : undefined,
-        media: (formData.media.heroImage || formData.media.videoUrl) ? {
-          heroImage: formData.media.heroImage || undefined,
-          videoUrl: formData.media.videoUrl || undefined
-        } : undefined,
+        media: (() => {
+          // Galería: solo filas con URL; label solo si tiene texto (Firestore rechaza undefined anidado).
+          const gallery = (formData.media.gallery ?? [])
+            .filter((g: { url: string }) => g.url.trim())
+            .map((g: { url: string; label: string }) =>
+              g.label.trim() ? { url: g.url.trim(), label: g.label.trim() } : { url: g.url.trim() });
+          if (!formData.media.heroImage && !formData.media.videoUrl && gallery.length === 0) return undefined;
+          return {
+            heroImage: formData.media.heroImage || undefined,
+            videoUrl: formData.media.videoUrl || undefined,
+            ...(gallery.length > 0 ? { gallery } : {}),
+          };
+        })(),
       };
 
       if (isEditing) {
@@ -270,6 +290,18 @@ export default function ProductCatalog({
   
   const handleMediaChange = (field: string, value: string) => {
     setFormData({ ...formData, media: { ...formData.media, [field]: value } });
+  };
+
+  // Fotos complementarias (galería tablet): edición inmutable de la fila i.
+  const handleGalleryChange = (index: number, field: 'url' | 'label', value: string) => {
+    setFormData((prev: FormData) => ({
+      ...prev,
+      media: {
+        ...prev.media,
+        gallery: (prev.media.gallery ?? []).map((g: { url: string; label: string }, i: number) =>
+          i === index ? { ...g, [field]: value } : g),
+      },
+    }));
   };
 
   return (
@@ -725,8 +757,36 @@ export default function ProductCatalog({
               <input type="url" value={formData.media.heroImage} onChange={(e) => handleMediaChange('heroImage', e.target.value)} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">Video Promocional (URL YouTube/Vimeo)</label>
+              <label className="block text-sm text-zinc-400 mb-1">Video Promocional (URL — solo YouTube)</label>
               <input type="url" value={formData.media.videoUrl} onChange={(e) => handleMediaChange('videoUrl', e.target.value)} placeholder="https://youtube.com/..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
+              <p className="text-xs text-zinc-500 mt-1">La tablet solo reproduce YouTube; otras fuentes muestran la foto.</p>
+            </div>
+          </div>
+
+          {/* Fotos complementarias para el modo Demo de la tablet */}
+          <div className="mt-4">
+            <label className="block text-sm text-zinc-400 mb-1">Fotos complementarias (Demo de la tablet)</label>
+            <p className="text-xs text-zinc-500 mb-2">Hasta 2 fotos extra con etiqueta corta. Ej. proyector: "A oscuras" y "Con luz".</p>
+            <div className="space-y-2">
+              {(formData.media.gallery ?? []).map((g: { url: string; label: string }, i: number) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <input
+                    type="url"
+                    value={g.url}
+                    onChange={(e) => handleGalleryChange(i, 'url', e.target.value)}
+                    placeholder={`https://... (foto ${i + 2})`}
+                    className="md:col-span-2 w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                  <input
+                    type="text"
+                    maxLength={40}
+                    value={g.label}
+                    onChange={(e) => handleGalleryChange(i, 'label', e.target.value)}
+                    placeholder={i === 0 ? 'Etiqueta (ej. "A oscuras")' : 'Etiqueta (ej. "Con luz")'}
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         </div>
