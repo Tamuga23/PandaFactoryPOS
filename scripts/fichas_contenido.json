@@ -155,6 +155,70 @@
         "isNew": true,
         "orden": 12
       }
+    ],
+    "smartwatch": [
+      {
+        "id": "compatibilidad",
+        "orden": 1,
+        "pregunta": "¿Sirve con iPhone y Android?",
+        "respuesta": "Sí, es compatible con ambos. Se vincula con una app gratuita que descargás desde tu tienda de aplicaciones."
+      },
+      {
+        "id": "llamadas",
+        "orden": 2,
+        "pregunta": "¿Puedo contestar llamadas?",
+        "respuesta": "Según el modelo, sí: tiene Bluetooth para contestar y hacer llamadas desde el reloj."
+      },
+      {
+        "id": "salud",
+        "orden": 3,
+        "pregunta": "¿Mide ritmo cardíaco, oxígeno y sueño?",
+        "respuesta": "Sí, monitorea ritmo cardíaco, oxígeno y sueño, además de pasos. Son datos de referencia, no de uso médico."
+      },
+      {
+        "id": "bateria",
+        "orden": 4,
+        "pregunta": "¿Cuánto dura la batería?",
+        "respuesta": "Varía por modelo y uso, normalmente varios días con una carga. Carga rápido por imán."
+      },
+      {
+        "id": "agua",
+        "orden": 5,
+        "pregunta": "¿Resiste agua?",
+        "respuesta": "Resiste salpicaduras y sudor para uso diario. No recomendado para nadar ni sumergir, salvo que el modelo lo indique."
+      }
+    ],
+    "smarthome": [
+      {
+        "id": "sh_sonido",
+        "orden": 1,
+        "pregunta": "¿Se escucha bien / suena fuerte?",
+        "respuesta": "Sí, rinden buen volumen para su tamaño. Según el modelo llenan una sala o acompañan una salida; consultanos según el espacio."
+      },
+      {
+        "id": "sh_conexion",
+        "orden": 2,
+        "pregunta": "¿Cómo le pongo música?",
+        "respuesta": "Según el modelo, por Bluetooth desde tu celular o por voz. Consultanos y te decimos cómo conecta el que te interesa."
+      },
+      {
+        "id": "sh_internet",
+        "orden": 3,
+        "pregunta": "¿Necesita internet o WiFi?",
+        "respuesta": "Depende del modelo: los parlantes Bluetooth no necesitan internet; los parlantes inteligentes con asistente sí usan WiFi."
+      },
+      {
+        "id": "sh_agua",
+        "orden": 4,
+        "pregunta": "¿Resiste agua / lo puedo usar afuera?",
+        "respuesta": "Depende del modelo: algunos son resistentes al agua para exteriores y otros son para uso interior. Consultanos según dónde lo vas a usar."
+      },
+      {
+        "id": "sh_energia",
+        "orden": 5,
+        "pregunta": "¿Funciona con batería o va enchufado?",
+        "respuesta": "Depende del modelo: los portátiles traen batería recargable; los de casa van enchufados. Consultanos el que te interesa."
+      }
     ]
   },
   "productContent": [
@@ -614,6 +678,293 @@
         {
           "objId": "instalacion",
           "respuesta": "Fácil: es del tamaño de una tarjeta de crédito, va detrás del retrovisor sin tapar la visión y queda lista en minutos."
+        }
+      ]
+    },
+    {
+      "label": "70mai M310 Plus (2K) [1208]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1208",
+        "category": "dashcam"
+      },
+      "beneficio": "Graba en 2K nítido, ve bien de noche y te protege estacionado. Fácil de instalar.",
+      "description": "Cámara frontal 2K 1440p con lente gran angular de 140°: las placas y señales se leen claras de día y de noche (apertura F1.55, WDR y reducción de ruido 3D). El sensor G detecta golpes y bloquea el video del incidente con pre-grabación, y el modo estacionamiento 24H vigila el carro apagado. Se controla por app WiFi (iOS/Android) y por voz, con instalación sencilla por Type-C. Tu respaldo ante cualquier reclamo.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Video 2K 1440p + gran angular 140°: lee placas y señales con claridad"
+        },
+        {
+          "order": 2,
+          "text": "Visión nocturna F1.55 con WDR: nítida en poca luz, túneles y lluvia"
+        },
+        {
+          "order": 3,
+          "text": "Sensor G + pre-grabación: bloquea el video del golpe (1–3 min antes)"
+        },
+        {
+          "order": 4,
+          "text": "Modo estacionamiento 24H + timelapse (requiere kit de cableado UP03/UP06)"
+        },
+        {
+          "order": 5,
+          "text": "App WiFi (iOS/Android) + control por voz: ver, descargar y compartir al toque"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "resolucion",
+          "respuesta": "Graba en 2K 1440p reales con gran angular de 140°. Se leen bien placas y señales, mejor que una cámara 1080p."
+        },
+        {
+          "objId": "nocturno",
+          "respuesta": "Sí: lente F1.55 + WDR + reducción de ruido 3D. Se ve claro de noche, en túneles y con lluvia, sin encandilarse con los faros."
+        },
+        {
+          "objId": "estacionamiento",
+          "respuesta": "Tiene modo estacionamiento 24H: graba y bloquea el clip si detecta un golpe, aun con el carro apagado. Requiere el kit de cableado UP03/UP06 (no incluido) y protege la batería (corta a 11.8V)."
+        },
+        {
+          "objId": "instalacion",
+          "respuesta": "Es sencilla: se pega sin dejar residuo y se alimenta por Type-C (cable de 3.5 m). Queda lista en minutos y podés pasarla de un carro a otro."
+        },
+        {
+          "objId": "memoria",
+          "respuesta": "Usa microSD y graba en bucle (sobrescribe lo más viejo). Te recomendamos la capacidad según las horas que querás guardar; consultanos."
+        },
+        {
+          "objId": "doble",
+          "respuesta": "Este modelo es frontal (gran angular 140°). Si querés grabar también hacia atrás, consultanos un modelo de doble cámara."
+        },
+        {
+          "objId": "wifi",
+          "respuesta": "Sí, trae WiFi: desde la app (iOS/Android) ves en vivo, descargás y compartís los videos, ideal para un reclamo de seguro."
+        },
+        {
+          "objId": "voz",
+          "respuesta": "Tiene control por voz: podés bloquear un video, tomar foto o controlar el audio sin soltar el volante."
+        }
+      ]
+    },
+    {
+      "label": "Amazon Echo Dot Max [1212]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1212",
+        "category": "smarthome"
+      },
+      "beneficio": "El Echo Dot más potente: sonido que llena la sala, Alexa y centro de casa inteligente integrado.",
+      "description": "La nueva generación del Echo Dot con chip AZ3 y tecnología Omnisense: sonido más potente (casi 3× los bajos del Echo Dot 2022) que se adapta a tu espacio. Trae hub de casa inteligente integrado para controlar luces, cerraduras y miles de dispositivos con Alexa sin equipo extra, y con eero Built-in extiende tu WiFi hasta 1,000 pies². Escuchá Amazon Music, Spotify, Apple Music y más, creá rutinas y controlá todo por voz. Con botón para apagar los micrófonos.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Sonido potente que llena la sala: casi 3× los bajos del Echo Dot 2022"
+        },
+        {
+          "order": 2,
+          "text": "Alexa: música, clima, recordatorios y rutinas por voz"
+        },
+        {
+          "order": 3,
+          "text": "Hub de casa inteligente integrado: luces, cerraduras y +1000 dispositivos, sin hub extra"
+        },
+        {
+          "order": 4,
+          "text": "eero Built-in: extiende tu WiFi hasta 1,000 pies² (adiós interrupciones)"
+        },
+        {
+          "order": 5,
+          "text": "Privacidad: botón para apagar los micrófonos + chip AZ3 y Omnisense"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "sh_sonido",
+          "respuesta": "Suena fuerte y claro: casi 3× los bajos del Echo Dot 2022 y se adapta solo a tu espacio para llenar la sala."
+        },
+        {
+          "objId": "sh_conexion",
+          "respuesta": "Le pedís la música por voz a Alexa (Amazon Music, Spotify, Apple Music, SiriusXM). Podés vincular dos para estéreo o con un Fire TV para cine en casa."
+        },
+        {
+          "objId": "sh_internet",
+          "respuesta": "Sí necesita WiFi para Alexa y la casa inteligente. De hecho, con eero Built-in ayuda a extender tu WiFi hasta 1,000 pies²."
+        },
+        {
+          "objId": "sh_agua",
+          "respuesta": "Es para uso interior; no es resistente al agua. Ideal para sala, cuarto o cocina."
+        },
+        {
+          "objId": "sh_energia",
+          "respuesta": "Va enchufado (uso en casa), no tiene batería. Así queda siempre listo para escucharte y controlar la casa."
+        }
+      ]
+    },
+    {
+      "label": "Amazfit Active Max [1217]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1217",
+        "category": "smartwatch"
+      },
+      "beneficio": "Pantalla enorme y brillante (3000 nits), hasta 25 días de batería y mapas offline en la muñeca.",
+      "description": "Smartwatch con pantalla AMOLED de 1.5\" ultrabrillante (3000 nits) que se lee incluso bajo el sol fuerte, y hasta 25 días de batería. Trae 4 GB para tu música y mapas descargables con indicaciones giro a giro, GPS de 5 sistemas satelitales, más de 170 modos deportivos y planes con IA de Zepp Coach. El monitor de energía BioCharge te dice cuándo exigirte y cuándo descansar. Contestá llamadas por Bluetooth y respondé mensajes con la voz (Zepp Flow, requiere Android).",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Pantalla AMOLED 1.5\" a 3000 nits: se lee clarísima incluso bajo el sol"
+        },
+        {
+          "order": 2,
+          "text": "Hasta 25 días de batería: menos cargas, más uso"
+        },
+        {
+          "order": 3,
+          "text": "4 GB para música + mapas offline con indicaciones giro a giro"
+        },
+        {
+          "order": 4,
+          "text": "+170 modos deportivos y planes con IA (Zepp Coach) + energía BioCharge"
+        },
+        {
+          "order": 5,
+          "text": "Llamadas Bluetooth y respuestas por voz (Zepp Flow, requiere Android)"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "compatibilidad",
+          "respuesta": "Funciona con iPhone y Android con la app gratuita Zepp. Las respuestas por voz (Zepp Flow) requieren Android."
+        },
+        {
+          "objId": "llamadas",
+          "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde la muñeca."
+        },
+        {
+          "objId": "salud",
+          "respuesta": "Mide tu energía corporal (BioCharge) según entrenos y estrés, para saber cuándo exigirte y cuándo descansar, con +170 modos deportivos. Son datos de referencia, no de uso médico."
+        },
+        {
+          "objId": "bateria",
+          "respuesta": "Rinde hasta 25 días con uso típico, así casi no dependés del cargador."
+        },
+        {
+          "objId": "agua",
+          "respuesta": "Resistencia 5ATM (50 m): apto para salpicaduras, lluvia y hasta nadar. Para nadar usá correa de silicona y evitá agua caliente o sauna."
+        }
+      ]
+    },
+    {
+      "label": "Anker SoundCore 2 [1224]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1224",
+        "category": "smarthome"
+      },
+      "beneficio": "Parlante Bluetooth 12W con graves BassUp, a prueba de agua IPX7 y 24h de batería.",
+      "description": "Parlante Bluetooth portátil con 12W y graves reforzados (tecnología BassUp + puerto en espiral) para un sonido potente y sin distorsión a cualquier volumen. Resistencia al agua IPX7: aguanta salpicaduras, olas y lluvia, ideal para la playa, la piscina o el camping. Hasta 24 horas de batería (5,200 mAh), Bluetooth con tu celular y emparejamiento estéreo para unir dos parlantes. Compacto, con controles simples para llevar a todos lados.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "12W con graves BassUp: potente y sin distorsión a todo volumen"
+        },
+        {
+          "order": 2,
+          "text": "A prueba de agua IPX7: playa, piscina, lluvia y camping"
+        },
+        {
+          "order": 3,
+          "text": "Hasta 24h de batería (5,200 mAh): suena todo el día"
+        },
+        {
+          "order": 4,
+          "text": "Bluetooth + emparejamiento estéreo: uní dos para más sonido"
+        },
+        {
+          "order": 5,
+          "text": "Compacto y fácil de llevar, con controles simples"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "sh_sonido",
+          "respuesta": "Rinde 12W con graves BassUp y cero distorsión a cualquier volumen: suena fuerte para su tamaño."
+        },
+        {
+          "objId": "sh_conexion",
+          "respuesta": "Se conecta por Bluetooth con tu celular. Podés emparejar dos SoundCore 2 en estéreo para más sonido."
+        },
+        {
+          "objId": "sh_internet",
+          "respuesta": "No necesita internet ni WiFi: es Bluetooth, funciona directo con tu teléfono."
+        },
+        {
+          "objId": "sh_agua",
+          "respuesta": "Sí, es IPX7: aguanta salpicaduras, olas y lluvia. Perfecto para playa, piscina o camping (no lo dejes sumergido)."
+        },
+        {
+          "objId": "sh_energia",
+          "respuesta": "Batería recargable de 5,200 mAh: hasta 24 horas de música con una carga."
+        }
+      ]
+    },
+    {
+      "label": "Amazfit Active 2 [1154]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1154",
+        "category": "smartwatch"
+      },
+      "beneficio": "Acero inoxidable, AMOLED brillante, hasta 10 días de batería y 5ATM para nadar.",
+      "description": "Smartwatch con marco de acero inoxidable y pantalla AMOLED de 1.32\" que se lee bien al sol, con hasta 10 días de batería. Sensor BioTracker para ritmo cardíaco y sueño más precisos, más de 160 modos deportivos (incluye HYROX, fuerza, pádel y yoga) y resistencia 5ATM para nadar y esquiar. Trae mapas gratis con indicaciones giro a giro y GPS de 5 sistemas satelitales. La app Zepp es gratis, sin suscripciones ocultas y con protección de datos (AWS, RGPD).",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Marco de acero inoxidable + AMOLED 1.32\" brillante"
+        },
+        {
+          "order": 2,
+          "text": "Hasta 10 días de batería: olvidate de cargar cada noche"
+        },
+        {
+          "order": 3,
+          "text": "Ritmo cardíaco y sueño precisos con sensor BioTracker"
+        },
+        {
+          "order": 4,
+          "text": "+160 modos (HYROX, fuerza, pádel, yoga) + 5ATM: nadá y esquiá con confianza"
+        },
+        {
+          "order": 5,
+          "text": "Mapas gratis giro a giro + GPS de 5 sistemas satelitales"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "compatibilidad",
+          "respuesta": "Funciona con iPhone y Android con la app gratuita Zepp, sin suscripciones ocultas y con protección de datos (AWS, RGPD)."
+        },
+        {
+          "objId": "salud",
+          "respuesta": "El sensor BioTracker mide ritmo cardíaco y sueño con buena precisión, con +160 modos deportivos. Son datos de referencia, no de uso médico."
+        },
+        {
+          "objId": "bateria",
+          "respuesta": "Rinde hasta 10 días con uso típico; carga por imán."
+        },
+        {
+          "objId": "agua",
+          "respuesta": "Resistencia 5ATM (50 m): podés nadar y hasta esquiar con confianza. Trae barómetro."
+        },
+        {
+          "objId": "llamadas",
+          "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde el reloj (se activa en la app Zepp)."
         }
       ]
     }
