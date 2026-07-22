@@ -716,34 +716,42 @@
       "objeciones": [
         {
           "objId": "resolucion",
+          "titulo": "¿Qué tan nítido graba?",
           "respuesta": "Graba en 2K 1440p reales con gran angular de 140°. Se leen bien placas y señales, mejor que una cámara 1080p."
         },
         {
           "objId": "nocturno",
+          "titulo": "¿Graba bien de noche?",
           "respuesta": "Sí: lente F1.55 + WDR + reducción de ruido 3D. Se ve claro de noche, en túneles y con lluvia, sin encandilarse con los faros."
         },
         {
           "objId": "estacionamiento",
+          "titulo": "¿Graba estacionado?",
           "respuesta": "Tiene modo estacionamiento 24H: graba y bloquea el clip si detecta un golpe, aun con el carro apagado. Requiere el kit de cableado UP03/UP06 (no incluido) y protege la batería (corta a 11.8V)."
         },
         {
           "objId": "instalacion",
+          "titulo": "¿Es difícil de instalar?",
           "respuesta": "Es sencilla: se pega sin dejar residuo y se alimenta por Type-C (cable de 3.5 m). Queda lista en minutos y podés pasarla de un carro a otro."
         },
         {
           "objId": "memoria",
+          "titulo": "¿Incluye memoria?",
           "respuesta": "Usa microSD y graba en bucle (sobrescribe lo más viejo). Te recomendamos la capacidad según las horas que querás guardar; consultanos."
         },
         {
           "objId": "doble",
+          "titulo": "¿Graba adelante y atrás?",
           "respuesta": "Este modelo es frontal (gran angular 140°). Si querés grabar también hacia atrás, consultanos un modelo de doble cámara."
         },
         {
           "objId": "wifi",
+          "titulo": "¿Tiene WiFi y app?",
           "respuesta": "Sí, trae WiFi: desde la app (iOS/Android) ves en vivo, descargás y compartís los videos, ideal para un reclamo de seguro."
         },
         {
           "objId": "voz",
+          "titulo": "¿Tiene control por voz?",
           "respuesta": "Tiene control por voz: podés bloquear un video, tomar foto o controlar el audio sin soltar el volante."
         }
       ]
@@ -783,22 +791,27 @@
       "objeciones": [
         {
           "objId": "sh_sonido",
+          "titulo": "¿Se escucha bien?",
           "respuesta": "Suena fuerte y claro: casi 3× los bajos del Echo Dot 2022 y se adapta solo a tu espacio para llenar la sala."
         },
         {
           "objId": "sh_conexion",
+          "titulo": "¿Cómo le pongo música?",
           "respuesta": "Le pedís la música por voz a Alexa (Amazon Music, Spotify, Apple Music, SiriusXM). Podés vincular dos para estéreo o con un Fire TV para cine en casa."
         },
         {
           "objId": "sh_internet",
+          "titulo": "¿Necesita internet o WiFi?",
           "respuesta": "Sí necesita WiFi para Alexa y la casa inteligente. De hecho, con eero Built-in ayuda a extender tu WiFi hasta 1,000 pies²."
         },
         {
           "objId": "sh_agua",
+          "titulo": "¿Resiste agua?",
           "respuesta": "Es para uso interior; no es resistente al agua. Ideal para sala, cuarto o cocina."
         },
         {
           "objId": "sh_energia",
+          "titulo": "¿Batería o enchufado?",
           "respuesta": "Va enchufado (uso en casa), no tiene batería. Así queda siempre listo para escucharte y controlar la casa."
         }
       ]
@@ -838,22 +851,27 @@
       "objeciones": [
         {
           "objId": "compatibilidad",
+          "titulo": "¿Sirve con iPhone y Android?",
           "respuesta": "Funciona con iPhone y Android con la app gratuita Zepp. Las respuestas por voz (Zepp Flow) requieren Android."
         },
         {
           "objId": "llamadas",
+          "titulo": "¿Puedo contestar llamadas?",
           "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde la muñeca."
         },
         {
           "objId": "salud",
+          "titulo": "¿Qué mide de salud?",
           "respuesta": "Mide tu energía corporal (BioCharge) según entrenos y estrés, para saber cuándo exigirte y cuándo descansar, con +170 modos deportivos. Son datos de referencia, no de uso médico."
         },
         {
           "objId": "bateria",
+          "titulo": "¿Cuánto dura la batería?",
           "respuesta": "Rinde hasta 25 días con uso típico, así casi no dependés del cargador."
         },
         {
           "objId": "agua",
+          "titulo": "¿Resiste agua?",
           "respuesta": "Resistencia 5ATM (50 m): apto para salpicaduras, lluvia y hasta nadar. Para nadar usá correa de silicona y evitá agua caliente o sauna."
         }
       ]
@@ -893,22 +911,27 @@
       "objeciones": [
         {
           "objId": "sh_sonido",
+          "titulo": "¿Se escucha bien / suena fuerte?",
           "respuesta": "Rinde 12W con graves BassUp y cero distorsión a cualquier volumen: suena fuerte para su tamaño."
         },
         {
           "objId": "sh_conexion",
+          "titulo": "¿Cómo le pongo música?",
           "respuesta": "Se conecta por Bluetooth con tu celular. Podés emparejar dos SoundCore 2 en estéreo para más sonido."
         },
         {
           "objId": "sh_internet",
+          "titulo": "¿Necesita internet o WiFi?",
           "respuesta": "No necesita internet ni WiFi: es Bluetooth, funciona directo con tu teléfono."
         },
         {
           "objId": "sh_agua",
+          "titulo": "¿Resiste agua / lo uso afuera?",
           "respuesta": "Sí, es IPX7: aguanta salpicaduras, olas y lluvia. Perfecto para playa, piscina o camping (no lo dejes sumergido)."
         },
         {
           "objId": "sh_energia",
+          "titulo": "¿Cuánto dura la batería?",
           "respuesta": "Batería recargable de 5,200 mAh: hasta 24 horas de música con una carga."
         }
       ]
@@ -948,22 +971,27 @@
       "objeciones": [
         {
           "objId": "compatibilidad",
+          "titulo": "¿Sirve con iPhone y Android?",
           "respuesta": "Funciona con iPhone y Android con la app gratuita Zepp, sin suscripciones ocultas y con protección de datos (AWS, RGPD)."
         },
         {
           "objId": "salud",
+          "titulo": "¿Qué mide de salud?",
           "respuesta": "El sensor BioTracker mide ritmo cardíaco y sueño con buena precisión, con +160 modos deportivos. Son datos de referencia, no de uso médico."
         },
         {
           "objId": "bateria",
+          "titulo": "¿Cuánto dura la batería?",
           "respuesta": "Rinde hasta 10 días con uso típico; carga por imán."
         },
         {
           "objId": "agua",
+          "titulo": "¿Resiste agua / puedo nadar?",
           "respuesta": "Resistencia 5ATM (50 m): podés nadar y hasta esquiar con confianza. Trae barómetro."
         },
         {
           "objId": "llamadas",
+          "titulo": "¿Puedo contestar llamadas?",
           "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde el reloj (se activa en la app Zepp)."
         }
       ]

@@ -119,7 +119,10 @@ for (const m of DATA.productContent) {
   }
   const { ref, data } = found;
   const bullets = m.bullets.map((b) => ({ text: b.text, order: b.order }));
-  const objecionesOverride = m.objeciones.map((o) => ({ objId: o.objId, respuesta: o.respuesta }));
+  // Conserva `titulo` cuando viene: es la etiqueta legible del botón en la tablet.
+  // Si falta, la tablet hereda la `pregunta` de la objeción base; si tampoco existe, muestra el slug.
+  // (db.settings ignoreUndefinedProperties=true → un titulo undefined no se escribe.)
+  const objecionesOverride = m.objeciones.map((o) => ({ objId: o.objId, titulo: o.titulo, respuesta: o.respuesta }));
   const update = { beneficio: m.beneficio, bullets, objecionesOverride, updatedAt: now };
   if (WRITE_DESCRIPTION) update.description = m.description;
 
