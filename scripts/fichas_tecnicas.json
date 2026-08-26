@@ -175,7 +175,7 @@
         "visionNocturna": "Visión nocturna HDR en los 3 canales",
         "almacenamiento": "microSD hasta 256 GB (no incluida)",
         "modoEstacionamiento": true,
-        "gps": false,
+        "gps": true,
         "app": true,
         "instalacion": "Hardwire para grabación continua; incluye cámara trasera e interior"
       },
