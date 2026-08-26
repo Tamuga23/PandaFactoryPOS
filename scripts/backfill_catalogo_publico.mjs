@@ -72,6 +72,7 @@ function buildPublicCatalogDoc(p) {
   if (p.campania) doc.campania = p.campania;
   if (p.beneficio) doc.beneficio = p.beneficio;
   if (p.bullets) doc.bullets = p.bullets;
+  if (p.specs) doc.specs = p.specs;
   if (p.specsProyector) doc.specsProyector = p.specsProyector;
   if (p.objecionesOverride) doc.objecionesOverride = p.objecionesOverride;
   if (p.media) doc.media = p.media;
