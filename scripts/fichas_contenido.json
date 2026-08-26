@@ -995,6 +995,63 @@
           "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde el reloj (se activa en la app Zepp)."
         }
       ]
+    },
+    {
+      "label": "Amazfit BIP MAX [54e189fd]",
+      "matchBy": {
+        "id": "54e189fd-a64c-4c91-8550-44cec0e45c9e"
+      },
+      "beneficio": "Pantalla AMOLED enorme 2.07\", 20 días de batería, GPS + mapas offline y 150+ modos deportivos.",
+      "description": "Amazfit BIP MAX con pantalla AMOLED de 2.07\" y cuerpo de aleación de aluminio ligero. Hasta 20 días de batería con uso típico. Incluye 4 GB de almacenamiento para mapas offline descargados gratis desde Zepp, con indicaciones giro a giro respaldadas por 5 sistemas satelitales. Más de 150 modos deportivos (HYROX, fuerza, yoga), Zepp Coach con métricas avanzadas (VO₂ Max, carga de entrenamiento) y monitoreo BioCharge de recuperación diaria. App Zepp gratuita, sin suscripciones.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Pantalla AMOLED 2.07\" enorme — la más grande de la línea Bip"
+        },
+        {
+          "order": 2,
+          "text": "20 días de batería: cargás cada 3 semanas, no cada noche"
+        },
+        {
+          "order": 3,
+          "text": "4 GB integrados: mapas offline y música sin llevar el celular"
+        },
+        {
+          "order": 4,
+          "text": "GPS de 5 sistemas + mapas gratis giro a giro desde la app Zepp"
+        },
+        {
+          "order": 5,
+          "text": "+150 modos deportivos, Zepp Coach y BioCharge de recuperación diaria"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "compatibilidad",
+          "titulo": "¿Sirve con iPhone y Android?",
+          "respuesta": "Funciona con iPhone y Android con la app Zepp gratuita, sin suscripciones ocultas."
+        },
+        {
+          "objId": "bateria",
+          "titulo": "¿Cuánto dura la batería?",
+          "respuesta": "Hasta 20 días con uso típico — cargás una vez cada 3 semanas aproximadamente."
+        },
+        {
+          "objId": "salud",
+          "titulo": "¿Qué mide de salud?",
+          "respuesta": "Mide ritmo cardíaco, sueño, pasos, estrés y recuperación diaria con el score BioCharge. Son datos de referencia, no médicos."
+        },
+        {
+          "objId": "agua",
+          "titulo": "¿Resiste agua?",
+          "respuesta": "Tiene resistencia al agua para uso diario y lluvia. No está certificado para natación como el Active Max (5ATM)."
+        },
+        {
+          "objId": "llamadas",
+          "titulo": "¿Puedo contestar llamadas?",
+          "respuesta": "No tiene altavoz para llamadas directas, pero muestra notificaciones de llamadas desde el celular."
+        }
+      ]
     }
   ]
 }
