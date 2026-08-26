@@ -162,6 +162,24 @@
         "compatibilidad": "Android e iPhone"
       },
       "notas": "No tiene altavoz para llamadas directas. Muestra notificaciones del celular. Los mapas offline se descargan gratis desde la app Zepp."
+    },
+    {
+      "label": "70mai T800E 4K 3 Canales [c836052b]",
+      "matchBy": {
+        "id": "c836052b-55fd-4bf1-b085-8df5c256fcc3"
+      },
+      "specs": {
+        "resolucion": "4K adelante (3840×2160) + 1080p interior + 1080p atrás",
+        "camaras": "3 canales: frontal, interior y trasera simultáneas",
+        "campoVision": "140° frontal, 130° interior, 140° trasera",
+        "visionNocturna": "Visión nocturna HDR en los 3 canales",
+        "almacenamiento": "microSD hasta 256 GB (no incluida)",
+        "modoEstacionamiento": true,
+        "gps": false,
+        "app": true,
+        "instalacion": "Hardwire para grabación continua; incluye cámara trasera e interior"
+      },
+      "notas": "Graba las 3 cámaras al mismo tiempo. No incluye GPS integrado. El modo estacionamiento requiere kit de cableado hardwire (no incluido). Ideal para taxis, Uber y flotas."
     }
   ]
 }
