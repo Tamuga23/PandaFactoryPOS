@@ -229,8 +229,21 @@ export interface ObjectionOverride {
   respuesta: string;
 }
 
-/** Ficha técnica proyectable (orientada a proyectores/electrónica, extensible). */
+/**
+ * Ficha técnica proyectable. El nombre es histórico (nació para proyectores);
+ * hoy sirve a TODAS las categorías: qué campos se editan y cómo se muestran lo
+ * decide `src/lib/categorySpecs.ts` según la categoría del producto.
+ *
+ * El campo en Firestore sigue llamándose `specsProyector` a propósito:
+ * firestore.rules, la Cloud Function `onProductWritten` y los normalizadores de
+ * PandaLink y PandaWEB ya lo soportan. Renombrarlo obligaría a deploy de reglas
+ * + functions + backfill sin ningún cambio visible.
+ *
+ * Las claves de proyector NO se renombran nunca: hay productos en producción
+ * con esos datos cargados.
+ */
 export interface ProjectorSpecs {
+  // --- Proyector (claves históricas, no renombrar) ---
   ansi?: number;
   throwRatio?: string;
   distMinEnfoque?: string;
@@ -240,8 +253,72 @@ export interface ProjectorSpecs {
   contraste?: string;
   conectividad?: string[];
   garantiaMeses?: number;
-  /** Specs adicionales clave→valor. */
+
+  // --- Transversales a varias categorías ---
+  /** Select ya redactado para el cliente, ej. "Apto para nadar (5 ATM)". */
+  resistenciaAgua?: string;
+  duracionBateria?: string;
+  almacenamiento?: string;
+  alimentacion?: string;
+  instalacion?: string;
+  campoVision?: string;
+  visionNocturna?: string;
+  memoria?: string;
+  sistema?: string;
+  carga?: string;
+  gps?: boolean;
+
+  // --- Smartwatch ---
+  tamanoPantalla?: string;
+  tipoPantalla?: string;
+  salud?: string[];
+  llamadas?: boolean;
+  deportes?: string;
+  compatibilidad?: string;
+  correa?: string;
+
+  // --- Cámara / dashcam ---
+  uso?: string;
+  deteccionMovimiento?: boolean;
+  audioDoble?: boolean;
+  sirena?: boolean;
+  camaras?: string;
+  modoEstacionamiento?: boolean;
+  pantalla?: string;
+  /** Cámara/dashcam/smart home: `string` (nombre de la app) o `boolean` (la tiene o no). */
+  app?: string | boolean;
+
+  // --- Parlante ---
+  potencia?: string;
+  tamano?: string;
+  microfono?: boolean;
+  luces?: boolean;
+  emparejamiento?: boolean;
+  manosLibres?: boolean;
+  audio?: string;
+
+  // --- Smart home ---
+  funcion?: string;
+  controlApp?: boolean;
+  asistentes?: string[];
+  rutinas?: boolean;
+
+  // --- Smart TV / streaming ---
+  apps?: string[];
+  control?: string;
+  espejo?: boolean;
+
+  /** Specs adicionales clave→valor. Se expanden como filas propias en la ficha. */
   extra?: Record<string, string | number | boolean>;
+
+  /** Un campo nuevo cargado desde el POS nunca rompe el tipado ni desaparece. */
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | string[]
+    | Record<string, string | number | boolean>
+    | undefined;
 }
 
 /** Foto complementaria de la galería de la tablet (ej. proyector a oscuras / con luz). */

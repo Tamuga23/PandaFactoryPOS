@@ -300,40 +300,52 @@ service cloud.firestore {
 
     // ---------------------------------------------------------------------
     // Catálogo público: espejo derivado de products, SIN `cost`.
-    // Lo escribe ÚNICAMENTE el servidor (Cloud Function vía Admin SDK, que
-    // omite estas reglas). Ningún cliente puede escribirlo.
+    // LECTURA PÚBLICA (Fase 0 · paso 1, 2026-08). La consumen PandaWEB desde
+    // el servidor de Next (sin sesión) y PandaLink en la tablet. Se abre ANTES
+    // de cerrar las colecciones sensibles, para que la tablet no quede a
+    // ciegas durante el corte.
+    // Lo escribe ÚNICAMENTE el servidor (Admin SDK, que omite estas reglas):
+    // ningún cliente puede escribirlo, ni siquiera autenticado.
     // ---------------------------------------------------------------------
     match /catalogo_publico/{productId} {
-      allow get: if isSignedIn() && isValidId(productId);
-      allow list: if isSignedIn();
+      allow get: if isValidId(productId);
+      allow list: if true;
       allow create, update, delete: if false;
     }
 
     // ---------------------------------------------------------------------
     // Objeciones universales (garantía, factura, conexión, …).
-    // Globales y editables desde el OS por cualquier usuario autenticado.
+    // LECTURA PÚBLICA (Fase 0 · paso 1): las lee la tablet.
+    // La ESCRITURA sigue exigiendo sesión — se edita desde el POS.
     // ---------------------------------------------------------------------
     match /objeciones_universales/{objId} {
-      allow get: if isSignedIn() && isValidId(objId);
-      allow list: if isSignedIn();
+      allow get: if isValidId(objId);
+      allow list: if true;
       allow create: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
       allow update: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
       allow delete: if isSignedIn() && isValidId(objId);
     }
 
     // ---------------------------------------------------------------------
-    // Objeciones por categoría (proyector, tablet, …).
-    // Globales y editables desde el OS por cualquier usuario autenticado.
+    // Objeciones por categoría (proyector, dashcam, smartwatch, …).
+    // LECTURA PÚBLICA (Fase 0 · paso 1): las lee la tablet.
+    // La ESCRITURA sigue exigiendo sesión — se edita desde el POS.
     // ---------------------------------------------------------------------
     match /objeciones_categoria/{objId} {
-      allow get: if isSignedIn() && isValidId(objId);
-      allow list: if isSignedIn();
+      allow get: if isValidId(objId);
+      allow list: if true;
       allow create: if isSignedIn() && isValidId(objId) && isValidCategoryObjection(incoming());
       allow update: if isSignedIn() && isValidId(objId) && isValidCategoryObjection(incoming());
       allow delete: if isSignedIn() && isValidId(objId);
     }
 
-    // ===================== FASE 2 (pendiente) ============================
+    // ============== FASE 0 · PASOS 2 y 3 (pendientes) ====================
+    // HECHO (paso 1): catalogo_publico y objeciones con lectura pública.
+    // FALTA (paso 2): login email/password en el POS + custom claim `admin`.
+    // FALTA (paso 3): products, sales, purchases, customers, suppliers y
+    //   company detrás de isAdmin(). OJO: PandaWEB hoy LISTA `company` para
+    //   leer defaultExchangeRate — resolver esa tasa ANTES de cerrarla.
+    // =====================================================================
     // Más adelante: gatear lecturas sensibles detrás de un custom claim `admin`.
     // Setear el claim con Admin SDK: admin.auth().setCustomUserClaims(uid, { admin: true }).
     //

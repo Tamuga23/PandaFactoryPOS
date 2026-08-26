@@ -6,6 +6,8 @@ import type { Product, PublicCatalogProduct } from '../types';
 // --- Sub-estructuras tablet / catálogo público ---
 export const SalesBulletSchema = z.object({
   text: z.string().min(1),
+  /** Etiqueta corta arriba del bullet en la tablet (ej. "BRILLO", "BATERÍA"). */
+  etiqueta: z.string().max(24).optional(),
   icon: z.string().optional(),
   order: z.number().optional(),
 });
@@ -16,7 +18,17 @@ export const ObjectionOverrideSchema = z.object({
   respuesta: z.string().min(1),
 });
 
+/**
+ * Ficha técnica de CUALQUIER categoría (el nombre es histórico; ver
+ * `src/lib/categorySpecs.ts`, que define qué campos aplican a cada categoría).
+ *
+ * Es a propósito PERMISIVO: las claves de proyector se validan con su tipo
+ * exacto porque ya hay datos en producción, y el resto pasa por `catchall`. Así
+ * agregar un campo nuevo al catálogo de categorías no obliga a tocar este
+ * schema ni las reglas de Firestore (que solo exigen `specsProyector is map`).
+ */
 export const ProjectorSpecsSchema = z.object({
+  // Claves históricas de proyector: tipo estricto, no renombrar.
   ansi: z.number().optional(),
   throwRatio: z.string().optional(),
   distMinEnfoque: z.string().optional(),
@@ -27,7 +39,9 @@ export const ProjectorSpecsSchema = z.object({
   conectividad: z.array(z.string()).optional(),
   garantiaMeses: z.number().optional(),
   extra: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-});
+}).catchall(
+  z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]).optional(),
+);
 
 /** Foto complementaria de la galería (formato nuevo). */
 export const GalleryItemSchema = z.object({

@@ -1,0 +1,106 @@
+{
+  "_note": "Ficha técnica por producto. Las claves de `specs` tienen que existir en src/lib/categorySpecs.ts para la categoría del producto (el seed avisa si no). Los textos se muestran TAL CUAL al cliente en la tablet y en la web: escribí en lenguaje de cliente, no de ficha de fábrica.",
+  "_comoAgregar": "1) Corré `node scripts/auditoria_fichas.mjs` para ver qué falta. 2) Agregá un objeto acá con matchBy (sku o nameContains) y sus specs. 3) `node scripts/seed_fichas_tecnicas.mjs` para ver el diff, y `--apply` para escribir.",
+  "_fuentes": {
+    "1217": "https://us.amazfit.com/products/active-max — 1.5\" AMOLED 3000 nits, 5 ATM, 25 días, 4 GB, 170+ modos",
+    "1154": "https://us.amazfit.com/products/active-2-round — 1.32\" AMOLED, 5 ATM, 10 días, 160+ modos",
+    "1224": "https://www.amazon.com/dp/B074NS9P2J — 12 W, IPX7, 24 h, 5200 mAh, BT 5.0, AUX",
+    "1212": "https://www.aboutamazon.com/news/devices/amazon-new-echo-devices-alexa-plus — chip AZ3, hub integrado, eero Built-in"
+  },
+
+  "productContent": [
+    {
+      "label": "Amazfit Active Max [1217]",
+      "matchBy": { "sku": "1217", "category": "smartwatch" },
+      "specs": {
+        "tamanoPantalla": "1.5\"",
+        "tipoPantalla": "AMOLED de 3000 nits, se lee clarísima bajo el sol",
+        "resistenciaAgua": "Apto para nadar (5 ATM)",
+        "duracionBateria": "Hasta 25 días de uso normal",
+        "almacenamiento": "4 GB para música y mapas sin llevar el celular",
+        "salud": ["Ritmo cardíaco", "Oxígeno en sangre", "Sueño", "Pasos", "Estrés"],
+        "llamadas": true,
+        "gps": true,
+        "deportes": "Más de 170 modos deportivos",
+        "compatibilidad": "Android e iPhone"
+      },
+      "notas": "Las llamadas Bluetooth y las respuestas por voz (Zepp Flow) requieren Android; en iPhone el reloj funciona igual pero sin esas dos funciones. Conviene aclararlo antes de cerrar la venta."
+    },
+    {
+      "label": "Amazfit Active 2 [1154]",
+      "matchBy": { "sku": "1154", "category": "smartwatch" },
+      "specs": {
+        "tamanoPantalla": "1.32\"",
+        "tipoPantalla": "AMOLED con marco de acero inoxidable",
+        "resistenciaAgua": "Apto para nadar (5 ATM)",
+        "duracionBateria": "Hasta 10 días de uso normal",
+        "salud": ["Ritmo cardíaco", "Sueño", "Pasos"],
+        "gps": true,
+        "deportes": "Más de 160 modos: HYROX, fuerza, pádel y yoga",
+        "compatibilidad": "Android e iPhone"
+      },
+      "notas": "No se cargó `almacenamiento` ni `llamadas`: no se confirmaron para esta variante. Si el modelo que venden los trae, agregalos desde el POS."
+    },
+    {
+      "label": "70mai A810 Lite",
+      "matchBy": { "nameContains": "A810", "category": "dashcam" },
+      "specs": {
+        "resolucion": "4K real adelante (3840×2160) y 1080p atrás",
+        "camaras": "Frontal y trasera",
+        "campoVision": "140°, cubre los tres carriles",
+        "visionNocturna": "Visión nocturna reforzada",
+        "almacenamiento": "microSD de 64 GB incluida",
+        "modoEstacionamiento": true,
+        "gps": true,
+        "app": true,
+        "instalacion": "Se pega al parabrisas y va al encendedor"
+      },
+      "notas": "El modo estacionamiento 24h necesita el kit de cableado (hardwire); el 4G LTE necesita el kit UP05. Ninguno de los dos viene incluido: aclararlo evita reclamos."
+    },
+    {
+      "label": "70mai M310 Plus (2K) [1208]",
+      "matchBy": { "sku": "1208", "category": "dashcam" },
+      "specs": {
+        "resolucion": "2K 1440p, se leen las placas",
+        "camaras": "Solo frontal",
+        "campoVision": "140°, cubre los tres carriles",
+        "visionNocturna": "Visión nocturna reforzada",
+        "almacenamiento": "microSD (no incluida)",
+        "modoEstacionamiento": true,
+        "app": true,
+        "instalacion": "Se pega al parabrisas y va al encendedor"
+      },
+      "notas": "El modo estacionamiento 24H requiere kit de cableado UP03/UP06, no incluido."
+    },
+    {
+      "label": "Anker SoundCore 2 [1224]",
+      "matchBy": { "sku": "1224" },
+      "specs": {
+        "potencia": "12 W con graves reforzados BassUp",
+        "duracionBateria": "Hasta 24 horas de música",
+        "tamano": "Portátil, entra en la mochila",
+        "resistenciaAgua": "Sumergible, aguanta caer a la piscina (IPX7)",
+        "microfono": true,
+        "emparejamiento": true,
+        "conectividad": ["Bluetooth 5.0 (hasta 20 m)", "Entrada AUX"]
+      },
+      "notas": "OJO: en el POS está en la categoría `smarthome`, pero es un PARLANTE. Conviene cambiarle la categoría a `parlante` para que aparezca en el filtro correcto de la web. Las specs de acá funcionan igual en las dos categorías."
+    },
+    {
+      "label": "Amazon Echo Dot Max [1212]",
+      "matchBy": { "sku": "1212", "category": "smarthome" },
+      "specs": {
+        "funcion": "Parlante con Alexa y centro de casa inteligente en un solo equipo",
+        "controlApp": true,
+        "asistentes": ["Alexa", "Alexa+"],
+        "rutinas": true,
+        "alimentacion": "Corriente (enchufe)",
+        "instalacion": "Se instala solo, sin herramientas",
+        "resistenciaAgua": "Solo interior",
+        "conectividad": ["Wi-Fi", "Bluetooth", "Hub de casa inteligente integrado"],
+        "app": "Alexa (Android e iPhone)"
+      },
+      "notas": "Corregir el bullet de eero: extiende la red hasta 1,000 pies² SOLO si el cliente ya tiene una red eero. Sin eero no funciona como repetidor y es una promesa que no se puede cumplir."
+    }
+  ]
+}

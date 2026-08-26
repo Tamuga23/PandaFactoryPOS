@@ -11,7 +11,11 @@
     "lint": "tsc --noEmit",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run\"",
     "backfill:dry": "node scripts/backfill_catalogo_publico.mjs --dry-run",
-    "backfill": "node scripts/backfill_catalogo_publico.mjs"
+    "backfill": "node scripts/backfill_catalogo_publico.mjs",
+    "auditoria": "node scripts/auditoria_fichas.mjs",
+    "auditoria:faltantes": "node scripts/auditoria_fichas.mjs --faltantes",
+    "fichas:dry": "node scripts/seed_fichas_tecnicas.mjs",
+    "fichas": "node scripts/seed_fichas_tecnicas.mjs --apply"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

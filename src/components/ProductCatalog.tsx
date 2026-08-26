@@ -1,13 +1,81 @@
 import React, { useState, useMemo, ChangeEvent, FormEvent } from 'react';
-import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2, Plus, Trash2 } from 'lucide-react';
-import { slugify } from '../lib/validations';
+import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
+import {
+  camposDeCategoria,
+  resolverCategoriaSpec,
+  type SpecField,
+} from '../lib/categorySpecs';
 
-// P3.5: las specs de proyector se guardan comparando el SLUG de la categoría
-// (antes era `=== 'Projector'` literal: renombrar la categoría las perdía).
-const isProjectorCategory = (category: string) => {
-  const slug = slugify(category || '');
-  return slug.includes('projector') || slug.includes('proyector');
+// ---------------------------------------------------------------------------
+// Ficha técnica: los campos que se editan salen de `categorySpecs.ts` según la
+// categoría del producto (proyector → brillo/throw ratio; smartwatch →
+// resistencia al agua/batería; etc.). Antes estaba hardcodeado a proyectores.
+//
+// El estado del form guarda TODO como string o boolean (es lo que devuelven los
+// inputs); la conversión a número / arreglo se hace recién al guardar.
+// ---------------------------------------------------------------------------
+type SpecFormValues = Record<string, string | boolean>;
+
+/** Specs guardadas en Firestore → valores editables en el form. */
+const toFormSpecs = (specs?: ProjectorSpecs): SpecFormValues => {
+  const out: SpecFormValues = {};
+  for (const [k, v] of Object.entries(specs ?? {})) {
+    if (v === undefined || v === null) continue;
+    if (typeof v === 'boolean') out[k] = v;
+    else if (Array.isArray(v)) out[k] = v.join(', ');
+    else if (typeof v === 'object') continue; // `extra` se maneja aparte
+    else out[k] = String(v);
+  }
+  return out;
+};
+
+/**
+ * Valores del form → objeto para Firestore, tipando cada campo según su
+ * definición. Los vacíos se omiten (no se escriben filas en blanco) y las
+ * claves que no pertenecen a la categoría actual se CONSERVAN: si alguien
+ * cambia la categoría por error, o un script cargó un campo que todavía no está
+ * en el catálogo, el dato no se pierde en silencio.
+ */
+const toFirestoreSpecs = (
+  values: SpecFormValues,
+  campos: SpecField[],
+  previas?: ProjectorSpecs,
+): ProjectorSpecs | undefined => {
+  const out: Record<string, unknown> = {};
+  const conocidos = new Set(campos.map((f) => f.key));
+
+  for (const campo of campos) {
+    const raw = values[campo.key];
+    if (raw === undefined) continue;
+
+    if (campo.type === 'bool') {
+      if (raw === true) out[campo.key] = true; // `false` no se guarda: es la ausencia
+      continue;
+    }
+    const texto = String(raw).trim();
+    if (!texto) continue;
+
+    if (campo.type === 'number') {
+      const n = Number(texto);
+      if (Number.isFinite(n)) out[campo.key] = n;
+      continue;
+    }
+    if (campo.type === 'list') {
+      const items = texto.split(',').map((s) => s.trim()).filter(Boolean);
+      if (items.length > 0) out[campo.key] = items;
+      continue;
+    }
+    out[campo.key] = texto; // text | select
+  }
+
+  // Claves ajenas a esta categoría: se preservan tal como estaban.
+  for (const [k, v] of Object.entries(previas ?? {})) {
+    if (conocidos.has(k) || v === undefined || v === null || v === '') continue;
+    out[k] = v;
+  }
+
+  return Object.keys(out).length > 0 ? (out as ProjectorSpecs) : undefined;
 };
 
 // Galería de la tablet: el form maneja SIEMPRE 2 filas {url, label} (fotos
@@ -69,7 +137,13 @@ interface FormData {
   beneficio: string;
   bullets: SalesBullet[];
   objecionesOverride: ObjectionOverride[];
-  specsProyector: any;
+  /** Valores editables de la ficha técnica (strings/booleanos del form). */
+  specsProyector: SpecFormValues;
+  /**
+   * Specs tal como vinieron de Firestore. Sirven para no perder campos que no
+   * pertenecen a la categoría actual al guardar (ver `toFirestoreSpecs`).
+   */
+  specsOriginal?: ProjectorSpecs;
   media: any;
 }
 
@@ -91,7 +165,7 @@ const INITIAL_FORM_DATA: FormData = {
   beneficio: '',
   bullets: [],
   objecionesOverride: [],
-  specsProyector: { ansi: '', throwRatio: '', distMinEnfoque: '', resolucion: '', autofoco: false },
+  specsProyector: {},
   media: toFormMedia(undefined),
 };
 
@@ -113,6 +187,29 @@ export default function ProductCatalog({
     const cats = catalog.map((p) => p.category).filter(Boolean);
     return Array.from(new Set(cats));
   }, [catalog]);
+
+  // --- Ficha técnica: campos aplicables a la categoría elegida ---
+  const specFields = useMemo(() => camposDeCategoria(formData.category), [formData.category]);
+  const specCategoryLabel = useMemo(
+    () => resolverCategoriaSpec(formData.category) ?? formData.category,
+    [formData.category],
+  );
+  /** Cuántos campos de la categoría tienen dato: da feedback de qué falta cargar. */
+  const specsCargadas = useMemo(
+    () =>
+      specFields.filter((f) => {
+        const v = formData.specsProyector[f.key];
+        return v === true || (typeof v === 'string' && v.trim() !== '');
+      }).length,
+    [specFields, formData.specsProyector],
+  );
+  /** Specs cargadas que NO pertenecen a esta categoría (no se borran, se avisan). */
+  const specsAjenas = useMemo(() => {
+    const conocidos = new Set(specFields.map((f) => f.key));
+    return Object.entries(formData.specsProyector)
+      .filter(([k, v]) => !conocidos.has(k) && (v === true || (typeof v === 'string' && v.trim() !== '')))
+      .map(([k]) => k);
+  }, [specFields, formData.specsProyector]);
 
   // 3. LÓGICA DE CAMPOS Y MANEJADORES
 
@@ -149,7 +246,8 @@ export default function ProductCatalog({
         beneficio: product.beneficio || '',
         bullets: product.bullets || [],
         objecionesOverride: product.objecionesOverride || [],
-        specsProyector: product.specsProyector || { ansi: '', throwRatio: '', distMinEnfoque: '', resolucion: '', autofoco: false },
+        specsProyector: toFormSpecs(product.specsProyector),
+        specsOriginal: product.specsProyector,
         media: toFormMedia(product.media),
       });
       setIsCustomCategory(!isStandardCategory);
@@ -208,16 +306,26 @@ export default function ProductCatalog({
         descEfectivoPct: formData.descEfectivoPct ? Number(formData.descEfectivoPct) : undefined,
         campania: formData.campania || undefined,
         beneficio: formData.beneficio || undefined,
-        bullets: formData.bullets.length > 0 ? formData.bullets : undefined,
+        // Bullets: se descartan las filas vacías y se guarda el orden visible,
+        // que es el que respetan la tablet y la web al mostrarlos.
+        bullets: (() => {
+          const limpios = formData.bullets
+            .map((b, i) => ({
+              text: (b.text || '').trim(),
+              etiqueta: (b.etiqueta || '').trim() || undefined,
+              order: i + 1,
+            }))
+            .filter((b) => b.text.length > 0);
+          return limpios.length > 0 ? limpios : undefined;
+        })(),
         objecionesOverride: formData.objecionesOverride.length > 0 ? formData.objecionesOverride : undefined,
-        // P3.5: por slug, no por el literal 'Projector'
-        specsProyector: isProjectorCategory(formData.category) ? {
-          ansi: Number(formData.specsProyector.ansi) || undefined,
-          throwRatio: formData.specsProyector.throwRatio || undefined,
-          distMinEnfoque: formData.specsProyector.distMinEnfoque || undefined,
-          resolucion: formData.specsProyector.resolucion || undefined,
-          autofoco: formData.specsProyector.autofoco || false
-        } : undefined,
+        // Ficha técnica: los campos aplicables los define la categoría
+        // (`categorySpecs.ts`), no un `if` de proyectores como antes.
+        specsProyector: toFirestoreSpecs(
+          formData.specsProyector,
+          camposDeCategoria(formData.category),
+          formData.specsOriginal,
+        ),
         media: (() => {
           // Galería: solo filas con URL; label solo si tiene texto (Firestore rechaza undefined anidado).
           const gallery = (formData.media.gallery ?? [])
@@ -265,10 +373,21 @@ export default function ProductCatalog({
 
   // --- Handlers for Complex Fields ---
   const handleBulletAdd = () => setFormData({ ...formData, bullets: [...formData.bullets, { text: '' }] });
-  const handleBulletChange = (index: number, text: string) => {
-    const newBullets = [...formData.bullets];
-    newBullets[index].text = text;
-    setFormData({ ...formData, bullets: newBullets });
+  const handleBulletChange = (index: number, field: 'text' | 'etiqueta', value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      bullets: prev.bullets.map((b, i) => (i === index ? { ...b, [field]: value } : b)),
+    }));
+  };
+  /** Sube o baja un bullet: el orden visible es el que se guarda. */
+  const handleBulletMove = (index: number, dir: -1 | 1) => {
+    const destino = index + dir;
+    setFormData((prev) => {
+      if (destino < 0 || destino >= prev.bullets.length) return prev;
+      const bullets = [...prev.bullets];
+      [bullets[index], bullets[destino]] = [bullets[destino], bullets[index]];
+      return { ...prev, bullets };
+    });
   };
   const handleBulletRemove = (index: number) => {
     setFormData({ ...formData, bullets: formData.bullets.filter((_, i) => i !== index) });
@@ -284,8 +403,11 @@ export default function ProductCatalog({
     setFormData({ ...formData, objecionesOverride: formData.objecionesOverride.filter((_, i) => i !== index) });
   };
 
-  const handleSpecChange = (field: string, value: any) => {
-    setFormData({ ...formData, specsProyector: { ...formData.specsProyector, [field]: value } });
+  const handleSpecChange = (field: string, value: string | boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      specsProyector: { ...prev.specsProyector, [field]: value },
+    }));
   };
   
   const handleMediaChange = (field: string, value: string) => {
@@ -666,36 +788,93 @@ export default function ProductCatalog({
           </div>
         </div>
 
-        {/* --- Specs Proyector --- */}
-        {isProjectorCategory(formData.category) && (
-          <div className="mt-6 border-t border-zinc-800/50 pt-6">
-            <h4 className="text-md font-medium text-cyan-400 mb-4">Especificaciones de Proyector</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Brillo (ANSI)</label>
-                <input type="number" value={formData.specsProyector.ansi} onChange={(e) => handleSpecChange('ansi', e.target.value)} placeholder="Ej. 900" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Resolución Nativa</label>
-                <input type="text" value={formData.specsProyector.resolucion} onChange={(e) => handleSpecChange('resolucion', e.target.value)} placeholder="Ej. 1080p, 4K" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Throw Ratio</label>
-                <input type="text" value={formData.specsProyector.throwRatio} onChange={(e) => handleSpecChange('throwRatio', e.target.value)} placeholder="Ej. 1.2:1" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Distancia Mínima Enfoque</label>
-                <input type="text" value={formData.specsProyector.distMinEnfoque} onChange={(e) => handleSpecChange('distMinEnfoque', e.target.value)} placeholder="Ej. 1.5m" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm" />
-              </div>
-              <div className="flex items-center mt-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={formData.specsProyector.autofoco} onChange={(e) => handleSpecChange('autofoco', e.target.checked)} className="w-4 h-4 bg-zinc-800 border-zinc-700 rounded text-cyan-500 focus:ring-cyan-500" />
-                  <span className="text-sm text-zinc-300">Autofoco Automático</span>
-                </label>
-              </div>
-            </div>
+        {/* --- Ficha técnica (campos según la categoría) --- */}
+        <div className="mt-6 border-t border-zinc-800/50 pt-6">
+          <div className="flex items-baseline justify-between mb-1 gap-4">
+            <h4 className="text-md font-medium text-cyan-400">Ficha Técnica</h4>
+            {specFields.length > 0 && (
+              <span className="text-xs text-zinc-500">
+                Campos de <b className="text-zinc-400">{specCategoryLabel}</b> · {specsCargadas} de {specFields.length} cargados
+              </span>
+            )}
           </div>
-        )}
+          <p className="text-xs text-zinc-500 mb-4">
+            Se muestra en la tablet y en la web tal como se escribe acá. Los campos vacíos no se muestran.
+          </p>
+
+          {specFields.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">
+              {formData.category
+                ? `La categoría "${formData.category}" todavía no tiene ficha técnica definida. Agregala en src/lib/categorySpecs.ts (y copiá el archivo a PandaLink y PandaWEB).`
+                : 'Elegí una categoría para ver los campos de su ficha técnica.'}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {specFields.map((campo) => {
+                const valor = formData.specsProyector[campo.key];
+
+                if (campo.type === 'bool') {
+                  return (
+                    <label key={campo.key} className="flex items-start gap-2 cursor-pointer bg-zinc-800/30 border border-zinc-800 rounded-lg px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={valor === true}
+                        onChange={(e) => handleSpecChange(campo.key, e.target.checked)}
+                        className="mt-0.5 w-4 h-4 bg-zinc-800 border-zinc-700 rounded text-cyan-500 focus:ring-cyan-500 shrink-0"
+                      />
+                      <span>
+                        <span className="block text-sm text-zinc-300">{campo.label}</span>
+                        {campo.help && <span className="block text-xs text-zinc-500 mt-0.5">{campo.help}</span>}
+                      </span>
+                    </label>
+                  );
+                }
+
+                return (
+                  <div key={campo.key}>
+                    <label className="block text-sm text-zinc-400 mb-1">
+                      {campo.label}
+                      {campo.unit && <span className="text-zinc-600"> ({campo.unit})</span>}
+                    </label>
+
+                    {campo.type === 'select' ? (
+                      <select
+                        value={typeof valor === 'string' ? valor : ''}
+                        onChange={(e) => handleSpecChange(campo.key, e.target.value)}
+                        className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm"
+                      >
+                        <option value="">— Sin especificar —</option>
+                        {(campo.options ?? []).map((op) => (
+                          <option key={op} value={op}>{op}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={campo.type === 'number' ? 'number' : 'text'}
+                        step={campo.type === 'number' ? 'any' : undefined}
+                        value={typeof valor === 'string' ? valor : ''}
+                        onChange={(e) => handleSpecChange(campo.key, e.target.value)}
+                        placeholder={campo.placeholder}
+                        className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm"
+                      />
+                    )}
+
+                    {campo.help && <p className="text-xs text-zinc-500 mt-1">{campo.help}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Datos cargados fuera del catálogo de esta categoría: se avisan pero
+              no se borran (los conserva `toFirestoreSpecs`). */}
+          {specsAjenas.length > 0 && (
+            <p className="text-xs text-amber-400/80 mt-4">
+              Este producto también tiene cargado: {specsAjenas.join(', ')}. No corresponde(n) a esta
+              categoría; se conserva(n) igual y se sigue(n) mostrando en la ficha.
+            </p>
+          )}
+        </div>
 
         {/* --- Bullets --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
@@ -705,13 +884,55 @@ export default function ProductCatalog({
               <Plus className="w-3 h-3" /> Agregar Bullet
             </button>
           </div>
+          <p className="text-xs text-zinc-500 -mt-2 mb-4">
+            Lo que el asesor le dice al cliente. Se muestran en este orden en la tablet y en la web.
+            La etiqueta es opcional: es el título corto arriba del bullet en la tablet.
+          </p>
           {formData.bullets.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic">No hay bullets configurados.</p>
+            <p className="text-xs text-zinc-500 italic">
+              No hay bullets configurados. Sin bullets, la ficha de la tablet y la sección
+              &ldquo;Por qué te sirve&rdquo; de la web quedan vacías.
+            </p>
           ) : (
             <div className="space-y-3">
               {formData.bullets.map((b, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <input type="text" value={b.text} onChange={(e) => handleBulletChange(idx, e.target.value)} placeholder="Ej. Imágenes ultra nítidas de día..." className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
+                <div key={idx} className="flex items-start gap-2">
+                  <div className="flex flex-col gap-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleBulletMove(idx, -1)}
+                      disabled={idx === 0}
+                      title="Subir"
+                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulletMove(idx, 1)}
+                      disabled={idx === formData.bullets.length - 1}
+                      title="Bajar"
+                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={b.etiqueta ?? ''}
+                    onChange={(e) => handleBulletChange(idx, 'etiqueta', e.target.value)}
+                    placeholder="Etiqueta"
+                    maxLength={24}
+                    className="w-28 shrink-0 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={b.text}
+                    onChange={(e) => handleBulletChange(idx, 'text', e.target.value)}
+                    placeholder="Ej. Se ve grande y nítido incluso con luz en el cuarto"
+                    className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
+                    required
+                  />
                   <button type="button" onClick={() => handleBulletRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
