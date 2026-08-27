@@ -4,6 +4,7 @@ import { Product, CartItem, Sale, ClientData } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { planesParaVenta } from '../lib/financiamiento';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import { toast } from '../components/Toast';
@@ -12,7 +13,7 @@ import { formatCurrencyNIO } from '../lib/utils';
 import { round2 } from '../lib/validations';
 
 export default function POS() {
-  const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer } = useStore();
+  const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer, configFinanciamiento } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -30,6 +31,8 @@ export default function POS() {
   const [transport, setTransport] = useState('ENTREGA LOCAL');
   // P2.5: método de pago real (antes hardcodeado EFECTIVO) + referencia.
   const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('EFECTIVO');
+  // Plazo elegido cuando la venta es financiada. null = todavía sin elegir.
+  const [plazoMeses, setPlazoMeses] = useState<number | null>(null);
   const [paymentReference, setPaymentReference] = useState('');
   // P2.5: edición de precio por línea.
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
@@ -159,6 +162,38 @@ export default function POS() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMethod]);
 
+  // ---- Financiamiento a plazos -------------------------------------------
+  // El recargo lo define la categoría de cada producto (o su override). Si el
+  // carrito mezcla categorías, `planesParaVenta` pondera por monto: el
+  // proyector al 0% no arrastra al smartwatch al 3% ni al revés.
+  const planesVenta = useMemo(
+    () =>
+      planesParaVenta(
+        cart.map((i) => ({
+          categoria: i.categorySlug || i.category,
+          override: i.financiamientoOverride,
+          montoUsd: i.price * i.quantity,
+        })),
+        currentExchangeRate,
+        configFinanciamiento,
+      ),
+    [cart, currentExchangeRate, configFinanciamiento],
+  );
+
+  const esFinanciada = paymentMethod === 'FINANCIAMIENTO';
+  const planElegido = planesVenta.find((pl) => pl.meses === plazoMeses) ?? null;
+
+  // Al cambiar de método o de carrito, el plazo elegido puede dejar de existir.
+  useEffect(() => {
+    if (!esFinanciada) { setPlazoMeses(null); return; }
+    // Un solo plazo disponible: se preselecciona, no tiene sentido preguntar.
+    if (planesVenta.length === 1) { setPlazoMeses(planesVenta[0].meses); return; }
+    if (plazoMeses !== null && !planesVenta.some((pl) => pl.meses === plazoMeses)) {
+      setPlazoMeses(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esFinanciada, planesVenta]);
+
   const handleTryCheckout = async (isProforma: boolean = false) => {
     if (cart.length === 0) return;
 
@@ -167,6 +202,22 @@ export default function POS() {
     if (discount > grossNIO) {
       toast.error('El descuento no puede superar el total de la venta.');
       return;
+    }
+
+    // Venta financiada sin plazo elegido: se corta acá. Registrar el plazo es
+    // el único motivo por el que existe esta forma de pago — sin él la venta no
+    // aporta nada al costo real de financiamiento.
+    if (paymentMethod === 'FINANCIAMIENTO') {
+      if (planesVenta.length === 0) {
+        toast.error(
+          `Esta venta no califica para cuotas (mínimo US$${configFinanciamiento.minUsd}). Elegí otra forma de pago.`,
+        );
+        return;
+      }
+      if (!planElegido) {
+        toast.error('Elegí el plazo de las cuotas antes de cobrar.');
+        return;
+      }
     }
 
     // P1.1: el número correlativo definitivo se asigna en la transacción de
@@ -197,6 +248,18 @@ export default function POS() {
       // P2.5: método de pago real seleccionado en el checkout.
       paymentMethod,
       paymentReference: paymentReference.trim() || undefined,
+      // Foto del plan cobrado. Congela el recargo y el monto reales: si mañana
+      // cambian las tasas, esta venta sigue contando lo que de verdad pasó.
+      financiamiento:
+        paymentMethod === 'FINANCIAMIENTO' && planElegido
+          ? {
+              plazoMeses: planElegido.meses,
+              recargoPct: planElegido.recargoPct,
+              cuotaNio: planElegido.cuotaNio,
+              totalNio: planElegido.totalNio,
+              banco: configFinanciamiento.banco,
+            }
+          : undefined,
       status: 'completed',
       notes: customNote
     };
@@ -571,7 +634,8 @@ export default function POS() {
               >
                 <option value="EFECTIVO">EFECTIVO</option>
                 <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-                <option value="TARJETA">TARJETA</option>
+                <option value="TARJETA">TARJETA (pago único)</option>
+                <option value="FINANCIAMIENTO">FINANCIAMIENTO (cuotas)</option>
                 <option value="CREDITO">CRÉDITO</option>
               </select>
             </div>
@@ -598,6 +662,71 @@ export default function POS() {
             />
           </div>
           
+          {/* Plazo de las cuotas. Aparece SOLO con forma de pago FINANCIAMIENTO. */}
+          {esFinanciada && (
+            <div className="mb-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
+              <label className="text-[10px] uppercase text-cyan-400 font-bold block mb-2">
+                Plazo de las cuotas
+              </label>
+
+              {planesVenta.length === 0 ? (
+                <p className="text-[11px] text-amber-400 leading-snug">
+                  Esta venta no califica para cuotas: el mínimo es US${configFinanciamiento.minUsd}
+                  {cart.length > 0 && ` y el total va en US$${total.toFixed(2)}`}. Puede que un
+                  producto del carrito tenga las cuotas deshabilitadas.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {planesVenta.map((pl) => {
+                      const activo = plazoMeses === pl.meses;
+                      return (
+                        <button
+                          key={pl.meses}
+                          type="button"
+                          onClick={() => setPlazoMeses(pl.meses)}
+                          className={`text-left p-2.5 rounded-lg border transition-colors ${
+                            activo
+                              ? 'bg-cyan-500/15 border-cyan-500 text-white'
+                              : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[11px] font-bold uppercase">{pl.meses} cuotas</span>
+                            {pl.sinInteres ? (
+                              <span className="text-[9px] font-bold text-emerald-400">0%</span>
+                            ) : (
+                              <span className="text-[9px] text-amber-400">+{pl.recargoPct}%</span>
+                            )}
+                          </div>
+                          <div className="text-sm font-bold mt-0.5">
+                            {formatCurrency(pl.cuotaNio, 'NIO')}
+                            <span className="text-[10px] font-normal text-zinc-400"> /mes</span>
+                          </div>
+                          <div className="text-[10px] text-zinc-400">
+                            Total {formatCurrency(pl.totalNio, 'NIO')}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {plazoMeses === null && (
+                    <p className="text-[11px] text-amber-400 mt-2">
+                      Elegí un plazo para poder cobrar.
+                    </p>
+                  )}
+                  {planElegido && !planElegido.sinInteres && (
+                    <p className="text-[11px] text-zinc-400 mt-2 leading-snug">
+                      De contado serían {formatCurrency(total * currentExchangeRate, 'NIO')}. A{' '}
+                      {planElegido.meses} meses el cliente paga{' '}
+                      {formatCurrency(planElegido.sobrePrecioNio, 'NIO')} más.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* P2.5: descuento por pago en efectivo */}
           {paymentMethod === 'EFECTIVO' && pendingCashDiscount.length > 0 && (
             <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between gap-2">

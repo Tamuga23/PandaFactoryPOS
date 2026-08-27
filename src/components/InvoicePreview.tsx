@@ -39,6 +39,13 @@ export interface InvoiceData {
   discountNIO: number;
   customNote: string;
   warrantyText: string;
+  /** Plan de cuotas, si la venta se financió. Se imprime bajo el TOTAL. */
+  financiamiento?: {
+    plazoMeses: number;
+    cuotaNio: number;
+    totalNio: number;
+    banco?: string;
+  };
   mainLogo?: string;
   bankDetails?: string;
 }
@@ -414,6 +421,25 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                    <span className="text-zinc-900 text-[11px]">TOTAL (C$)</span>
                                    <span className="text-[#135c7a] text-base">{formatCurrencyNIO(total)}</span>
                                  </div>
+
+                                 {/* Plan de cuotas cobrado. Va en el recibo para
+                                     que quede por escrito qué se acordó: evita el
+                                     "a mí me dijeron otra cuota" después. */}
+                                 {data.financiamiento && (
+                                   <div className="mt-1 pt-2.5 border-t border-dashed border-zinc-200 space-y-1.5">
+                                     <div className="text-[9px] font-bold uppercase tracking-wide text-zinc-500">
+                                       Financiamiento{data.financiamiento.banco ? ` ${data.financiamiento.banco}` : ''}
+                                     </div>
+                                     <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-500">
+                                       <span>{data.financiamiento.plazoMeses} cuotas de</span>
+                                       <span className="text-zinc-900">{formatCurrencyNIO(data.financiamiento.cuotaNio)}</span>
+                                     </div>
+                                     <div className="flex justify-between items-center text-[11px] font-bold">
+                                       <span className="text-zinc-900">Total a plazos</span>
+                                       <span className="text-zinc-900">{formatCurrencyNIO(data.financiamiento.totalNio)}</span>
+                                     </div>
+                                   </div>
+                                 )}
                               </div>
                            </div>
                          </div>

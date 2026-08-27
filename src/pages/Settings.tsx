@@ -5,6 +5,7 @@ import { fileToBase64, compressImage } from '../lib/utils';
 import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin, Eraser } from 'lucide-react';
 import { db } from '../lib/db';
 import { writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
+import FinanciamientoSettings from '../components/FinanciamientoSettings';
 
 export default function Settings() {
   const { companyInfo, updateCompanyInfo, loading, products } = useStore();
@@ -317,6 +318,15 @@ export default function Settings() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Reglas de financiamiento a plazos: recargo por categoría. Vive en su
+          propio doc (`config/financiamiento`) porque lo leen la tablet y la web. */}
+      <div className="mt-8">
+        <FinanciamientoSettings
+          tasaCambio={formData.defaultExchangeRate || 36.6243}
+          notificar={showNotification}
+        />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl overflow-hidden mt-8">

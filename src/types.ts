@@ -1,3 +1,6 @@
+import type { FinanciamientoOverride } from './lib/financiamiento';
+export type { FinanciamientoOverride };
+
 export interface Product {
   id: string;
   sku: string;
@@ -34,6 +37,12 @@ export interface Product {
   objecionesOverride?: ObjectionOverride[];
   /** Recursos multimedia para la tablet. */
   media?: TabletMedia;
+  /**
+   * Excepción de financiamiento SOLO para este producto: fuerza 0%, cambia el
+   * recargo o le saca las cuotas. Si no está, manda la regla de su categoría
+   * (ver `config/financiamiento` y `src/lib/financiamiento.ts`).
+   */
+  financiamientoOverride?: FinanciamientoOverride;
 
   createdAt: number;
   updatedAt: number;
@@ -56,6 +65,23 @@ export interface Customer {
   documentNumber?: string;
   createdAt: number;
   ownerId: string;
+}
+
+/**
+ * Foto del plan de cuotas cobrado en una venta financiada.
+ * Los montos van en CÓRDOBAS, que es la moneda en la que el banco cobra.
+ */
+export interface VentaFinanciamiento {
+  /** Plazo elegido por el cliente, en meses. */
+  plazoMeses: number;
+  /** Recargo aplicado, en %. 0 = se cobró sin interés. */
+  recargoPct: number;
+  /** Cuota mensual en córdobas. */
+  cuotaNio: number;
+  /** Total cobrado en córdobas = cuotaNio × plazoMeses. */
+  totalNio: number;
+  /** Banco que otorgó el crédito, como estaba configurado ese día. */
+  banco?: string;
 }
 
 export interface Sale {
@@ -83,8 +109,23 @@ export interface Sale {
   // Pilar 1: Moneda y Pagos
   currency: 'NIO' | 'USD';
   exchangeRate: number;
-  paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CREDITO';
+  /**
+   * `FINANCIAMIENTO` = cuotas con el banco. Se separó de `TARJETA` (que ahora
+   * significa pago único con tarjeta) porque sin esa distinción era imposible
+   * saber cuánto cuesta realmente el financiamiento: ver `financiamiento`.
+   */
+  paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CREDITO' | 'FINANCIAMIENTO';
   paymentReference?: string;
+  /**
+   * Plan de cuotas efectivamente cobrado. Solo cuando
+   * `paymentMethod === 'FINANCIAMIENTO'`.
+   *
+   * Es una FOTO del momento de la venta: guarda el recargo y el monto reales
+   * cobrados, no una referencia a la config. Si mañana cambiás las tasas, las
+   * ventas viejas siguen contando lo que de verdad pasó — y el reporte de margen
+   * pasa de estimar a medir.
+   */
+  financiamiento?: VentaFinanciamiento;
   notes?: string;
   
   ownerId: string;
@@ -367,6 +408,8 @@ export interface PublicCatalogProduct {
   specsProyector?: ProjectorSpecs;
   objecionesOverride?: ObjectionOverride[];
   media?: TabletMedia;
+  /** Excepción de financiamiento del producto. Define la cuota que ve el cliente. */
+  financiamientoOverride?: FinanciamientoOverride;
   updatedAt: number;
 }
 

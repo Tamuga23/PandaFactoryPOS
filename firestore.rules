@@ -18,7 +18,7 @@ service cloud.firestore {
     function isValidProduct(data) {
       return data.keys().hasAll(['sku', 'name', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'createdAt', 'updatedAt', 'ownerId'])
         && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
-            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo'])
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'])
         && data.sku is string && data.sku.size() <= 50
         && data.name is string && data.name.size() <= 100
         && data.price is number && data.price >= 0
@@ -44,6 +44,7 @@ service cloud.firestore {
         && (!('specsProyector' in data) || (data.specsProyector is map))
         && (!('objecionesOverride' in data) || (data.objecionesOverride is list && data.objecionesOverride.size() <= 30))
         && (!('media' in data) || (data.media is map))
+        && (!('financiamientoOverride' in data) || (data.financiamientoOverride is map))
         && (!('activo' in data) || (data.activo is bool));
     }
 
@@ -62,7 +63,7 @@ service cloud.firestore {
 
     function isValidSale(data) {
       return data.keys().hasAll(['date', 'items', 'subtotal', 'tax', 'total', 'invoiceNumber', 'ownerId'])
-        && data.keys().hasOnly(['date', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'transport', 'invoiceNumber', 'ownerId', 'id', 'status', 'documentType', 'clientDocumentType', 'currency', 'exchangeRate', 'paymentMethod', 'clientDocumentNumber', 'paymentReference', 'notes', 'customerId'])
+        && data.keys().hasOnly(['date', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'transport', 'invoiceNumber', 'ownerId', 'id', 'status', 'documentType', 'clientDocumentType', 'currency', 'exchangeRate', 'paymentMethod', 'clientDocumentNumber', 'paymentReference', 'notes', 'customerId', 'financiamiento'])
         && (data.ownerId is string)
         && (data.date is number || data.date is timestamp)
         && data.items is list && data.items.size() <= 100
@@ -75,7 +76,21 @@ service cloud.firestore {
         && (!('clientDocumentType' in data) || (data.clientDocumentType in ['CEDULA', 'RUC', 'PASAPORTE', 'NINGUNO']))
         && (!('currency' in data) || (data.currency in ['NIO', 'USD']))
         && (!('exchangeRate' in data) || (data.exchangeRate is number && data.exchangeRate >= 0.01))
-        && (!('paymentMethod' in data) || (data.paymentMethod in ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']))
+        && (!('paymentMethod' in data) || (data.paymentMethod in ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO', 'FINANCIAMIENTO']))
+        // Plan de cuotas cobrado. Solo tiene sentido si la venta es financiada,
+        // y el total tiene que cuadrar con la cuota: si no, el numero que vio el
+        // cliente no es el que se cobro.
+        && (!('financiamiento' in data) || (
+             data.financiamiento is map
+             && data.paymentMethod == 'FINANCIAMIENTO'
+             && data.financiamiento.keys().hasAll(['plazoMeses', 'recargoPct', 'cuotaNio', 'totalNio'])
+             && data.financiamiento.keys().hasOnly(['plazoMeses', 'recargoPct', 'cuotaNio', 'totalNio', 'banco'])
+             && data.financiamiento.plazoMeses is int && data.financiamiento.plazoMeses > 0 && data.financiamiento.plazoMeses <= 60
+             && data.financiamiento.recargoPct is number && data.financiamiento.recargoPct >= 0 && data.financiamiento.recargoPct <= 100
+             && data.financiamiento.cuotaNio is number && data.financiamiento.cuotaNio > 0
+             && data.financiamiento.totalNio is number && data.financiamiento.totalNio > 0
+             && (!('banco' in data.financiamiento) || (data.financiamiento.banco is string && data.financiamiento.banco.size() <= 60))
+           ))
         && (!('clientDocumentNumber' in data) || (data.clientDocumentNumber is string))
         && (!('paymentReference' in data) || (data.paymentReference is string))
         && (!('notes' in data) || (data.notes is string))
@@ -212,7 +227,7 @@ service cloud.firestore {
         && incoming().ownerId == existing().ownerId
         && incoming().diff(existing()).affectedKeys().hasOnly([
             'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
-            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo'
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'
         ]);
       allow delete: if isSignedIn() && isValidId(productId);
     }
@@ -240,6 +255,35 @@ service cloud.firestore {
         && incoming().keys().hasAll(['name', 'phone', 'address', 'email', 'ownerId'])
         && incoming().keys().hasOnly(['name', 'phone', 'address', 'email', 'logoBase64', 'ownerId', 'defaultExchangeRate'])
         && (!('defaultExchangeRate' in incoming()) || (incoming().defaultExchangeRate is number && incoming().defaultExchangeRate >= 0.01));
+    }
+
+    // Reglas de financiamiento a plazos (doc `config/financiamiento`).
+    //
+    // Lectura ABIERTA a cualquier sesion (incluida la anonima de la tablet y la
+    // web): define la cuota que se le muestra al cliente, no hay nada privado
+    // aca. Lo que el banco le cobra a la tienda NO vive en este doc — es dato
+    // de margen y se maneja en scripts/reporte_financiamiento.mjs.
+    //
+    // `recargo` es un mapa meses->porcentaje. Se valida que sea map y que los
+    // numeros sueltos sean sanos; el detalle lo valida Zod en el cliente
+    // (ConfigFinanciamientoSchema).
+    function isValidConfigFinanciamiento(data) {
+      return data.keys().hasAll(['minUsd', 'plazos', 'recargoPorDefecto'])
+        && data.keys().hasOnly(['banco', 'minUsd', 'plazos', 'recargoPorDefecto', 'porCategoria', 'actualizadoEn'])
+        && (!('banco' in data) || (data.banco is string && data.banco.size() <= 60))
+        && data.minUsd is number && data.minUsd >= 0
+        && data.plazos is list && data.plazos.size() > 0 && data.plazos.size() <= 12
+        && data.recargoPorDefecto is map
+        && (!('porCategoria' in data) || (data.porCategoria is map && data.porCategoria.keys().size() <= 30))
+        && (!('actualizadoEn' in data) || (data.actualizadoEn is number));
+    }
+
+    match /config/{docId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow write: if isSignedIn()
+        && docId == 'financiamiento'
+        && isValidConfigFinanciamiento(incoming());
     }
 
     match /customers/{customerId} {

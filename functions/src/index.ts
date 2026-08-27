@@ -69,6 +69,7 @@ interface ProductLike {
   specsProyector?: Record<string, unknown>;
   objecionesOverride?: unknown[];
   media?: Record<string, unknown>;
+  financiamientoOverride?: Record<string, unknown>;
   updatedAt?: number;
   // OJO: `cost` existe en products pero NUNCA se lee aquí.
 }
@@ -120,6 +121,10 @@ function buildPublicCatalogDoc(p: ProductLike): Record<string, unknown> {
   if (p.specsProyector) doc.specsProyector = p.specsProyector;
   if (p.objecionesOverride) doc.objecionesOverride = p.objecionesOverride;
   if (p.media) doc.media = p.media;
+  // Excepción de financiamiento del producto (ej. forzar 0% en un modelo caro).
+  // Es dato PÚBLICO: define la cuota que se muestra. El costo que cobra el banco
+  // NO vive acá ni en ningún doc que llegue al navegador.
+  if (p.financiamientoOverride) doc.financiamientoOverride = p.financiamientoOverride;
   // NUNCA copiamos `cost`.
   return doc;
 }

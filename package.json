@@ -15,7 +15,10 @@
     "auditoria": "node scripts/auditoria_fichas.mjs",
     "auditoria:faltantes": "node scripts/auditoria_fichas.mjs --faltantes",
     "fichas:dry": "node scripts/seed_fichas_tecnicas.mjs",
-    "fichas": "node scripts/seed_fichas_tecnicas.mjs --apply"
+    "fichas": "node scripts/seed_fichas_tecnicas.mjs --apply",
+    "financiamiento": "node scripts/reporte_financiamiento.mjs",
+    "financiamiento:test": "node scripts/lib/analisisFinanciamiento.test.mjs",
+    "financiamiento:cuotas": "node --experimental-strip-types scripts/lib/financiamiento.test.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

@@ -4,6 +4,11 @@ import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, write
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
 import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
+import {
+  CONFIG_FINANCIAMIENTO_DEFAULT,
+  normalizarConfig,
+  type ConfigFinanciamiento,
+} from '../lib/financiamiento';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
 // isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
@@ -11,6 +16,11 @@ const TABLET_ONLY_SALE_ITEM_FIELDS = [
   'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania',
   'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo',
   'efectivoApplied', // P2.5: flag de UI del carrito, no viaja a Firestore
+  // Excepción de financiamiento del producto: el CartItem la arrastra porque
+  // extiende Product, pero isValidSaleItem no la permite y la venta entera
+  // sería rechazada por las reglas. El plan cobrado va a nivel de VENTA, en
+  // `Sale.financiamiento`, no en el renglón.
+  'financiamientoOverride',
 ];
 
 // P2.7: arma el doc de un movimiento de kardex (sin claves undefined).
@@ -46,6 +56,11 @@ export function useStoreData() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [universalObjections, setUniversalObjections] = useState<UniversalObjection[]>([]);
   const [categoryObjections, setCategoryObjections] = useState<CategoryObjection[]>([]);
+  // Reglas de financiamiento a plazos. Las edita Configuración y las consume el
+  // checkout del POS para calcular la cuota que se le cobra al cliente.
+  const [configFinanciamiento, setConfigFinanciamiento] = useState<ConfigFinanciamiento>(
+    CONFIG_FINANCIAMIENTO_DEFAULT,
+  );
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
@@ -136,6 +151,12 @@ export function useStoreData() {
       setCategoryObjections(data);
     }, (error) => handleFirestoreError(error, 'list', 'objeciones_categoria'));
 
+    // Si el doc todavía no existe (reglas sin desplegar, o nunca se guardó),
+    // queda el default del módulo compartido: proyectores 0%, resto con recargo.
+    const unsubConfigFin = onSnapshot(doc(db, 'config', 'financiamiento'), (snapshot) => {
+      if (snapshot.exists()) setConfigFinanciamiento(normalizarConfig(snapshot.data()));
+    }, (error) => handleFirestoreError(error, 'get', 'config/financiamiento'));
+
     return () => {
       unsubProducts();
       unsubSales();
@@ -145,6 +166,7 @@ export function useStoreData() {
       unsubCompany();
       unsubUniversalObjections();
       unsubCategoryObjections();
+      unsubConfigFin();
     };
   }, [user]);
 
@@ -1088,6 +1110,7 @@ export function useStoreData() {
     companyInfo,
     universalObjections,
     categoryObjections,
+    configFinanciamiento,
     loading,
     stats,
     addProduct,

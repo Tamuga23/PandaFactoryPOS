@@ -58,6 +58,16 @@ export function buildInvoiceDataFromSale(
     discountNIO: sale.discount || 0,
     customNote: sale.notes || '',
     warrantyText: DEFAULT_WARRANTY_TEXT,
+    // Se toma la foto guardada en la venta, NO se recalcula: si las tasas
+    // cambiaron desde entonces, reimprimir tiene que dar el mismo papel.
+    financiamiento: sale.financiamiento
+      ? {
+          plazoMeses: sale.financiamiento.plazoMeses,
+          cuotaNio: sale.financiamiento.cuotaNio,
+          totalNio: sale.financiamiento.totalNio,
+          banco: sale.financiamiento.banco,
+        }
+      : undefined,
   };
 }
 

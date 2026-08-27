@@ -251,7 +251,8 @@ export default function SalesHistory() {
             <option value="todos">Todos</option>
             <option value="EFECTIVO">Efectivo</option>
             <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="TARJETA">Tarjeta</option>
+            <option value="TARJETA">Tarjeta (pago único)</option>
+            <option value="FINANCIAMIENTO">Financiamiento (cuotas)</option>
             <option value="CREDITO">Crédito</option>
           </select>
         </div>
@@ -309,6 +310,16 @@ export default function SalesHistory() {
                   <div className="text-left md:text-right flex flex-col justify-center">
                      <p className="text-zinc-500 text-[10px] font-bold uppercase">Total</p>
                      <p className="text-xl font-bold text-cyan-400 truncate">{formatCurrency(sale.total)}</p>
+                     {/* Venta financiada: el plazo y la cuota reales que se cobraron. */}
+                     {sale.financiamiento && (
+                       <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+                         {sale.financiamiento.plazoMeses} cuotas de{' '}
+                         {formatCurrency(sale.financiamiento.cuotaNio, 'NIO')}
+                         {sale.financiamiento.recargoPct > 0
+                           ? ` · +${sale.financiamiento.recargoPct}%`
+                           : ' · 0%'}
+                       </p>
+                     )}
                   </div>
                </div>
 

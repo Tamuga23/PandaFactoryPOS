@@ -74,6 +74,7 @@ function buildPublicCatalogDoc(p) {
   if (p.bullets) doc.bullets = p.bullets;
   if (p.specs) doc.specs = p.specs;
   if (p.specsProyector) doc.specsProyector = p.specsProyector;
+  if (p.financiamientoOverride) doc.financiamientoOverride = p.financiamientoOverride;
   if (p.objecionesOverride) doc.objecionesOverride = p.objecionesOverride;
   if (p.media) doc.media = p.media;
   // NUNCA copiamos `cost`.

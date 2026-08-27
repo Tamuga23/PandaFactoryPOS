@@ -62,6 +62,7 @@ export default function Catalog() {
     objecionesOverride: p.objecionesOverride,
     specsProyector: p.specsProyector,
     media: p.media,
+    financiamientoOverride: p.financiamientoOverride,
   }));
 
   const handleAddProduct = async (productData: any) => {
@@ -95,6 +96,7 @@ export default function Catalog() {
       objecionesOverride: productData.objecionesOverride,
       specsProyector: productData.specsProyector,
       media: productData.media,
+      financiamientoOverride: productData.financiamientoOverride,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -136,6 +138,7 @@ export default function Catalog() {
       objecionesOverride: productData.objecionesOverride,
       specsProyector: productData.specsProyector,
       media: productData.media,
+      financiamientoOverride: productData.financiamientoOverride,
       updatedAt: Date.now(),
     };
 

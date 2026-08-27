@@ -56,6 +56,37 @@ export const TabletMediaSchema = z.object({
   videoUrl: z.string().optional(),
 });
 
+/**
+ * Excepción de financiamiento por producto. El recargo es un mapa
+ * meses→porcentaje (claves string porque así viajan en Firestore).
+ */
+export const FinanciamientoOverrideSchema = z.object({
+  sinInteres: z.boolean().optional(),
+  habilitado: z.boolean().optional(),
+  minUsd: z.number().min(0).optional(),
+  plazos: z.array(z.number().positive()).optional(),
+  recargo: z.record(z.string(), z.number().min(0).max(100)).optional(),
+});
+
+/** Reglas de financiamiento (doc `config/financiamiento`). */
+export const ConfigFinanciamientoSchema = z.object({
+  banco: z.string().min(1),
+  minUsd: z.number().min(0),
+  plazos: z.array(z.number().positive()).min(1),
+  recargoPorDefecto: z.record(z.string(), z.number().min(0).max(100)),
+  porCategoria: z
+    .record(
+      z.string(),
+      z.object({
+        recargo: z.record(z.string(), z.number().min(0).max(100)).optional(),
+        minUsd: z.number().min(0).optional(),
+        plazos: z.array(z.number().positive()).optional(),
+      }),
+    )
+    .optional(),
+  actualizadoEn: z.number().optional(),
+});
+
 /** Campos OPCIONALES de tablet que extienden a Product. */
 export const ProductTabletFieldsSchema = z.object({
   categorySlug: z.string().optional(),
@@ -68,6 +99,7 @@ export const ProductTabletFieldsSchema = z.object({
   specsProyector: ProjectorSpecsSchema.optional(),
   objecionesOverride: z.array(ObjectionOverrideSchema).optional(),
   media: TabletMediaSchema.optional(),
+  financiamientoOverride: FinanciamientoOverrideSchema.optional(),
 });
 
 export const ProductSchema = z.object({
@@ -136,6 +168,24 @@ export const CompanyInfoSchema = z.object({
   defaultExchangeRate: z.number().min(0.01),
 });
 
+/**
+ * Plan de cuotas cobrado en una venta financiada. Montos en córdobas.
+ * `totalNio` tiene que ser exactamente `cuotaNio × plazoMeses`: si no cuadra,
+ * el número que se le mostró al cliente no era el que se cobró.
+ */
+export const VentaFinanciamientoSchema = z
+  .object({
+    plazoMeses: z.number().int().positive().max(60),
+    recargoPct: z.number().min(0).max(100),
+    cuotaNio: z.number().positive(),
+    totalNio: z.number().positive(),
+    banco: z.string().max(60).optional(),
+  })
+  .refine((f) => Math.abs(f.cuotaNio * f.plazoMeses - f.totalNio) < 1, {
+    message: 'totalNio debe ser cuotaNio × plazoMeses',
+    path: ['totalNio'],
+  });
+
 export const SaleSchema = z.object({
   id: z.string().min(1),
   date: z.number(),
@@ -159,7 +209,8 @@ export const SaleSchema = z.object({
   
   currency: z.enum(['NIO', 'USD']),
   exchangeRate: z.number().min(0.01),
-  paymentMethod: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']),
+  paymentMethod: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO', 'FINANCIAMIENTO']),
+  financiamiento: VentaFinanciamientoSchema.optional(),
   paymentReference: z.string().optional(),
   notes: z.string().optional(),
 
@@ -362,6 +413,9 @@ export function buildPublicCatalogDoc(product: Product): PublicCatalogProduct {
   if (product.specsProyector) doc.specsProyector = product.specsProyector;
   if (product.objecionesOverride) doc.objecionesOverride = product.objecionesOverride;
   if (product.media) doc.media = product.media;
+  // Excepción de financiamiento: es dato público (define la cuota que se
+  // muestra). El costo que cobra el banco NO se copia nunca al espejo.
+  if (product.financiamientoOverride) doc.financiamientoOverride = product.financiamientoOverride;
 
   return doc;
 }

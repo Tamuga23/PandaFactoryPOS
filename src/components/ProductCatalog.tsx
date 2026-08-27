@@ -1,6 +1,7 @@
 import React, { useState, useMemo, ChangeEvent, FormEvent } from 'react';
 import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
+import type { FinanciamientoOverride } from '../lib/financiamiento';
 import {
   camposDeCategoria,
   resolverCategoriaSpec,
@@ -110,6 +111,7 @@ export interface CatalogProduct {
   objecionesOverride?: ObjectionOverride[];
   specsProyector?: ProjectorSpecs;
   media?: TabletMedia;
+  financiamientoOverride?: FinanciamientoOverride;
 }
 
 export interface ProductCatalogProps {
@@ -137,6 +139,11 @@ interface FormData {
   beneficio: string;
   bullets: SalesBullet[];
   objecionesOverride: ObjectionOverride[];
+  /**
+   * Excepción de financiamiento. Solo los tres casos que se usan en la práctica;
+   * el ajuste fino de recargos por plazo se hace en Configuración, por categoría.
+   */
+  financiamiento: 'categoria' | 'sin-interes' | 'sin-cuotas';
   /** Valores editables de la ficha técnica (strings/booleanos del form). */
   specsProyector: SpecFormValues;
   /**
@@ -165,6 +172,7 @@ const INITIAL_FORM_DATA: FormData = {
   beneficio: '',
   bullets: [],
   objecionesOverride: [],
+  financiamiento: 'categoria',
   specsProyector: {},
   media: toFormMedia(undefined),
 };
@@ -246,6 +254,11 @@ export default function ProductCatalog({
         beneficio: product.beneficio || '',
         bullets: product.bullets || [],
         objecionesOverride: product.objecionesOverride || [],
+        financiamiento: product.financiamientoOverride?.habilitado === false
+          ? 'sin-cuotas'
+          : product.financiamientoOverride?.sinInteres
+            ? 'sin-interes'
+            : 'categoria',
         specsProyector: toFormSpecs(product.specsProyector),
         specsOriginal: product.specsProyector,
         media: toFormMedia(product.media),
@@ -319,6 +332,11 @@ export default function ProductCatalog({
           return limpios.length > 0 ? limpios : undefined;
         })(),
         objecionesOverride: formData.objecionesOverride.length > 0 ? formData.objecionesOverride : undefined,
+        // Financiamiento: `undefined` = manda la regla de la categoría.
+        financiamientoOverride:
+          formData.financiamiento === 'sin-interes' ? { sinInteres: true }
+          : formData.financiamiento === 'sin-cuotas' ? { habilitado: false }
+          : undefined,
         // Ficha técnica: los campos aplicables los define la categoría
         // (`categorySpecs.ts`), no un `if` de proyectores como antes.
         specsProyector: toFirestoreSpecs(
@@ -784,6 +802,29 @@ export default function ProductCatalog({
                 placeholder="Ej. +10,000 hrs de vida útil"
                 className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
               />
+            </div>
+
+            {/* Excepción de financiamiento. Lo normal es dejarlo en la regla de
+                la categoría, que se edita en Configuración. */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Financiamiento a plazos</label>
+              <select
+                name="financiamiento"
+                value={formData.financiamiento}
+                onChange={handleInputChange}
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+              >
+                <option value="categoria">Según su categoría (recomendado)</option>
+                <option value="sin-interes">Forzar 0% interés en este producto</option>
+                <option value="sin-cuotas">Sin cuotas para este producto</option>
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">
+                {formData.financiamiento === 'categoria'
+                  ? 'Usa el recargo de su categoría. Se edita en Configuración → Financiamiento a plazos.'
+                  : formData.financiamiento === 'sin-interes'
+                    ? 'Se anuncia como 0% interés aunque su categoría tenga recargo. El costo del banco lo absorbés vos.'
+                    : 'No se muestran cuotas en la tablet ni en la web, solo el precio de contado.'}
+              </p>
             </div>
           </div>
         </div>
