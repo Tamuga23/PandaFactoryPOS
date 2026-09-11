@@ -38,7 +38,17 @@ Pendiente tras esta sesión:
 
 ## P0 — Seguridad (esto es lo más importante del proyecto)
 
-### 1. Cualquier persona puede leer y escribir TODA tu base de datos
+### 1. Cualquier persona puede leer y escribir TODA tu base de datos — ✅ RESUELTO (2026-09-10, commit `e029765`)
+
+> El diagnóstico de abajo era correcto y se cerró tal como lo proponía, con tres
+> diferencias: se usó el claim `admin` en vez de filtrar por proveedor (el
+> provider de email/password permite auto-registro con la API key pública, y el
+> proyecto además tiene Google habilitado); se cerraron también `movimientos` y
+> `counters`, que esta lista no incluía; y se abrieron a lectura pública
+> `config/financiamiento` y el doc `company/shared_store`, para que la tablet y
+> la web no coticen condiciones por defecto en silencio. La tablet sigue anónima
+> como dice el punto 3. Detalle completo en `REVISION_2026-07-07_MEJORAS.md` § P0.1.
+
 Las reglas solo exigen `isSignedIn()`, y el proyecto tiene **auth anónima habilitada** (la usan el POS y PandaLink). La API key es pública y está commiteada en ambos repos (`firebase-applet-config.json`) y en el bundle de la tablet. Consecuencia real: cualquiera con la key hace `signInAnonymously` y puede:
 
 - Leer `products` **incluyendo `cost`** — todo el esfuerzo del espejo `catalogo_publico` sin costo hoy no protege nada.
@@ -55,8 +65,19 @@ Es un cambio de ~20 líneas de reglas + un script para setear el claim. Nada de 
 ### 2. Ventas mutables y borrables
 `security_spec.md` declara "Sales are immutable", pero las reglas permiten `update` (sin validar diff) y `delete` a cualquier autenticado. Si el POS necesita editar ventas (usa `updateSale`), exigí admin y validá qué campos pueden cambiar; si no, `update, delete: if false`. Actualizá el spec para que refleje la decisión.
 
-### 3. Service account en la raíz del proyecto
+### 3. Service account en la raíz del proyecto — sigue pendiente (prioridad media)
 `gen-lang-client-...-adminsdk-...json` no está en git (bien, `.gitignore` lo cubre), pero vive dentro de una carpeta que se comparte/zipea. Esa clave da acceso admin total al proyecto. **Rotala en GCP** (IAM → Service Accounts → Keys) y guardá la nueva fuera del proyecto; los scripts ya soportan `GOOGLE_APPLICATION_CREDENTIALS`.
+
+> **Confirmado el 2026-09-10.** Esta sección tenía razón y `REVISION_2026-07-07_MEJORAS.md`
+> se equivocaba: ese otro doc afirmaba que la llave "vive en el historial del
+> repo". Se auditó el historial completo (43 commits, 536 objetos, incluidos los
+> dangling) y **no está en ningún commit** — el archivo es 19 días posterior al
+> primer commit. No hace falta reescribir historia.
+>
+> Sigue sin rotarse: el sufijo del nombre (`5e894dbc0a`) coincide con su
+> `private_key_id`, o sea que es el archivo original tal cual se descargó.
+> Al rotar, borrá el JSON viejo ANTES de revocar la clave: seis scripts eligen
+> credencial con `existsSync`, que mira si el archivo existe y no si sirve.
 
 ---
 

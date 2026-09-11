@@ -85,18 +85,122 @@ Contexto de negocio: tienda de electrónicos (proyectores, smartwatches, cámara
 
 ## P0 — Seguridad (sigue pendiente y empeoró un detalle)
 
-### P0.1 Reglas abiertas a cualquier sesión anónima (ya documentado, sigue vigente)
-`firestore.rules` solo exige `isSignedIn()` y el login es anónimo. La config de Firebase viaja en el bundle del cliente: **cualquier persona que abra la app (o extraiga la config) puede leer costos, ventas con datos de clientes, y borrar TODO el negocio** (`allow delete: if isSignedIn()`). El plan de Fase 2 (claim `admin`, cerrar lecturas) ya está diseñado al final de `firestore.rules` — es lo más importante del proyecto y conviene no posponerlo más. Mínimo viable en una tarde:
-1. Activar proveedor Email/Password en Firebase Auth y crear tu usuario.
-2. Setear claim `admin` con un script de una línea (ya tenés firebase-admin en scripts/).
-3. Reemplazar `isSignedIn()` por `isAdmin()` en products/sales/purchases/customers/suppliers/company, y dejar `catalogo_publico` + objeciones con lectura para la tablet.
-4. Cambiar `loginAnonymouslyUser()` por un form de email/contraseña en `App.tsx`.
+### P0.1 Reglas abiertas a cualquier sesión anónima — ✅ RESUELTO (2026-09-10)
 
-### P0.2 [NUEVO] El service account está DENTRO del repo
-`gen-lang-client-0460782288-firebase-adminsdk-fbsvc-5e894dbc0a.json` (con `private_key`) está en la raíz de la carpeta. El `.gitignore` lo excluye, pero la carpeta es un download de GitHub (`-main`), lo que indica que **el archivo llegó a commitearse y vive en el historial del repo**. Esa llave da control admin total del proyecto (omite todas las reglas). Acción inmediata:
-1. Rotar/eliminar la llave en Google Cloud Console → IAM → Service Accounts → Keys.
-2. Generar una nueva y guardarla FUERA de la carpeta del repo (como ya dice el README).
-3. Si el repo es/fue público o compartido: purgar el historial (BFG / git filter-repo) o recrear el repo.
+El diagnóstico era correcto: `firestore.rules` solo exigía `isSignedIn()`, el
+login del POS era anónimo y la config de Firebase viaja en el bundle, así que
+cualquiera podía sacar un token anónimo y leer costos, ventas con datos de
+clientes, y borrar todo el negocio (`allow delete: if isSignedIn()`).
+
+**Cerrado en el commit `e029765`.** Lo que se hizo, y en qué se apartó del plan
+original:
+
+1. Proveedor Email/Password habilitado; usuario del staff creado.
+2. Claim `admin` vía `scripts/set_admin_claim.mjs` (con `--listar`, `--crear`,
+   `--quitar`). No fue "un script de una línea": pagina sobre todos los usuarios
+   —hay ~1.700 sesiones anónimas acumuladas— porque con `listUsers(1000)` sin
+   paginar, una cuenta con claim más allá de las primeras 1000 queda invisible.
+3. `isSignedIn()` → `isStaff()` en products, sales, purchases, customers,
+   suppliers, **movimientos** y **counters**, además de company.
+4. `loginAnonymouslyUser()` → form de email/contraseña en `App.tsx`, y
+   `useStoreData` verifica el claim ANTES de montar las suscripciones (si no,
+   una cuenta sin permisos recibe una cascada de `permission-denied` sin
+   explicación).
+
+**Desvíos respecto del plan, con su razón:**
+
+- **Se usó el claim `admin`, no `sign_in_provider != 'anonymous'`.** El proveedor
+  de email/password permite auto-registro con la API key pública, así que filtrar
+  por proveedor no separa al staff de un visitante. Además el proyecto tiene
+  Google habilitado: sin el claim, cualquier cuenta de Google entraba.
+- **El proveedor Anónimo se deja HABILITADO.** PandaLink y PandaWEB dependen de
+  él; una sesión anónima ya no puede leer nada sensible porque no lleva el claim.
+- **Se cerraron dos colecciones que el plan no listaba:** `movimientos` (kardex:
+  delata velocidad de venta por SKU) y `counters` (tenía `list: if false` pero
+  `get` abierto, y los ids son constantes del código → revelaba el volumen total
+  de facturas).
+- **Se abrieron dos que el plan no contemplaba:** `config/financiamiento` (son
+  las cuotas que se le muestran al cliente; cerrarlo hacía que la tablet y la web
+  cotizaran condiciones por defecto en silencio) y `company/shared_store` con
+  `get` público (datos de contacto ya publicados en la web, para que PandaWEB lea
+  la tasa sin sesión).
+- **Se arregló la escritura de las objeciones**, que el plan no mencionaba: tenía
+  lectura pública pero escritura con `isSignedIn()`, o sea que cualquier anónimo
+  podía reescribir las respuestas que ve el cliente en la tablet y en la web.
+
+**Verificación:** 26 tests de reglas contra el emulador (`npm run test:rules`).
+Contra las reglas viejas fallan 14, uno por agujero. Además se verificó contra
+Firestore real sacando un token anónimo con la API key pública: 403 en todo lo
+sensible, 200 en lo público.
+
+**Pendiente relacionado (otro repo):** PandaWEB hace `listCollection("company")`
+para la tasa de cambio, que ahora da 403 y cae en silencio a
+`USD_TO_NIO_FALLBACK = 36.6243`. No se rompe nada visible (es la tasa del BCN
+congelada por ley, la misma constante que ya usan el POS y PandaLink), pero hay
+que cambiarlo a `getDocument("company/shared_store")`.
+
+> Nota de datos: `company` tenía 3 documentos duplicados con id de uid anónimo,
+> escritos por una versión vieja del POS que guardaba por uid mientras el código
+> actual guarda en `shared_store`. Se consolidaron en `company/shared_store`
+> (conservando el que el POS mostraba) y se borraron los 3.
+
+### P0.2 El service account está DENTRO del repo (rebajado a P2 el 2026-09-10)
+
+> **CORRECCIÓN (2026-09-10).** La versión original de esta sección afirmaba que
+> el archivo **"llegó a commitearse y vive en el historial del repo"**. **Eso es
+> falso.** Era una inferencia a partir del nombre de la carpeta (`-main`, típico
+> de un ZIP descargado de GitHub), no una verificación. Se auditó el historial y
+> la llave **nunca estuvo en ningún commit**.
+>
+> Verificado de cinco formas sobre un clon completo (no shallow, 43 commits, las
+> tres ramas remotas presentes):
+> - `git log --all --full-history -- <ruta>` → vacío
+> - lo mismo por patrones (`*adminsdk*`, `*service-account*`, `.env`) → vacío
+> - `git rev-list --objects --all` filtrando por nombre → vacío
+> - los 43 commits grepeados por `BEGIN PRIVATE KEY` → ninguno
+> - los 536 objetos del repo, incluidos 6 dangling/unreachable → ninguno
+>
+> La cronología lo confirma: el primer commit es del **2026-06-10**
+> (`Add files via upload`) y el archivo de la llave es del **2026-06-29**, 19
+> días después. Se descargó a una carpeta que ya existía.
+>
+> **Consecuencia: NO hay que reescribir historia.** Nada de BFG ni
+> `git filter-repo`, y nadie necesita re-clonar. El punto 3 original queda sin
+> efecto.
+
+Estado real: `gen-lang-client-0460782288-firebase-adminsdk-fbsvc-5e894dbc0a.json`
+(con `private_key`) sigue en la raíz de la carpeta. El `.gitignore` lo excluye
+correctamente (línea 11, `*firebase-adminsdk*.json`, confirmado con
+`git check-ignore -v`) y no está trackeado.
+
+La llave **no está rotada**: el sufijo del nombre (`5e894dbc0a`) son los primeros
+10 caracteres de su `private_key_id` (`5e894dbc0a7a886f…`), que es la convención
+de Google al descargar. Si se hubiera rotado, el archivo nuevo tendría otro
+sufijo.
+
+**Prioridad: media, no P0.** La vía de exposición que justificaba el P0 (el
+historial de git) no existe. Rotar sigue siendo buena higiene —la llave tiene
+~3 meses, vive en una carpeta que se comprime y se comparte, y da control admin
+total saltándose todas las reglas— pero no es una emergencia.
+
+Al rotar, **el orden importa**. Seis scripts eligen credencial con
+`[GOOGLE_APPLICATION_CREDENTIALS, <nombre fijo>].find(existsSync)`: `existsSync`
+mira si el archivo *existe*, no si *sirve*. Si se revoca la llave vieja dejando
+el JSON en disco, se elige la llave muerta y los scripts mueren con
+`invalid_grant` aunque la variable de entorno esté bien puesta.
+
+1. Consola → Cuentas de servicio → Generar nueva clave privada.
+2. Guardarla FUERA de la carpeta del repo (como ya dice el README).
+3. `setx GOOGLE_APPLICATION_CREDENTIALS "<ruta nueva>"` → abrir terminal nueva.
+4. **Borrar el JSON viejo de la raíz** (antes del paso 6).
+5. Probar: `node scripts/set_admin_claim.mjs --listar` debe reportar la ruta nueva.
+6. Recién ahí: revocar la clave `5e894dbc0a…` en la consola.
+
+Archivos que referencian el nombre fijo: `scripts/set_admin_claim.mjs`,
+`reporte_financiamiento.mjs`, `backfill_catalogo_publico.mjs`,
+`seed_fichas_tecnicas.mjs`, `seed_fichas_contenido.mjs`, `auditoria_fichas.mjs`
+y `_tmp_read_products.mjs` (este último sin fallback: revienta al rotar, conviene
+borrarlo, es basura sin trackear).
 
 ---
 
@@ -215,7 +319,7 @@ Lo grueso del pulido visual ya se hizo en la sesión del 2026-07-02 (toasts, pal
 
 | # | Acción | Refs |
 |---|--------|------|
-| 1 | Rotar service account + sacarlo del repo | P0.2 |
+| 1 | ~~Rotar service account~~ → rebajado a prioridad media: la llave NUNCA estuvo en el historial git (auditado 2026-09-10). Sigue pendiente rotarla por higiene | P0.2 |
 | 2 | Facturas correlativas con contador transaccional | P1.1 |
 | 3 | Reponer stock en devolución/cancelación | P1.2 |
 | 4 | Excluir canceladas de Reports | P1.3 (2 líneas) |
