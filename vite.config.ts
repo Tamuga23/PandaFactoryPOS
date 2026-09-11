@@ -16,5 +16,13 @@ export default defineConfig(() => {
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
+    test: {
+      // Solo los tests de vitest. Los de scripts/lib/*.test.mjs son scripts
+      // sueltos de node que terminan con process.exit(): se corren con
+      // `npm run financiamiento:test` / `financiamiento:cuotas`, no acá.
+      // Sin este include, vitest los levanta y los reporta como suite fallida
+      // aunque hayan impreso "TODO OK".
+      include: ['**/*.test.ts'],
+    },
   };
 });

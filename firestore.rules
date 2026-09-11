@@ -1,7 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    // 0. Red de seguridad para colecciones SIN regla propia.
+    // OJO: las reglas de Firestore se evaluan en UNION — este `false` no anula
+    // ningun `allow` de los bloques de abajo. Solo cubre lo que no tiene match.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -12,7 +14,13 @@ service cloud.firestore {
     }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
-    function isSignedIn() { return request.auth != null; }
+    // Staff REAL. Una sesion anonima nunca puede llevar este claim, y alguien
+    // que se auto-registre con email/password tampoco: el claim `admin` solo se
+    // setea a mano con el Admin SDK (scripts/set_admin_claim.mjs). Por eso el
+    // gate es el claim y no `sign_in_provider != 'anonymous'`: el provider de
+    // email/password permite auto-registro con la API key publica, asi que por
+    // si solo no separa al staff de un visitante.
+    function isStaff() { return request.auth != null && request.auth.token.admin == true; }
     
     // Product Validation Blueprint
     function isValidProduct(data) {
@@ -218,10 +226,10 @@ service cloud.firestore {
     }
 
     match /products/{productId} {
-      allow get: if isSignedIn() && isValidId(productId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
-      allow update: if isSignedIn() && isValidId(productId) 
+      allow get: if isStaff() && isValidId(productId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isStaff() && isValidId(productId) 
         && isValidProduct(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().ownerId == existing().ownerId
@@ -229,29 +237,39 @@ service cloud.firestore {
             'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
             'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'
         ]);
-      allow delete: if isSignedIn() && isValidId(productId);
+      allow delete: if isStaff() && isValidId(productId);
     }
 
     match /sales/{saleId} {
-      allow get: if isSignedIn() && isValidId(saleId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(saleId) && isValidSale(incoming());
-      allow update: if isSignedIn() && isValidId(saleId) && isValidSale(incoming());
-      allow delete: if isSignedIn() && isValidId(saleId);
+      allow get: if isStaff() && isValidId(saleId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(saleId) && isValidSale(incoming());
+      allow update: if isStaff() && isValidId(saleId) && isValidSale(incoming());
+      allow delete: if isStaff() && isValidId(saleId);
     }
 
     match /purchases/{purchaseId} {
-      allow get: if isSignedIn() && isValidId(purchaseId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(purchaseId) && isValidPurchase(incoming());
-      allow update: if isSignedIn() && isValidId(purchaseId) && isValidPurchase(incoming());
-      allow delete: if isSignedIn() && isValidId(purchaseId);
+      allow get: if isStaff() && isValidId(purchaseId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(purchaseId) && isValidPurchase(incoming());
+      allow update: if isStaff() && isValidId(purchaseId) && isValidPurchase(incoming());
+      allow delete: if isStaff() && isValidId(purchaseId);
     }
 
+    // `company` es MONO-TENANT: el POS escribe siempre en el doc fijo
+    // `company/shared_store` (useStoreData.ts:176). El `{uid}` de abajo es solo
+    // el nombre del comodin, no un id por usuario.
+    //
+    // GET publico SOLO de `shared_store`: expone nombre, telefono, direccion,
+    // email y logo de la tienda — datos que ya estan publicados en la web. NO
+    // expone costos ni ventas. Sirve para que PandaWEB lea defaultExchangeRate
+    // sin sesion, cambiando su `listCollection("company")` por
+    // `getDocument("company/shared_store")` (ese helper ya existe y no se usa).
+    // LIST sigue cerrado: el POS lo usa (snapshot.docs[0]) y es staff.
     match /company/{uid} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow write: if isSignedIn() 
+      allow get: if uid == 'shared_store' || isStaff();
+      allow list: if isStaff();
+      allow write: if isStaff() 
         && incoming().keys().hasAll(['name', 'phone', 'address', 'email', 'ownerId'])
         && incoming().keys().hasOnly(['name', 'phone', 'address', 'email', 'logoBase64', 'ownerId', 'defaultExchangeRate'])
         && (!('defaultExchangeRate' in incoming()) || (incoming().defaultExchangeRate is number && incoming().defaultExchangeRate >= 0.01));
@@ -278,28 +296,33 @@ service cloud.firestore {
         && (!('actualizadoEn' in data) || (data.actualizadoEn is number));
     }
 
+    // LECTURA PUBLICA: `config/financiamiento` define la cuota que se le MUESTRA
+    // al cliente en la tablet y en la web. No hay nada privado (lo que el banco
+    // le cobra a la tienda vive en scripts/reporte_financiamiento.mjs, no aca).
+    // Abrirlo evita que PandaLink/PandaWEB caigan en silencio a las condiciones
+    // por defecto y le coticen al cliente cuotas que no son las vigentes.
     match /config/{docId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow write: if isSignedIn()
+      allow get: if true;
+      allow list: if true;
+      allow write: if isStaff()
         && docId == 'financiamiento'
         && isValidConfigFinanciamiento(incoming());
     }
 
     match /customers/{customerId} {
-      allow get: if isSignedIn() && isValidId(customerId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(customerId) && isValidCustomer(incoming());
-      allow update: if isSignedIn() && isValidId(customerId) && isValidCustomer(incoming());
-      allow delete: if isSignedIn() && isValidId(customerId);
+      allow get: if isStaff() && isValidId(customerId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(customerId) && isValidCustomer(incoming());
+      allow update: if isStaff() && isValidId(customerId) && isValidCustomer(incoming());
+      allow delete: if isStaff() && isValidId(customerId);
     }
 
     match /suppliers/{supplierId} {
-      allow get: if isSignedIn() && isValidId(supplierId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(supplierId) && isValidSupplier(incoming());
-      allow update: if isSignedIn() && isValidId(supplierId) && isValidSupplier(incoming());
-      allow delete: if isSignedIn() && isValidId(supplierId);
+      allow get: if isStaff() && isValidId(supplierId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(supplierId) && isValidSupplier(incoming());
+      allow update: if isStaff() && isValidId(supplierId) && isValidSupplier(incoming());
+      allow delete: if isStaff() && isValidId(supplierId);
     }
 
     // ---------------------------------------------------------------------
@@ -321,8 +344,8 @@ service cloud.firestore {
         && (!('refId' in data) || (data.refId is string && data.refId.size() <= 128));
     }
     match /movimientos/{movId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidMovimiento(incoming());
+      allow get, list: if isStaff();
+      allow create: if isStaff() && isValidMovimiento(incoming());
       allow update, delete: if false;
     }
 
@@ -332,9 +355,9 @@ service cloud.firestore {
     // Se escriben SOLO dentro de la transacción de recordSale.
     // ---------------------------------------------------------------------
     match /counters/{counterId} {
-      allow get: if isSignedIn();
+      allow get: if isStaff();
       allow list: if false;
-      allow create, update: if isSignedIn()
+      allow create, update: if isStaff()
         && incoming().keys().hasAll(['value'])
         && incoming().keys().hasOnly(['value', 'updatedAt'])
         && incoming().value is number && incoming().value >= 0
@@ -352,8 +375,7 @@ service cloud.firestore {
     // ningún cliente puede escribirlo, ni siquiera autenticado.
     // ---------------------------------------------------------------------
     match /catalogo_publico/{productId} {
-      allow get: if isValidId(productId);
-      allow list: if true;
+      allow read: if true;
       allow create, update, delete: if false;
     }
 
@@ -365,9 +387,9 @@ service cloud.firestore {
     match /objeciones_universales/{objId} {
       allow get: if isValidId(objId);
       allow list: if true;
-      allow create: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
-      allow update: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
-      allow delete: if isSignedIn() && isValidId(objId);
+      allow create: if isStaff() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow update: if isStaff() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow delete: if isStaff() && isValidId(objId);
     }
 
     // ---------------------------------------------------------------------
@@ -378,33 +400,31 @@ service cloud.firestore {
     match /objeciones_categoria/{objId} {
       allow get: if isValidId(objId);
       allow list: if true;
-      allow create: if isSignedIn() && isValidId(objId) && isValidCategoryObjection(incoming());
-      allow update: if isSignedIn() && isValidId(objId) && isValidCategoryObjection(incoming());
-      allow delete: if isSignedIn() && isValidId(objId);
+      allow create: if isStaff() && isValidId(objId) && isValidCategoryObjection(incoming());
+      allow update: if isStaff() && isValidId(objId) && isValidCategoryObjection(incoming());
+      allow delete: if isStaff() && isValidId(objId);
     }
 
-    // ============== FASE 0 · PASOS 2 y 3 (pendientes) ====================
+    // ============== FASE 0 — ESTADO ======================================
     // HECHO (paso 1): catalogo_publico y objeciones con lectura pública.
-    // FALTA (paso 2): login email/password en el POS + custom claim `admin`.
-    // FALTA (paso 3): products, sales, purchases, customers, suppliers y
-    //   company detrás de isAdmin(). OJO: PandaWEB hoy LISTA `company` para
-    //   leer defaultExchangeRate — resolver esa tasa ANTES de cerrarla.
-    // =====================================================================
-    // Más adelante: gatear lecturas sensibles detrás de un custom claim `admin`.
-    // Setear el claim con Admin SDK: admin.auth().setCustomUserClaims(uid, { admin: true }).
+    // HECHO (paso 3): products, sales, purchases, customers, suppliers,
+    //   movimientos, counters y company detrás de isStaff().
     //
-    // function isAdmin() { return isSignedIn() && request.auth.token.admin == true; }
+    // REQUISITO PREVIO AL DEPLOY (paso 2) — SIN ESTO EL POS QUEDA AFUERA:
+    //   a) habilitar el proveedor Email/Password en Firebase Console;
+    //   b) crear el usuario del staff;
+    //   c) darle el claim:  node scripts/set_admin_claim.mjs <email>
+    //   d) cambiar el login del POS (src/App.tsx + src/lib/db.ts) de
+    //      signInAnonymously a signInWithEmailAndPassword.
+    // El proveedor Anónimo se queda HABILITADO: lo usan PandaLink y PandaWEB,
+    // y una sesión anónima ya no puede leer nada sensible porque no lleva el
+    // claim `admin`.
     //
-    // Ej.: restringir lectura de `products` (incluye `cost`) sólo a admins, dejando
-    // que la tablet consuma el espejo público `catalogo_publico`:
-    //
-    // match /products/{productId} {
-    //   allow get, list: if isAdmin();
-    //   // ... writes igual que arriba pero exigiendo isAdmin() ...
-    // }
-    //
-    // Ej.: catálogo público legible por la tablet sin login:
-    // match /catalogo_publico/{productId} { allow get, list: if true; }
+    // Pendiente aparte (no es parte de este corte):
+    //   - `sales` update no restringe affectedKeys(): se puede reescribir el
+    //     total de una factura ya emitida. Hoy solo lo puede hacer staff.
+    //   - `ownerId` nunca se compara contra request.auth.uid: no es una
+    //     frontera de propiedad, es solo un campo tipado.
     // =====================================================================
   }
 }

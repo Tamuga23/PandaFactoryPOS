@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, auth, handleFirestoreError } from '../lib/db';
+import { db, auth, handleFirestoreError, tieneClaimStaff } from '../lib/db';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, getDoc, startAfter } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
 import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
 import {
@@ -63,6 +63,9 @@ export function useStoreData() {
   );
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  // Sesión válida en Firebase pero SIN el claim `admin`: hay que decirlo con
+  // todas las letras en la pantalla de login, no dejarlo en un permission-denied.
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // P1.4: páginas adicionales del historial (más allá de las 100 en vivo).
   const [olderSales, setOlderSales] = useState<Sale[]>([]);
@@ -70,23 +73,64 @@ export function useStoreData() {
   const [loadingOlderSales, setLoadingOlderSales] = useState(false);
 
   useEffect(() => {
+    // El chequeo del claim es asíncrono: si el componente se desmonta mientras
+    // está en vuelo, no hay que tocar estado.
+    let cancelado = false;
+
+    const limpiar = () => {
+      setProducts([]);
+      setSales([]);
+      setPurchases([]);
+      setCustomers([]);
+      setSuppliers([]);
+      setCompanyInfo(null);
+      setUniversalObjections([]);
+      setCategoryObjections([]);
+      setOlderSales([]);
+      setHasMoreOlderSales(true);
+      setLoading(false);
+    };
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
       if (!currentUser) {
-        setProducts([]);
-        setSales([]);
-        setPurchases([]);
-        setCustomers([]);
-        setSuppliers([]);
-        setCompanyInfo(null);
-        setUniversalObjections([]);
-        setCategoryObjections([]);
-        setOlderSales([]);
-        setHasMoreOlderSales(true);
-        setLoading(false);
+        setUser(null);
+        setAuthError(null);
+        limpiar();
+        return;
       }
+
+      // Antes de montar NADA: confirmar que esta sesión trae el claim `admin`.
+      // Sin él, firestore.rules niega products/sales/purchases/customers/…, y
+      // suscribirse igual solo produce una cascada de permission-denied que no
+      // le dice al usuario cuál es el problema real.
+      tieneClaimStaff(currentUser)
+        .then((esStaff) => {
+          if (cancelado) return;
+          if (esStaff) {
+            setAuthError(null);
+            setUser(currentUser);
+            return;
+          }
+          setAuthError(
+            `La cuenta ${currentUser.email ?? ''} no tiene permisos de staff. ` +
+            `Pedí que te habiliten con: node scripts/set_admin_claim.mjs ${currentUser.email ?? '<tu correo>'}`
+          );
+          setUser(null);
+          limpiar();
+          // Cerrar la sesión inútil deja la pantalla de login limpia para
+          // reintentar con otra cuenta. Dispara onAuthStateChanged(null), que
+          // entra por la rama de arriba y corta acá — no hay bucle.
+          signOut(auth).catch(() => { /* la sesión igual quedó sin uso */ });
+        })
+        .catch((e) => {
+          if (cancelado) return;
+          console.error('[auth] no se pudo verificar el claim de staff', e);
+          setAuthError('No se pudo verificar tu sesión. Revisá tu conexión e intentá de nuevo.');
+          setUser(null);
+          limpiar();
+        });
     });
-    return () => unsubscribe();
+    return () => { cancelado = true; unsubscribe(); };
   }, []);
 
   useEffect(() => {
@@ -1102,6 +1146,7 @@ export function useStoreData() {
 
   return {
     user,
+    authError,
     products,
     sales,
     purchases,
