@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 import { formatCurrencyNIO } from '../lib/utils';
@@ -84,11 +84,40 @@ const ITEM_WITHOUT_IMAGE_HEIGHT = 40; // Reduced from 65
 export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming, whatsApp }: InvoicePreviewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  /**
+   * Modo presentación: la pantalla es para el CLIENTE, no para el operador.
+   *
+   * Cuando se gira la laptop para mostrar la proforma —que es la razón de ser
+   * de una proforma— el cliente veía la consola interna del negocio: fondo
+   * zinc-950, "Revisá la cotización", "Confirmar Venta", "Editar Datos".
+   * DESIGN.md declara dos mundos que no deben mezclarse, y este era el único
+   * instante en que se tocaban: el que se filtraba era la consola.
+   *
+   * Acá el A4 se escala al alto del viewport con `transform`, NO con reflow:
+   * el lienzo es de 794×1123px fijos porque es un documento de impresión, y
+   * reflowarlo cambiaría la paginación que el PDF ya calculó.
+   */
+  const [modoCliente, setModoCliente] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // El A4 mide 1123px de alto fijos. Para que entre entero en pantalla se
+  // escala por transform (no por reflow: reflowar cambiaría la paginación que
+  // el PDF ya calculó). Se recalcula al redimensionar.
+  const [escala, setEscala] = useState(1);
+  useEffect(() => {
+    if (!modoCliente) return;
+    const calcular = () => setEscala(Math.min(1, (window.innerHeight - 24) / 1123));
+    calcular();
+    window.addEventListener('resize', calcular);
+    return () => window.removeEventListener('resize', calcular);
+  }, [modoCliente]);
+
   // P4.7: ESC cierra el preview (no mientras confirma o genera el PDF).
-  useEscapeKey(isOpen && !isConfirming && !isGenerating && !isSharing, onClose);
+  useEscapeKey(
+    isOpen && !isConfirming && !isGenerating && !isSharing,
+    () => (modoCliente ? setModoCliente(false) : onClose()),
+  );
 
   if (!isOpen) return null;
 
@@ -214,7 +243,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden">
       {/* Navbar modal */}
-      <div className="flex-none bg-zinc-950 p-4 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-[101]">
+      <div className={`flex-none bg-zinc-950 p-4 border-b border-zinc-800 items-center justify-between sticky top-0 z-[101] ${modoCliente ? 'hidden' : 'flex'}`}>
         {/*
           El título decía siempre "Vista Previa de Factura", incluso cuando el
           documento era una Cotización y también DESPUÉS de confirmar. Ahora
@@ -234,6 +263,19 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
           )}
         </h2>
         <div className="flex items-center gap-4">
+          {/*
+            "Mostrar al cliente": oculta toda la cromática de consola y deja el
+            documento solo, escalado al alto de la pantalla. Es el único momento
+            en que el cliente mira esta pantalla, y hasta ahora lo que veía era
+            el tablero interno del negocio.
+          */}
+          <button
+            type="button"
+            onClick={() => setModoCliente(true)}
+            className="hidden sm:block text-xs font-bold text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 px-3 py-2 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
+          >
+            Mostrar al cliente
+          </button>
           {/*
             Resumen pegado al botón irreversible. El TOTAL vive al pie de un A4
             de 1123px, así que en una laptop se ve el tercio superior del
@@ -315,8 +357,21 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
       </div>
 
       {/* Pages Container scrollable */}
-      <div className="flex-1 overflow-auto p-8 custom-scrollbar">
-        <div ref={containerRef} className="flex flex-col items-center gap-8 pb-16 min-w-max mx-auto">
+      <div className={`flex-1 overflow-auto custom-scrollbar ${modoCliente ? 'bg-zinc-200 p-0 flex items-start justify-center' : 'p-8'}`}>
+        {modoCliente && (
+          <button
+            type="button"
+            onClick={() => setModoCliente(false)}
+            className="fixed top-3 right-3 z-[102] bg-zinc-900/80 hover:bg-zinc-900 text-zinc-300 hover:text-white text-xs font-bold px-3 py-2 rounded-lg backdrop-blur focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          >
+            Salir (ESC)
+          </button>
+        )}
+        <div
+          ref={containerRef}
+          className="flex flex-col items-center gap-8 pb-16 min-w-max mx-auto"
+          style={modoCliente ? { transform: `scale(${escala})`, transformOrigin: 'top center' } : undefined}
+        >
           {pages.map((page, pageIndex) => (
             <div 
               key={pageIndex} 
