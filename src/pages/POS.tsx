@@ -62,6 +62,9 @@ export default function POS() {
   // venta ajena al operador sin avisar sería peor que perderla.
   const [borrador, setBorrador] = useState<VentaEnCurso | null>(null);
   const buscadorRef = useRef<HTMLInputElement>(null);
+  // Con cuánto paga el cliente, para calcular el vuelto. Solo UI: no viaja a
+  // Firestore ni al documento. Vacío = todavía no lo dijo.
+  const [pagaCon, setPagaCon] = useState('');
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -127,6 +130,7 @@ export default function POS() {
     if (cart.length === 0) return;
     setCart([]);
     setPlazoMeses(null);
+    setPagaCon('');
     borrarVentaEnCurso();
     toast.info('Venta descartada.');
   };
@@ -496,6 +500,9 @@ export default function POS() {
           address: sale.customerAddress,
           createdAt: Date.now()
         });
+        // Se avisa: tipear un nombre daba de alta una ficha en el CRM sin que
+        // nadie lo dijera, y despues aparecia en Clientes sin explicacion.
+        toast.info(`Se creó la ficha de ${sale.customerName.trim()} en Clientes.`);
       }
     }
 
@@ -555,6 +562,7 @@ export default function POS() {
     // misma jornada salen por la misma vía.
     setPaymentMethod('EFECTIVO');
     setPlazoMeses(null);
+    setPagaCon('');
     // La venta ya está registrada: el borrador no tiene nada que recuperar.
     borrarVentaEnCurso();
 
@@ -865,7 +873,10 @@ export default function POS() {
           </p>
           <div className="grid grid-cols-2 gap-3 mb-4 relative">
             <div className="space-y-1">
-              <label htmlFor="pos-cliente-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del Cliente</label>
+              <label htmlFor="pos-cliente-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">
+                Nombre del Cliente
+                <span className="normal-case font-normal text-zinc-500"> · opcional</span>
+              </label>
               <input id="pos-cliente-nombre" 
                 type="text" 
                 placeholder="Ignacio Lula..." 
@@ -996,12 +1007,30 @@ export default function POS() {
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as Sale['paymentMethod'])}
               >
+                {/*
+                  Los rótulos dicen QUÉ es cada uno. Antes "CRÉDITO" y
+                  "FINANCIAMIENTO" se leían como lo mismo ("paga después") y no
+                  lo son: crédito es tarjeta de crédito en un pago, y
+                  financiamiento son cuotas con tarjeta Banpro, que es lo único
+                  que abre el selector de plazo y congela un plan.
+                */}
                 <option value="EFECTIVO">EFECTIVO</option>
                 <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-                <option value="TARJETA">TARJETA (pago único)</option>
-                <option value="FINANCIAMIENTO">FINANCIAMIENTO (cuotas)</option>
-                <option value="CREDITO">CRÉDITO</option>
+                <option value="TARJETA">TARJETA (débito, pago único)</option>
+                <option value="CREDITO">TARJETA DE CRÉDITO (un pago)</option>
+                <option value="FINANCIAMIENTO">CUOTAS BANPRO (3 o 6 meses)</option>
               </select>
+              {paymentMethod === 'CREDITO' && (
+                <p className="text-[10px] text-zinc-400 leading-snug mt-1">
+                  Tarjeta de crédito en un solo pago. No registra plan de cuotas.
+                </p>
+              )}
+              {esFinanciada && (
+                <p className="text-[10px] text-zinc-400 leading-snug mt-1">
+                  Solo con tarjeta Banpro. El recargo lo define la categoría de
+                  cada producto (se configura en Configuración).
+                </p>
+              )}
             </div>
             <div className="space-y-1 col-span-2">
               <label htmlFor="pos-referencia-pago" className="text-[10px] uppercase text-zinc-400 font-bold">Referencia de Pago (Opcional)</label>
@@ -1195,6 +1224,44 @@ export default function POS() {
                   {formatCurrency(planElegido.cuotaNio, 'NIO')}
                   <span className="text-[10px] font-normal text-zinc-400"> /mes</span>
                 </span>
+              </div>
+            )}
+            {/*
+              Vuelto. EFECTIVO es el método por defecto y los totales caen en
+              cifras como C$ 12.713,45: la aritmética la hacía el operador de
+              cabeza, con el cliente esperando. Solo aparece cobrando en
+              efectivo — en los otros métodos no hay vuelto que dar.
+            */}
+            {paymentMethod === 'EFECTIVO' && cart.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-zinc-700">
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor="pos-paga-con" className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 shrink-0">
+                    Paga con
+                  </label>
+                  <input
+                    id="pos-paga-con"
+                    type="number"
+                    min={0}
+                    inputMode="decimal"
+                    value={pagaCon}
+                    onChange={(e) => setPagaCon(e.target.value)}
+                    placeholder="0"
+                    className="w-28 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1 text-sm text-right text-zinc-200 tabular-nums placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                {pagaCon.trim() !== '' && (() => {
+                  const vuelto = (Number(pagaCon) || 0) - total * currentExchangeRate;
+                  return (
+                    <div className="flex items-baseline justify-between gap-2 mt-1.5">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 shrink-0">
+                        {vuelto >= 0 ? 'Vuelto' : 'Falta'}
+                      </span>
+                      <span className={`text-lg font-bold tabular-nums ${vuelto >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {formatCurrency(Math.abs(vuelto), 'NIO')}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {esFinanciada && planElegido && (
