@@ -174,6 +174,67 @@ ok('pondera por monto, no por cantidad de líneas', plan(mixto75, 3).recargoPct 
 ok('el total del carrito también cuadra con la cuota',
   mixto.every((p) => p.cuotaNio * p.meses === p.totalNio));
 
+// ---------------------------------------------------------------------------
+// El plan se calcula sobre el NETO, no sobre el bruto de las líneas.
+//
+// Regresión de un bug real: el POS le pasaba a `planesParaVenta` solo
+// `price × quantity` y dejaba afuera el envío y el descuento, que SÍ entran en
+// el total cobrado. Con cualquier descuento, la cuota que se le decía al
+// cliente y el TOTAL del recibo dejaban de cuadrar — y la frase
+// "el cliente paga X más" salía calculada sobre otra base que el
+// "de contado serían" de la misma oración.
+//
+// El POS prorratea el ajuste sobre las líneas (conserva el peso de cada
+// categoría, que es lo que pondera el recargo). Estos casos modelan eso.
+// ---------------------------------------------------------------------------
+console.log('\n--- El plan se calcula sobre el NETO (envío y descuento incluidos) ---');
+
+/** Replica el prorrateo que hace el POS antes de pedir los planes. */
+const planesNeto = (lineas, netoUsd) => {
+  const brutoUsd = lineas.reduce((s, l) => s + l.montoUsd, 0);
+  const f = netoUsd / brutoUsd;
+  return planesParaVenta(
+    lineas.map((l) => ({ ...l, montoUsd: l.montoUsd * f })),
+    TASA, DEF,
+  );
+};
+
+// Carrito bruto de 300 USD de smartwatch, con 50 USD de descuento → neto 250.
+const brutoSw = planesParaVenta([linea('smartwatch', 300)], TASA, DEF);
+const netoSw = planesNeto([linea('smartwatch', 300)], 250);
+
+ok('el descuento baja la cuota', plan(netoSw, 3).cuotaNio < plan(brutoSw, 3).cuotaNio,
+  `C$${plan(netoSw, 3).cuotaNio} contra C$${plan(brutoSw, 3).cuotaNio} sin descontar`);
+ok('el total a plazos parte del neto, no del bruto',
+  Math.abs(plan(netoSw, 3).totalNio - 250 * TASA * 1.03) <= plan(netoSw, 3).meses,
+  `C$${plan(netoSw, 3).totalNio} ≈ C$${Math.round(250 * TASA * 1.03)}`);
+ok('cuota × meses sigue cuadrando con el total',
+  netoSw.every((p) => p.cuotaNio * p.meses === p.totalNio));
+ok('el recargo NO cambia: prorratear conserva la categoría',
+  plan(netoSw, 3).recargoPct === plan(brutoSw, 3).recargoPct,
+  `${plan(netoSw, 3).recargoPct}% en los dos`);
+
+// Lo que rompía la frase: el sobreprecio tiene que medirse contra el mismo
+// neto que se muestra como "de contado serían".
+const contadoNio = Math.round(250 * TASA);
+ok('"paga X más" cuadra con el neto que se muestra al lado',
+  Math.abs(plan(netoSw, 3).sobrePrecioNio - (plan(netoSw, 3).totalNio - contadoNio)) <= 1,
+  `sobreprecio C$${plan(netoSw, 3).sobrePrecioNio}`);
+
+// Carrito mixto: el prorrateo no puede alterar la ponderación entre categorías.
+const mixtoNeto = planesNeto([linea('proyector', 300), linea('smartwatch', 100)], 320);
+ok('en carrito mixto el ponderado se mantiene tras prorratear',
+  plan(mixtoNeto, 3).recargoPct === plan(mixto75, 3).recargoPct,
+  `${plan(mixtoNeto, 3).recargoPct}% con y sin ajuste`);
+
+// Bordes: un descuento que se come la venta no puede ofrecer cuotas.
+ok('un descuento que anula el total no ofrece plazos',
+  planesNeto([linea('smartwatch', 300)], 0).length === 0);
+ok('un neto negativo tampoco', planesNeto([linea('smartwatch', 300)], -40).length === 0);
+ok('el mínimo se evalúa sobre el NETO, no sobre el bruto',
+  planesNeto([linea('smartwatch', 120)], 80).length === 0,
+  'bruto 120 pasa el mínimo de 100, pero el neto de 80 no');
+
 console.log('\n--- Carrito: bordes del lado prudente ---');
 ok('un producto sin cuotas bloquea la venta entera',
   planesParaVenta([linea('proyector', 300), linea('smartwatch', 100, { habilitado: false })], TASA, DEF).length === 0);

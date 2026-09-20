@@ -166,19 +166,33 @@ export default function POS() {
   // El recargo lo define la categoría de cada producto (o su override). Si el
   // carrito mezcla categorías, `planesParaVenta` pondera por monto: el
   // proyector al 0% no arrastra al smartwatch al 3% ni al revés.
-  const planesVenta = useMemo(
-    () =>
-      planesParaVenta(
-        cart.map((i) => ({
-          categoria: i.categorySlug || i.category,
-          override: i.financiamientoOverride,
-          montoUsd: i.price * i.quantity,
-        })),
-        currentExchangeRate,
-        configFinanciamiento,
-      ),
-    [cart, currentExchangeRate, configFinanciamiento],
-  );
+  //
+  // OJO con la base: el plan se calcula sobre el NETO, no sobre el bruto de las
+  // líneas. `total` ya trae el envío sumado y el descuento restado, así que el
+  // ajuste se prorratea sobre cada línea. Prorratear —en vez de sumar el ajuste
+  // como una línea aparte— conserva el peso relativo de cada categoría, que es
+  // justo lo que pondera el recargo, y deja que la suma de `montoUsd` sea
+  // exactamente el total que se cobra.
+  //
+  // Sin esto, `cuotaNio × meses` no cuadra con el TOTAL del recibo apenas hay
+  // descuento o envío, y la frase "el cliente paga X más" queda calculada sobre
+  // otra base que el "de contado serían" de la misma oración.
+  const planesVenta = useMemo(() => {
+    const subtotalUsd = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+    if (subtotalUsd <= 0) return [];
+    // Si el descuento se come el total, el factor sale <= 0 y `planesParaVenta`
+    // descarta las líneas: no se ofrecen cuotas. Es el lado prudente.
+    const factorAjuste = total / subtotalUsd;
+    return planesParaVenta(
+      cart.map((i) => ({
+        categoria: i.categorySlug || i.category,
+        override: i.financiamientoOverride,
+        montoUsd: i.price * i.quantity * factorAjuste,
+      })),
+      currentExchangeRate,
+      configFinanciamiento,
+    );
+  }, [cart, total, currentExchangeRate, configFinanciamiento]);
 
   const esFinanciada = paymentMethod === 'FINANCIAMIENTO';
   const planElegido = planesVenta.find((pl) => pl.meses === plazoMeses) ?? null;
@@ -338,6 +352,16 @@ export default function POS() {
     setDiscount(0);
     setShipping(0);
     setPaymentReference('');
+    // El cliente seleccionado TIENE que limpiarse: `sale.customerId` sale de
+    // acá, así que si queda pegado, la próxima venta de mostrador (sin nombre)
+    // se archiva en silencio en el historial del cliente anterior.
+    setSelectedCustomerId(null);
+    // La forma de pago y el plazo también: heredar FINANCIAMIENTO de la venta
+    // anterior arrastra el plazo al checkout siguiente y llega hasta el reporte
+    // de margen. `transport` se deja a propósito: casi todas las ventas de una
+    // misma jornada salen por la misma vía.
+    setPaymentMethod('EFECTIVO');
+    setPlazoMeses(null);
 
     // Prepare label if transport requires it
     if (['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(confirmedSale.transport || '')) {
