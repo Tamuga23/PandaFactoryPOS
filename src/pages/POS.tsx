@@ -528,7 +528,7 @@ export default function POS() {
     setIsConfirming(false);
   };
 
-  if (loading) return <div className="text-zinc-500">Cargando POS…</div>;
+  if (loading) return <div className="text-zinc-400">Cargando POS…</div>;
 
   return (
     <>
@@ -753,7 +753,7 @@ export default function POS() {
         <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
         <div className="p-4 space-y-3">
           {cart.length === 0 ? (
-            <div className="text-center text-zinc-500 py-10 text-sm">El carrito está vacío</div>
+            <div className="text-center text-zinc-400 py-10 text-sm">El carrito está vacío</div>
           ) : (
             cart.map(item => (
               <div key={item.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-zinc-700/50">
@@ -810,11 +810,11 @@ export default function POS() {
           </p>
           <div className="grid grid-cols-2 gap-3 mb-4 relative">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del Cliente</label>
-              <input 
+              <label htmlFor="pos-cliente-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del Cliente</label>
+              <input id="pos-cliente-nombre" 
                 type="text" 
                 placeholder="Ignacio Lula..." 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={customerName}
                 onChange={(e) => {
                   setCustomerName(e.target.value);
@@ -849,11 +849,11 @@ export default function POS() {
               )}
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
-              <input 
+              <label htmlFor="pos-cliente-telefono" className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
+              <input id="pos-cliente-telefono" 
                 type="text" 
                 placeholder="8765 9876" 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
               />
@@ -861,11 +861,11 @@ export default function POS() {
           </div>
 
           <div className="space-y-1 mb-4">
-            <label className="text-[10px] uppercase text-zinc-400 font-bold">Dirección</label>
-            <textarea 
+            <label htmlFor="pos-cliente-direccion" className="text-[10px] uppercase text-zinc-400 font-bold">Dirección</label>
+            <textarea id="pos-cliente-direccion" 
               rows={2}
               placeholder="Barrio Avenida Brasil..." 
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               value={customerAddress}
               onChange={(e) => setCustomerAddress(e.target.value)}
             />
@@ -877,9 +877,9 @@ export default function POS() {
           </p>
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+              <label htmlFor="pos-transporte" className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
+              <select id="pos-transporte"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 appearance-none cursor-pointer"
                 value={transport}
                 onChange={(e) => setTransport(e.target.value)}
               >
@@ -890,20 +890,20 @@ export default function POS() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-rose-400">Descuento (NIO)</label>
-              <input 
+              <label htmlFor="pos-descuento" className="text-[10px] uppercase font-bold text-zinc-400">Descuento (NIO)</label>
+              <input id="pos-descuento" 
                 type="number" 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={discount || ''}
                 min="0"
                 onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-cyan-400">Envío (NIO)</label>
-              <input 
+              <label htmlFor="pos-envio" className="text-[10px] uppercase font-bold text-zinc-400">Envío (NIO)</label>
+              <input id="pos-envio" 
                 type="number" 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={shipping || ''}
                 min="0"
                 onChange={(e) => setShipping(Math.max(0, Number(e.target.value) || 0))}
@@ -924,9 +924,9 @@ export default function POS() {
           {/* P2.5: método de pago + referencia */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-400 font-bold">Método de Pago</label>
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+              <label htmlFor="pos-metodo-pago" className="text-[10px] uppercase text-zinc-400 font-bold">Método de Pago</label>
+              <select id="pos-metodo-pago"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 appearance-none cursor-pointer"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as Sale['paymentMethod'])}
               >
@@ -938,11 +938,11 @@ export default function POS() {
               </select>
             </div>
             <div className="space-y-1 col-span-2">
-              <label className="text-[10px] uppercase text-zinc-400 font-bold">Referencia de Pago (Opcional)</label>
-              <input
+              <label htmlFor="pos-referencia-pago" className="text-[10px] uppercase text-zinc-400 font-bold">Referencia de Pago (Opcional)</label>
+              <input id="pos-referencia-pago"
                 type="text"
                 placeholder="N° de transferencia / voucher…"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
               />
@@ -950,11 +950,11 @@ export default function POS() {
           </div>
 
           <div className="space-y-1 mb-4">
-            <label className="text-[10px] uppercase text-zinc-400 font-bold">Nota / Referencia (Opcional)</label>
-            <textarea 
+            <label htmlFor="pos-nota" className="text-[10px] uppercase text-zinc-400 font-bold">Nota / Referencia (Opcional)</label>
+            <textarea id="pos-nota" 
               rows={2}
               placeholder="Ref: Carlos Pago mediante Transferencia..." 
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
             />
@@ -963,9 +963,13 @@ export default function POS() {
           {/* Plazo de las cuotas. Aparece SOLO con forma de pago FINANCIAMIENTO. */}
           {esFinanciada && (
             <div className="mb-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
-              <label className="text-[10px] uppercase text-cyan-400 font-bold block mb-2">
+              {/*
+                No es un <label>: rotula un GRUPO de botones, no un control.
+                Un label sin control asociado no lo anuncia ningún lector.
+              */}
+              <p id="pos-plazo-rotulo" className="text-[10px] uppercase text-cyan-400 font-bold block mb-2">
                 Plazo de las cuotas
-              </label>
+              </p>
 
               {planesVenta.length === 0 ? (
                 <p className="text-[11px] text-amber-400 leading-snug">
@@ -975,15 +979,17 @@ export default function POS() {
                 </p>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="pos-plazo-rotulo">
                     {planesVenta.map((pl) => {
                       const activo = plazoMeses === pl.meses;
                       return (
                         <button
                           key={pl.meses}
                           type="button"
+                          role="radio"
+                          aria-checked={activo}
                           onClick={() => setPlazoMeses(pl.meses)}
-                          className={`text-left p-2.5 rounded-lg border transition-colors ${
+                          className={`text-left p-2.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                             activo
                               ? 'bg-cyan-500/15 border-cyan-500 text-white'
                               : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600'
@@ -1098,7 +1104,7 @@ export default function POS() {
               */}
               <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 shrink-0">
                 {esFinanciada && planElegido ? 'Total a plazos' : 'Total a cobrar'}
-                <span className="block normal-case tracking-normal font-normal text-zinc-500">
+                <span className="block normal-case tracking-normal font-normal text-zinc-400">
                   a {currentExchangeRate.toFixed(4)}
                 </span>
               </span>
@@ -1139,7 +1145,7 @@ export default function POS() {
             <button
               onClick={() => handleTryCheckout(false)}
               disabled={cart.length === 0}
-              className="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
+              className="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
             >
               FACTURAR
               <FileText className="w-4 h-4" />
@@ -1148,7 +1154,8 @@ export default function POS() {
               onClick={() => handleTryCheckout(true)}
               disabled={cart.length === 0}
               title="Generar Proforma (Cotización)"
-              className="w-14 bg-zinc-800 hover:bg-zinc-700 text-cyan-400 font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Generar proforma (cotización)"
+              className="w-14 bg-zinc-800 hover:bg-zinc-700 text-cyan-400 font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileText className="w-5 h-5" />
             </button>
