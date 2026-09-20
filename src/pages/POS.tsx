@@ -173,6 +173,14 @@ export default function POS() {
   // P2.5: precio negociado por línea (se edita en C$ y se guarda en USD).
   const commitLinePrice = (id: string, nioValue: string) => {
     const nio = Math.max(0, Number(nioValue) || 0);
+    // Se edita con onBlur: vaciar el campo y hacer clic afuera dejaba la línea
+    // en 0 sin decir nada, y una factura de C$0 igual consume el correlativo y
+    // descuenta stock. Se rechaza y se conserva el precio anterior.
+    if (nio <= 0) {
+      toast.error('El precio de una línea no puede ser 0. Quedó el anterior.');
+      setEditingPriceId(null);
+      return;
+    }
     setCart(prev => prev.map(item =>
       item.id === id
         // `efectivoApplied` se MANTIENE: si se pone en false, el chip vuelve a
@@ -323,7 +331,8 @@ export default function POS() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, previewData, labelSaleData]);
 
   const restaurarBorrador = () => {
     if (!borrador) return;
@@ -650,7 +659,7 @@ export default function POS() {
             <button
               type="button"
               onClick={restaurarBorrador}
-              className="text-xs font-bold bg-cyan-700 hover:bg-cyan-600 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded-lg px-4 py-2 transition-colors"
+              className="text-xs font-bold bg-cyan-700 hover:bg-cyan-800 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded-lg px-4 py-2 transition-colors"
             >
               Recuperar venta
             </button>
@@ -669,6 +678,7 @@ export default function POS() {
             <input
               type="text"
               ref={buscadorRef}
+              aria-label="Buscar producto por nombre, SKU o categoría"
               className="block w-full pl-10 pr-3 py-1.5 border border-zinc-700 rounded-lg leading-5 bg-zinc-800 text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
               placeholder="Buscar por nombre, SKU o categoría… (Enter agrega)"
               value={searchTerm}
@@ -734,11 +744,11 @@ export default function POS() {
                     <Package className="h-8 w-8 text-zinc-500" aria-hidden="true" />
                   </div>
                 )}
-                <h3 className="text-sm font-medium text-zinc-200 line-clamp-2 leading-tight">{product.name}</h3>
+                <span className="block text-sm font-medium text-zinc-200 line-clamp-2 leading-tight">{product.name}</span>
                 <p className="mt-1 text-[10px] text-zinc-400 uppercase">{product.sku}</p>
                 <div className="mt-3 flex justify-between items-center">
                   <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                     Stock: {product.stock}
                   </span>
                 </div>
@@ -753,7 +763,7 @@ export default function POS() {
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-900 border-t border-zinc-700 z-40 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
            <button 
              onClick={() => setShowMobileCart(true)}
-             className="w-full bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between"
+             className="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-cyan-400"
            >
              <span className="flex items-center gap-2">
                <ShoppingCart className="w-5 h-5" /> 
@@ -778,7 +788,7 @@ export default function POS() {
              {/* Back button for mobile */}
              <button
                onClick={() => setShowMobileCart(false)}
-               className="lg:hidden p-1.5 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white flex items-center gap-2 px-3"
+               className="lg:hidden p-1.5 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white flex items-center gap-2 px-3 focus:outline-none focus:ring-1 focus:ring-cyan-500"
              >
                <span className="text-lg leading-none mb-0.5">←</span> Volver al Catálogo
              </button>
@@ -927,7 +937,7 @@ export default function POS() {
             <div className="space-y-1">
               <label htmlFor="pos-cliente-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">
                 Nombre del Cliente
-                <span className="normal-case font-normal text-zinc-500"> · opcional</span>
+                <span className="normal-case font-normal text-zinc-400"> · opcional</span>
               </label>
               <input id="pos-cliente-nombre" 
                 type="text" 
@@ -1182,11 +1192,11 @@ export default function POS() {
           {paymentMethod === 'EFECTIVO' && pendingCashDiscount.length > 0 && (
             <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between gap-2">
               <span className="text-[11px] text-emerald-400 leading-tight">
-                {pendingCashDiscount.length} producto(s) con descuento por efectivo disponible
+                {pendingCashDiscount.length} {pendingCashDiscount.length === 1 ? 'producto' : 'productos'} con descuento por efectivo
               </span>
               <button
                 onClick={applyCashDiscount}
-                className="text-[11px] font-bold bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded shrink-0"
+                className="text-[11px] font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg shrink-0 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 Aplicar
               </button>
@@ -1195,12 +1205,12 @@ export default function POS() {
           {appliedCashCount > 0 && (
             <div className="mb-3 p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg flex items-center justify-between gap-2">
               <span className="text-[11px] text-emerald-500/80">
-                Precio efectivo aplicado a {appliedCashCount} línea(s)
+                Precio efectivo aplicado a {appliedCashCount} {appliedCashCount === 1 ? 'línea' : 'líneas'}
               </span>
               <button
                 onClick={removeCashDiscount}
-                title="Restaura el precio de catálogo en esas líneas"
-                className="text-[11px] font-bold text-zinc-400 hover:text-rose-400 px-2 py-1"
+                title="Devuelve a cada línea el precio que tenía antes del descuento"
+                className="text-[11px] font-bold text-zinc-400 hover:text-rose-400 px-2 py-1 rounded focus:outline-none focus:ring-1 focus:ring-rose-500"
               >
                 Quitar
               </button>
@@ -1339,7 +1349,7 @@ export default function POS() {
               onClick={() => handleTryCheckout(false)}
               disabled={cart.length === 0}
               title="Facturar (F2)"
-              className="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
+              className="flex-1 bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3 rounded-lg shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
             >
               <Receipt className="w-4 h-4" />
               FACTURAR
@@ -1357,7 +1367,7 @@ export default function POS() {
           <p className="text-[10px] text-zinc-400 text-center mt-2 italic">
             El stock se verifica automáticamente al facturar
           </p>
-          <p className="text-[10px] text-zinc-500 text-center mt-1">
+          <p className="text-[10px] text-zinc-400 text-center mt-1">
             <kbd className="font-sans font-bold text-zinc-400">F2</kbd> facturar ·{' '}
             <kbd className="font-sans font-bold text-zinc-400">F3</kbd> proforma ·{' '}
             <kbd className="font-sans font-bold text-zinc-400">/</kbd> buscar

@@ -311,7 +311,7 @@ export default function Purchases() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+          className="bg-cyan-700 hover:bg-cyan-800 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           REGISTRAR ORDEN (FASE 1)
@@ -567,7 +567,7 @@ export default function Purchases() {
               <button
                 onClick={saveOrderEdit}
                 disabled={isSavingOrder}
-                className="px-6 py-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg text-sm disabled:opacity-50"
+                className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg text-sm disabled:opacity-50"
               >
                 {isSavingOrder ? 'Guardando…' : 'Guardar Cambios'}
               </button>
@@ -597,7 +597,7 @@ export default function Purchases() {
                      <h4 className="text-sm font-bold text-zinc-300 uppercase">Trackings de esta Orden</h4>
                      <button
                        onClick={() => setIsAddingTracking(true)}
-                       className="text-xs bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
+                       className="text-xs bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
                      >
                        <Plus className="w-3 h-3" /> Agregar Tracking
                      </button>
@@ -782,7 +782,7 @@ export default function Purchases() {
                       )}
                       
                       {!editingTracking?.isReceived && (
-                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
+                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
                            {isSavingPhase2 ? 'Guardando...' : 'Guardar y Asociar a Orden'}
                         </button>
                       )}

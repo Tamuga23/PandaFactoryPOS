@@ -122,7 +122,7 @@ export default function UniversalObjections() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors text-sm font-medium"
         >
           <Plus className="w-4 h-4" />
           Nueva objeción
@@ -233,7 +233,7 @@ export default function UniversalObjections() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 text-sm bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 text-sm bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando…' : editingId ? 'Actualizar' : 'Crear'}
               </button>

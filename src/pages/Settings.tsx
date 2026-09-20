@@ -305,7 +305,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50"
+              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50"
             >
               {isSaving ? (
                 <>Procesando...</>

@@ -250,6 +250,8 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
       ref={modalRef}
       role="dialog"
       aria-modal="true"
+      tabIndex={-1}
+      autoFocus
       aria-label={data.type === 'PROFORMA' ? 'Vista previa de la cotización' : 'Vista previa de la factura'}
       className="fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden"
     >
@@ -317,8 +319,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
               <button
                 onClick={onConfirm}
                 disabled={isConfirming}
-                autoFocus
-                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50"
+                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50"
               >
                 {isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                 {isConfirming ? 'Procesando...' : 'Confirmar Venta'}
@@ -334,7 +335,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   onClick={handleShareWhatsApp}
                   disabled={isSharing || isGenerating}
                   title="Comparte el PDF por WhatsApp (o lo descarga y abre el chat)"
-                  className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
                 >
                   {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
                   {isSharing ? 'Preparando…' : 'Enviar por WhatsApp'}
@@ -643,13 +644,13 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                            </div>
                          </div>
 
-                      <div className="text-center text-[8px] text-zinc-400 mt-6 pt-4 border-t border-zinc-100 flex flex-col gap-1 relative pb-2">
+                      <div className="text-center text-[8px] text-zinc-600 mt-6 pt-4 border-t border-zinc-100 flex flex-col gap-1 relative pb-2">
                         <p>Generado mediante <b>PandaStore System</b></p>
                         <p>Este documento electrónico es válido sin firma autógrafa.</p>
                       </div>
                    </div>
                  )}
-                 <div className="absolute bottom-6 right-10 text-[11px] font-bold text-zinc-300">
+                 <div className="absolute bottom-6 right-10 text-[11px] font-bold text-zinc-600">
                    Página {pageIndex + 1} de {pages.length}
                  </div>
                </div>

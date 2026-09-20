@@ -70,7 +70,17 @@ export function Toaster() {
     // `role="status"` para lo demás: es la diferencia entre cortarle la frase
     // al lector o esperar a que termine.
     <div
-      className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[min(92vw,380px)]"
+      /*
+        z-[200]: POR ENCIMA de todo modal. Los avisos compartían z-[100] con el
+        preview de factura y, al estar montados ANTES en el DOM (Layout.tsx:43
+        contra :183) y sin contexto de apilamiento propio que los separe, el
+        modal los tapaba. Consecuencia: el error de una venta fallida —el
+        mensaje más caro del sistema— se pintaba detrás de un overlay opaco y
+        el operador no veía nada.
+        Escala real del proyecto: 10 · 40 · 50 · 60 · 80 · 100-102 (modales) ·
+        200 (avisos). Los avisos van siempre arriba de todo.
+      */
+      className="fixed top-4 right-4 z-[200] flex flex-col gap-2 w-[min(92vw,380px)]"
       aria-live="polite"
       aria-atomic="false"
     >

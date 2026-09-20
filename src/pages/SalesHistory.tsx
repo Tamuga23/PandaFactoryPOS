@@ -331,7 +331,7 @@ export default function SalesHistory() {
                         onClick={() => handleInvoiceProforma(sale)}
                         disabled={!!invoicingProformaId}
                         title="Convierte esta proforma en factura (verifica y descuenta stock)"
-                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
                       >
                         {invoicingProformaId === sale.id ? 'Facturando…' : 'FACTURAR'}
                       </button>
@@ -521,7 +521,7 @@ export default function SalesHistory() {
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3">
                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg transition-all">GUARDAR CAMBIOS</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all">GUARDAR CAMBIOS</button>
                 </div>
              </form>
           </div>

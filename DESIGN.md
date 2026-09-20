@@ -5,7 +5,7 @@ colors:
   turquesa-electrico: "#22d3ee"
   turquesa-accion: "#0e7490"
   turquesa-foco: "#06b6d4"
-  turquesa-accion-hover: "#0891b2"
+  turquesa-accion-hover: "#155e75"
   carbon-fondo: "#09090b"
   carbon-superficie: "#18181b"
   carbon-control: "#27272a"
@@ -173,8 +173,9 @@ hay algo semántico que decir.
   FACTURAR, Guardar, Nuevo Cliente, Registrar Orden. Sobre él, texto blanco da
   **5.36:1** — pasa AA. El valor anterior (`#0891b2`) daba 3.68:1 y no llegaba:
   el botón más importante de la app era el que no cumplía.
-- **Turquesa Acción Hover** (`#0891b2`): el hover del primario, que **aclara**
-  (700 → 600), nunca oscurece.
+- **Turquesa Acción Hover** (`#155e75`): el hover del primario, que **oscurece**
+  (700 → 800) y da **7.27:1**. Aclarar al 600 daba 3.68:1 y no pasaba AA; ver la
+  corrección en la Regla del Relleno Oscuro.
 - **Turquesa Foco** (`#06b6d4`): el anillo de foco de todo campo.
 
 El turquesa también aparece teñido al 10% (`bg-cyan-500/10`, 19 usos) como
@@ -253,10 +254,25 @@ está en turquesa es porque es dinero o porque es la acción a tomar. Un segundo
 acento decorativo rompe el tablero.
 
 **La Regla del Relleno Oscuro.** Sobre un relleno de color con texto blanco, el
-tono va en el escalón **700**, no en el 600. `cyan-700` da 5.36:1 y `emerald-700`
-5.48:1; sus respectivos 600 daban 3.68:1 y 3.77:1 y no pasaban AA. El hover sube
-al 600 — el primario **aclara al pasar el mouse, nunca oscurece**. `rose-600` es
-la excepción: ya da 4.70:1 y se queda donde está.
+tono base va en el escalón **700** y el hover **oscurece al 800**. Medido:
+`cyan-700` 5.36:1 → `cyan-800` 7.27:1; `emerald-700` 5.48:1 → `emerald-800`
+7.68:1. Los dos estados pasan AA. `rose-600` es la excepción: ya da 4.70:1 y se
+queda donde está.
+
+> **Corrección (2026-09-20).** La primera versión de esta regla decía que el
+> hover **aclara** al 600, "nunca oscurece". Era una inferencia del patrón
+> incumbente (600→500) y quedó **en contradicción con el propio piso AA** apenas
+> la base subió a 700: el hover al 600 da **3.68:1**, el mismo número que esta
+> regla declaraba reprobado dos líneas más arriba. O sea que el botón más
+> importante de la app caía bajo AA justo mientras el mouse estaba encima.
+> Se corrige la regla, no el número: sobre relleno oscuro con texto blanco, el
+> hover **oscurece**.
+
+**La Regla del Foco Declarado.** Todo control interactivo declara su foco. No
+existe el dialecto "ninguno": un botón sin `focus:` hereda el anillo del
+navegador sobre una superficie casi negra, que es impredecible. Para campos,
+`focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500`; para botones,
+`focus:ring-2` del color de su acción.
 
 **La Regla del Tinte sin Borde.** El badge canónico es tinte al 10% + texto al
 500, *sin* borde (56 casos contra 24). El borde `/20` se agrega solo cuando el

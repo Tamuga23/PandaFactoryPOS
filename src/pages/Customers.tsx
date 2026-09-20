@@ -136,7 +136,7 @@ export default function Customers() {
           </div>
           <button 
             onClick={handleAddNew}
-            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20"
+            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20"
           >
             <Plus className="w-4 h-4" />
             Nuevo Cliente
@@ -188,7 +188,7 @@ export default function Customers() {
                    {/* P2.6: historial de compras */}
                    <button
                      onClick={() => openHistory(customer)}
-                     className="flex-1 py-1.5 bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 text-xs font-semibold rounded-md border border-cyan-500/30 transition-colors flex justify-center items-center gap-1.5"
+                     className="flex-1 py-1.5 bg-cyan-600/10 hover:bg-cyan-800/20 text-cyan-400 text-xs font-semibold rounded-md border border-cyan-500/30 transition-colors flex justify-center items-center gap-1.5"
                    >
                      <History className="w-3 h-3" /> Historial
                    </button>
@@ -374,7 +374,7 @@ export default function Customers() {
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3 border-t border-zinc-800">
                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm">Guardar</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm">Guardar</button>
                 </div>
              </form>
           </div>

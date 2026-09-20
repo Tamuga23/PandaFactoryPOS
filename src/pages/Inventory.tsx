@@ -309,7 +309,7 @@ export default function Inventory() {
           {/* P3.5: el alta de productos vive en UN solo lugar (Catálogo Maestro) */}
           <Link
             to="/catalog"
-            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-lg shadow-cyan-900/20 text-white bg-cyan-700 hover:bg-cyan-600 transition-colors"
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-lg shadow-cyan-900/20 text-white bg-cyan-700 hover:bg-cyan-800 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
             Nuevo Producto (Catálogo)
@@ -629,7 +629,7 @@ export default function Inventory() {
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-700 text-sm font-medium text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-700 text-sm font-medium text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors disabled:opacity-50"
                   >
                     {isSaving ? 'Guardando…' : 'Actualizar Stock'}
                   </button>
@@ -711,7 +711,7 @@ export default function Inventory() {
                   <button 
                     type="submit" 
                     disabled={isSaving}
-                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-cyan-700 text-base font-medium text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-cyan-700 text-base font-medium text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? 'Procesando…' : 'Guardar Cambios'}
                   </button>

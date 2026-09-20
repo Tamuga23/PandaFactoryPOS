@@ -14,6 +14,11 @@ export function useFocusTrap(active: boolean, contenedor: RefObject<HTMLElement 
   useEffect(() => {
     if (!active) return;
 
+    // Quién tenía el foco antes de abrir, para devolvérselo al cerrar. Sin
+    // esto el foco cae a <body> al desmontar el diálogo y el siguiente Tab
+    // arranca desde el principio del documento, no desde el botón que lo abrió.
+    const previo = document.activeElement as HTMLElement | null;
+
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
       const raiz = contenedor.current;
@@ -26,7 +31,15 @@ export function useFocusTrap(active: boolean, contenedor: RefObject<HTMLElement 
         raiz.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
-      ).filter((el) => el.offsetParent !== null); // descarta lo que está oculto
+      ).filter((el) => el.getClientRects().length > 0);
+      // ^ `getClientRects()`, NO `offsetParent`. `offsetParent` devuelve null
+      //   para todo elemento `position: fixed`, así que descartaba por error el
+      //   botón "Salir (ESC)" del modo presentación — que es fixed. Con ese
+      //   botón filtrado la lista quedaba vacía, el handler salía sin
+      //   `preventDefault`, y el Tab se escapaba a la pantalla del POS que está
+      //   detrás: exactamente en el estado que existe para girarle la laptop al
+      //   cliente. `getClientRects()` da 0 solo para lo realmente oculto
+      //   (`display:none`) y funciona con fixed.
 
       if (enfocables.length === 0) return;
 
@@ -37,7 +50,8 @@ export function useFocusTrap(active: boolean, contenedor: RefObject<HTMLElement 
       // Si el foco se escapó del modal (o nunca entró), volverlo adentro.
       if (!actual || !raiz.contains(actual)) {
         e.preventDefault();
-        primero.focus();
+        // Entrando desde afuera: Tab va al primero, Shift+Tab al último.
+        (e.shiftKey ? ultimo : primero).focus();
         return;
       }
       if (e.shiftKey && actual === primero) {
@@ -50,6 +64,10 @@ export function useFocusTrap(active: boolean, contenedor: RefObject<HTMLElement 
     };
 
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      // `isConnected` evita enfocar un nodo que ya no está en el documento.
+      if (previo && previo.isConnected) previo.focus();
+    };
   }, [active, contenedor]);
 }
