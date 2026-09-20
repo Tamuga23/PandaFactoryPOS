@@ -373,6 +373,72 @@ marca 23 tamaños de `InvoicePreview` como fuera de sistema. Falta esa sección.
 
 ---
 
+## ESTADO — Segundo critique del POS (2026-09-20)
+
+Segunda corrida de `/impeccable critique src/pages/POS.tsx`. **23/40, sin
+cambio** contra la primera. A los evaluadores NO se les dijo qué se había
+arreglado, justamente para que el puntaje fuera comparable — y gracias a eso
+encontraron una regresión que la sesión había introducido.
+
+Subieron tres heurísticas (visibilidad 2→3, control 2→3, mundo real igual) y
+bajaron dos (recuperación de errores 3→2, ayuda 2→1). Las que bajaron lo
+hicieron porque se miró más profundo, no porque se rompiera algo: el error de
+facturación siempre descartó el diagnóstico; la primera corrida no lo vio.
+
+**Regresión encontrada y corregida (`652b148`):** la persistencia del carrito
+se borraba a sí misma en el montaje que la ofrecía. Los dos `useEffect` corren
+en el mismo commit; el de guardado corría con `cart = []` y hacía `removeItem`.
+
+**Aplicado en esta tanda:**
+
+- **Los dos cambios de plata silenciosos** (`f796426`). `removeCashDiscount` no
+  invertía el descuento: restauraba el precio de catálogo y borraba la
+  negociación manual — y lo dispara el cambio de forma de pago, así que el
+  total cambiaba solo, sin aviso, después de haberle dicho un número al
+  cliente. Ahora se recuerda `precioAntesEfectivo` y se avisa. Además se cerró
+  el camino al descuento compuesto (editar el precio reseteaba
+  `efectivoApplied` y el chip lo re-ofrecía sobre un precio ya rebajado).
+- **Accesibilidad** (`f029d22`, `52de81b`). Los 9 labels pasan a tener
+  `htmlFor`/`id` (eran texto suelto: un lector anunciaba nueve campos en
+  blanco). El décimo, "Plazo de las cuotas", era un `<label>` huérfano que
+  rotulaba un grupo de botones: pasa a `role="radiogroup"` con `aria-checked`
+  por tarjeta. Los 9 campos migran al foco canónico de `DESIGN.md`. FACTURAR y
+  proforma suman anillo. El autocompletado de clientes pasa de `<div onClick>`
+  a `<ul role="listbox">` con botones, y deja de montarse vacío.
+  `focus:ring` va de 1 a 44 usos; `htmlFor` de 0 a 9.
+- **Contraste** (`f029d22`). Los 3 `text-zinc-500` que fallaban AA pasan a
+  `zinc-400`. La peor era la tasa de cambio a **3.38:1**, que se había puesto
+  justamente para poder verificar. Los dos `zinc-500` que quedan son iconos
+  decorativos. También se neutralizan los rótulos "Descuento" (rose) y "Envío"
+  (cyan): son colores que `DESIGN.md` reserva para destructivo y para
+  dinero/acción, y un rótulo no es ninguna de las dos cosas.
+- **El total junto al botón irreversible** (`ae577f6`). Franja de resumen en la
+  barra del modal con cliente, forma de pago y total. El TOTAL vive al pie de
+  un A4 de 1123px, así que se confirmaba de memoria.
+- **Modo presentación** (`e8c0917`). "Mostrar al cliente" oculta la consola y
+  escala el A4 al viewport. Es el de mayor retorno respecto del objetivo
+  declarado: hasta ahora, al girar la laptop, el cliente veía el tablero
+  interno del negocio.
+
+**Pendiente de este critique:**
+
+1. **Ayuda (heurística en 1/4).** Nada explica la diferencia entre Proforma y
+   Factura, ni entre CRÉDITO y FINANCIAMIENTO (que decide si se registra un
+   plan de cuotas), ni que tipear un nombre crea una ficha de cliente.
+2. **FACTURAR y Proforma comparten el ícono `FileText`**: dos consecuencias
+   opuestas con el mismo glifo.
+3. **Sin atajo de teclado para FACTURAR** ni para enfocar la búsqueda; la
+   cantidad solo sube de a uno (12 clics para 12 unidades).
+4. **El margen sigue siendo un tooltip.** El POS conoce el `cost` de cada línea
+   y solo lo usa para pintar el precio de rosa. Es el mecanismo insignia del
+   producto sin llegar a la decisión.
+5. **Sin cálculo de vuelto**, con EFECTIVO como método por defecto.
+6. **Salto de encabezado h1→h3** bajo 768px (el `h2` del shell es `hidden md:`).
+7. **El badge de stock usa cyan** donde `DESIGN.md` asigna emerald a
+   "disponible", y compite con los precios en cyan de la misma grilla.
+
+---
+
 ## Quick wins sugeridos (mayor retorno / menor esfuerzo)
 
 | # | Acción | Refs |

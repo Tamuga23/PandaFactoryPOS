@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-20T00:00:00.000Z",
+  "generatedAt": "2026-09-20T21:05:54.000Z",
   "title": "Design System: PandaStoreOS",
   "extensions": {
     "colorMeta": {
@@ -8,152 +8,411 @@
         "role": "primary",
         "displayName": "Turquesa Eléctrico",
         "canonical": "#22d3ee",
-        "tonalRamp": ["#083344", "#164e63", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9"]
+        "tonalRamp": [
+          "#083344",
+          "#164e63",
+          "#155e75",
+          "#0e7490",
+          "#0891b2",
+          "#06b6d4",
+          "#22d3ee",
+          "#67e8f9"
+        ]
       },
       "turquesa-accion": {
         "role": "primary",
         "displayName": "Turquesa Acción",
-        "canonical": "#0891b2",
-        "tonalRamp": ["#083344", "#164e63", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9"]
+        "canonical": "#0e7490",
+        "tonalRamp": [
+          "#083344",
+          "#164e63",
+          "#155e75",
+          "#0e7490",
+          "#0891b2",
+          "#06b6d4",
+          "#22d3ee",
+          "#67e8f9"
+        ]
       },
       "turquesa-foco": {
         "role": "primary",
         "displayName": "Turquesa Foco",
         "canonical": "#06b6d4",
-        "tonalRamp": ["#083344", "#164e63", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9"]
+        "tonalRamp": [
+          "#083344",
+          "#164e63",
+          "#155e75",
+          "#0e7490",
+          "#0891b2",
+          "#06b6d4",
+          "#22d3ee",
+          "#67e8f9"
+        ]
       },
       "carbon-fondo": {
         "role": "neutral",
         "displayName": "Carbón Fondo",
         "canonical": "#09090b",
-        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#e4e4e7"]
+        "tonalRamp": [
+          "#09090b",
+          "#18181b",
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#e4e4e7"
+        ]
       },
       "carbon-superficie": {
         "role": "neutral",
         "displayName": "Carbón Superficie",
         "canonical": "#18181b",
-        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#e4e4e7"]
+        "tonalRamp": [
+          "#09090b",
+          "#18181b",
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#e4e4e7"
+        ]
       },
       "carbon-control": {
         "role": "neutral",
         "displayName": "Carbón Control",
         "canonical": "#27272a",
-        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#e4e4e7"]
+        "tonalRamp": [
+          "#09090b",
+          "#18181b",
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#e4e4e7"
+        ]
       },
       "carbon-borde": {
         "role": "neutral",
         "displayName": "Carbón Borde",
         "canonical": "#3f3f46",
-        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#e4e4e7"]
+        "tonalRamp": [
+          "#09090b",
+          "#18181b",
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#e4e4e7"
+        ]
       },
       "carbon-borde-hover": {
         "role": "neutral",
         "displayName": "Carbón Borde Hover",
         "canonical": "#52525b",
-        "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#e4e4e7"]
+        "tonalRamp": [
+          "#09090b",
+          "#18181b",
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#e4e4e7"
+        ]
       },
       "texto-maximo": {
         "role": "neutral",
         "displayName": "Texto Máximo",
         "canonical": "#ffffff",
-        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#ffffff"]
+        "tonalRamp": [
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#d4d4d8",
+          "#e4e4e7",
+          "#ffffff"
+        ]
       },
       "texto-cuerpo": {
         "role": "neutral",
         "displayName": "Texto Cuerpo",
         "canonical": "#e4e4e7",
-        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#ffffff"]
+        "tonalRamp": [
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#d4d4d8",
+          "#e4e4e7",
+          "#ffffff"
+        ]
       },
       "texto-control": {
         "role": "neutral",
         "displayName": "Texto Control",
         "canonical": "#d4d4d8",
-        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#ffffff"]
+        "tonalRamp": [
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#d4d4d8",
+          "#e4e4e7",
+          "#ffffff"
+        ]
       },
       "texto-secundario": {
         "role": "neutral",
         "displayName": "Texto Secundario",
         "canonical": "#a1a1aa",
-        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#ffffff"]
+        "tonalRamp": [
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#d4d4d8",
+          "#e4e4e7",
+          "#ffffff"
+        ]
       },
       "texto-terciario": {
         "role": "neutral",
         "displayName": "Texto Terciario",
         "canonical": "#71717a",
-        "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#ffffff"]
+        "tonalRamp": [
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#d4d4d8",
+          "#e4e4e7",
+          "#ffffff"
+        ]
       },
       "confirmacion": {
         "role": "secondary",
         "displayName": "Confirmación",
         "canonical": "#10b981",
-        "tonalRamp": ["#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0"]
+        "tonalRamp": [
+          "#064e3b",
+          "#065f46",
+          "#047857",
+          "#059669",
+          "#10b981",
+          "#34d399",
+          "#6ee7b7",
+          "#a7f3d0"
+        ]
       },
       "confirmacion-alerta": {
         "role": "secondary",
         "displayName": "Confirmación Alerta",
         "canonical": "#34d399",
-        "tonalRamp": ["#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0"]
+        "tonalRamp": [
+          "#064e3b",
+          "#065f46",
+          "#047857",
+          "#059669",
+          "#10b981",
+          "#34d399",
+          "#6ee7b7",
+          "#a7f3d0"
+        ]
       },
       "peligro": {
         "role": "tertiary",
         "displayName": "Peligro",
         "canonical": "#f43f5e",
-        "tonalRamp": ["#881337", "#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3"]
+        "tonalRamp": [
+          "#881337",
+          "#9f1239",
+          "#be123c",
+          "#e11d48",
+          "#f43f5e",
+          "#fb7185",
+          "#fda4af",
+          "#fecdd3"
+        ]
       },
       "peligro-alerta": {
         "role": "tertiary",
         "displayName": "Peligro Alerta",
         "canonical": "#fb7185",
-        "tonalRamp": ["#881337", "#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3"]
+        "tonalRamp": [
+          "#881337",
+          "#9f1239",
+          "#be123c",
+          "#e11d48",
+          "#f43f5e",
+          "#fb7185",
+          "#fda4af",
+          "#fecdd3"
+        ]
       },
       "advertencia": {
         "role": "tertiary",
         "displayName": "Advertencia",
         "canonical": "#f59e0b",
-        "tonalRamp": ["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"]
+        "tonalRamp": [
+          "#78350f",
+          "#92400e",
+          "#b45309",
+          "#d97706",
+          "#f59e0b",
+          "#fbbf24",
+          "#fcd34d",
+          "#fde68a"
+        ]
       },
       "papel": {
         "role": "neutral",
         "displayName": "Papel",
         "canonical": "#ffffff",
-        "tonalRamp": ["#334155", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9", "#f8fafc", "#ffffff"]
+        "tonalRamp": [
+          "#334155",
+          "#64748b",
+          "#94a3b8",
+          "#cbd5e1",
+          "#e2e8f0",
+          "#f1f5f9",
+          "#f8fafc",
+          "#ffffff"
+        ]
       },
       "tinta": {
         "role": "neutral",
         "displayName": "Tinta",
         "canonical": "#000000",
-        "tonalRamp": ["#000000", "#1c1c1c", "#383838", "#545454", "#707070", "#8c8c8c", "#a8a8a8", "#c4c4c4"]
+        "tonalRamp": [
+          "#000000",
+          "#1c1c1c",
+          "#383838",
+          "#545454",
+          "#707070",
+          "#8c8c8c",
+          "#a8a8a8",
+          "#c4c4c4"
+        ]
       },
       "azul-documento": {
         "role": "secondary",
         "displayName": "Azul Documento",
         "canonical": "#1a6ba0",
-        "tonalRamp": ["#0a2d44", "#0f4262", "#135c7a", "#1a6ba0", "#2a85c0", "#5aa8d8", "#a2d8ed", "#dff3fa"]
+        "tonalRamp": [
+          "#0a2d44",
+          "#0f4262",
+          "#135c7a",
+          "#1a6ba0",
+          "#2a85c0",
+          "#5aa8d8",
+          "#a2d8ed",
+          "#dff3fa"
+        ]
+      },
+      "turquesa-accion-hover": {
+        "role": "primary",
+        "displayName": "Turquesa Acción Hover",
+        "canonical": "#0891b2",
+        "tonalRamp": [
+          "#083344",
+          "#164e63",
+          "#155e75",
+          "#0e7490",
+          "#0891b2",
+          "#06b6d4",
+          "#22d3ee",
+          "#67e8f9"
+        ]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Título de página", "purpose": "Mayúsculas, interletraje negativo e itálica. La firma visual del proyecto." },
-      "title": { "displayName": "Título de panel", "purpose": "Encabezado de tarjeta o diálogo. Sin itálica." },
-      "body": { "displayName": "Cuerpo", "purpose": "Texto base, valor de campo, celda de tabla." },
-      "micro": { "displayName": "Micro", "purpose": "Ayuda, metadato de tarjeta, chip." },
-      "label": { "displayName": "Etiqueta", "purpose": "El rótulo de campo del sistema: 10px, mayúsculas, negrita. 74 usos en 9 archivos." },
-      "dato": { "displayName": "Dato numérico", "purpose": "Monoespaciada para KPIs, tabla de Reportes y delta del kardex." }
+      "display": {
+        "displayName": "Título de página",
+        "purpose": "Mayúsculas, interletraje negativo e itálica. La firma visual del proyecto."
+      },
+      "title": {
+        "displayName": "Título de panel",
+        "purpose": "Encabezado de tarjeta o diálogo. Sin itálica."
+      },
+      "body": {
+        "displayName": "Cuerpo",
+        "purpose": "Texto base, valor de campo, celda de tabla."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "Ayuda, metadato de tarjeta, chip."
+      },
+      "label": {
+        "displayName": "Etiqueta",
+        "purpose": "El rótulo de campo del sistema: 10px, mayúsculas, negrita. 74 usos en 9 archivos."
+      },
+      "dato": {
+        "displayName": "Dato numérico",
+        "purpose": "Monoespaciada para KPIs, tabla de Reportes y delta del kardex."
+      }
     },
     "shadows": [
-      { "name": "flotante", "value": "0 25px 50px -12px rgba(0,0,0,0.25)", "purpose": "Lo único por encima de la interfaz: modales, panel del carrito, toast. 16 usos." },
-      { "name": "afirmacion", "value": "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)", "purpose": "Peso sobre el botón primario. 21 usos, 12 de ellos el botón de acción." },
-      { "name": "afirmacion-turquesa", "value": "0 10px 15px -3px rgba(8,145,178,0.2)", "purpose": "Variante teñida del anterior, solo en el botón primario de pantallas clave." },
-      { "name": "papel", "value": "0 20px 25px -5px rgba(0,0,0,0.1)", "purpose": "Documentos imprimibles y paneles de Reportes y Configuración." }
+      {
+        "name": "flotante",
+        "value": "0 25px 50px -12px rgba(0,0,0,0.25)",
+        "purpose": "Lo único por encima de la interfaz: modales, panel del carrito, toast. 16 usos."
+      },
+      {
+        "name": "afirmacion",
+        "value": "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
+        "purpose": "Peso sobre el botón primario. 21 usos, 12 de ellos el botón de acción."
+      },
+      {
+        "name": "afirmacion-turquesa",
+        "value": "0 10px 15px -3px rgba(8,145,178,0.2)",
+        "purpose": "Variante teñida del anterior, solo en el botón primario de pantallas clave."
+      },
+      {
+        "name": "papel",
+        "value": "0 20px 25px -5px rgba(0,0,0,0.1)",
+        "purpose": "Documentos imprimibles y paneles de Reportes y Configuración."
+      }
     ],
     "motion": [
-      { "name": "transicion-color", "value": "transition: background-color 150ms, border-color 150ms, color 150ms", "purpose": "La transición por defecto del sistema. 95 usos. Solo color, nunca transform ni sombra." },
-      { "name": "girar", "value": "animation: spin 1s linear infinite", "purpose": "Único indicador de carga real del sistema (Loader2)." },
-      { "name": "pulso", "value": "animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite", "purpose": "Texto de carga previo al login." }
+      {
+        "name": "transicion-color",
+        "value": "transition: background-color 150ms, border-color 150ms, color 150ms",
+        "purpose": "La transición por defecto del sistema. 95 usos. Solo color, nunca transform ni sombra."
+      },
+      {
+        "name": "girar",
+        "value": "animation: spin 1s linear infinite",
+        "purpose": "Único indicador de carga real del sistema (Loader2)."
+      },
+      {
+        "name": "pulso",
+        "value": "animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite",
+        "purpose": "Texto de carga previo al login."
+      }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -163,7 +422,7 @@
       "refersTo": "boton-primario",
       "description": "La única acción afirmativa: FACTURAR, Guardar, Nuevo Cliente. El hover aclara, nunca oscurece.",
       "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/></svg>Guardar Cambios</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background-color: #0891b2; color: #ffffff; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(8,145,178,0.2); transition: background-color 150ms; } .ds-btn-primary:hover { background-color: #06b6d4; } .ds-btn-primary:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }"
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background-color: #0e7490; color: #ffffff; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(8,145,178,0.2); transition: background-color 150ms; } .ds-btn-primary:hover { background-color: #0891b2; } .ds-btn-primary:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }"
     },
     {
       "name": "Botón secundario",
@@ -241,13 +500,46 @@
       "Dos mundos: la consola oscura para el operador, el papel blanco para el cliente."
     ],
     "rules": [
-      { "name": "La Regla de la Luz Única", "body": "El turquesa es el único color de marca. Si algo está en turquesa es porque es dinero o porque es la acción a tomar. Un segundo acento decorativo rompe el tablero.", "section": "colors" },
-      { "name": "La Regla del Tinte sin Borde", "body": "El badge canónico es tinte al 10% + texto al 500, sin borde (56 casos contra 24). El borde /20 se agrega solo cuando el badge necesita despegarse de un fondo ya teñido.", "section": "colors" },
-      { "name": "La Regla de los Dos Escalones", "body": "Destruir tiene dos pasos y dos colores: el disparador es rosa teñido, y solo el diálogo de confirmación usa rosa sólido. Nunca un borrado directo en sólido.", "section": "colors" },
-      { "name": "La Regla de la Caja Alta", "body": "Si es una etiqueta y no contenido, va en mayúsculas de 10px, negrita. Es lo que separa 'qué es este campo' de 'qué dice este campo', sin gastar un pixel de más.", "section": "typography" },
-      { "name": "La Regla del Dinero Alineado", "body": "Toda columna de cifras se alinea a la derecha y usa tabular-nums. Hoy el sistema no cumple esta regla: tabular-nums aparece 3 veces en todo el repo y las tres son un número de teléfono. Queda escrita como objetivo, no como descripción.", "section": "typography" },
-      { "name": "La Regla del Reposo Plano", "body": "Las superficies son planas cuando no pasa nada. Una sombra significa flotación sobre el resto de la interfaz, nunca jerarquía ni respuesta al hover. Si querés que algo destaque en reposo, subí su capa tonal o su borde.", "section": "elevation" },
-      { "name": "La Regla del Radio por Rol", "body": "El radio dice qué tipo de cosa es: 8px se toca, 12px contiene, 16px flota, full es un estado. Elegir un radio por gusto rompe la señal.", "section": "shapes" }
+      {
+        "name": "La Regla de la Luz Única",
+        "body": "El turquesa es el único color de marca. Si algo está en turquesa es porque es dinero o porque es la acción a tomar. Un segundo acento decorativo rompe el tablero.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Tinte sin Borde",
+        "body": "El badge canónico es tinte al 10% + texto al 500, sin borde (56 casos contra 24). El borde /20 se agrega solo cuando el badge necesita despegarse de un fondo ya teñido.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de los Dos Escalones",
+        "body": "Destruir tiene dos pasos y dos colores: el disparador es rosa teñido, y solo el diálogo de confirmación usa rosa sólido. Nunca un borrado directo en sólido.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de la Caja Alta",
+        "body": "Si es una etiqueta y no contenido, va en mayúsculas de 10px, negrita. Es lo que separa 'qué es este campo' de 'qué dice este campo', sin gastar un pixel de más.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla del Dinero Alineado",
+        "body": "Toda columna de cifras se alinea a la derecha y usa tabular-nums. Hoy el sistema no cumple esta regla: tabular-nums aparece 3 veces en todo el repo y las tres son un número de teléfono. Queda escrita como objetivo, no como descripción.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla del Reposo Plano",
+        "body": "Las superficies son planas cuando no pasa nada. Una sombra significa flotación sobre el resto de la interfaz, nunca jerarquía ni respuesta al hover. Si querés que algo destaque en reposo, subí su capa tonal o su borde.",
+        "section": "elevation"
+      },
+      {
+        "name": "La Regla del Radio por Rol",
+        "body": "El radio dice qué tipo de cosa es: 8px se toca, 12px contiene, 16px flota, full es un estado. Elegir un radio por gusto rompe la señal.",
+        "section": "shapes"
+      },
+      {
+        "name": "La Regla del Relleno Oscuro",
+        "body": "Sobre un relleno de color con texto blanco, el tono va en el escalón 700, no en el 600. cyan-700 da 5.36:1 y emerald-700 5.48:1; sus 600 daban 3.68:1 y 3.77:1 y no pasaban AA. El hover sube al 600: el primario aclara, nunca oscurece. rose-600 es la excepción, ya da 4.70:1.",
+        "section": "colors"
+      }
     ],
     "dos": [
       "Do usar el turquesa solo para dinero y para la próxima acción. Su escasez es lo que lo hace funcionar.",
