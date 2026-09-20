@@ -420,6 +420,38 @@ en el mismo commit; el de guardado corría con `cart = []` y hacía `removeItem`
   declarado: hasta ahora, al girar la laptop, el cliente veía el tablero
   interno del negocio.
 
+**Cerrado después, en la misma sesión:**
+
+- **Atajos de teclado** (`ce8f5df`): F2 factura, F3 proforma, `/` enfoca la
+  búsqueda — y se anuncian en pantalla. La cantidad ahora se tipea (eran 12
+  clics para 12 unidades).
+- **Botonera distinguible** (`ce8f5df`): FACTURAR y Proforma compartían el
+  ícono `FileText`, dos consecuencias opuestas con el mismo glifo.
+- **Título real de página** (`ce8f5df`): el header decía "Resumen Principal del
+  Sistema" en todas las pantallas. Y se cerró el salto h1→h3 bajo 768px con un
+  `h2` solo-lector en el header móvil.
+- **Badge de stock a emerald** (`ce8f5df`): en cyan competía con los 31 precios
+  de la misma grilla, diluyendo la Regla de la Luz Única.
+- **Vuelto, rótulos de pago y ayuda contextual** (`5cb34bf`). El critique
+  proponía eliminar CRÉDITO por redundante; el usuario aclaró que **no lo es**:
+  TARJETA es débito, CRÉDITO es tarjeta de crédito en un pago, y FINANCIAMIENTO
+  son cuotas con tarjeta **Banpro exclusivamente**. El problema eran los
+  rótulos, no la cantidad de opciones. Además se avisa cuando la venta da de
+  alta una ficha de cliente, que antes pasaba en silencio.
+- **Total de línea, descarte en dos pasos y focus-trap** (`1b08353`): el
+  carrito obligaba a multiplicar de memoria; "Vaciar" destruía en un clic
+  mientras borrar una venta ya registrada exige modal de dos pasos; y tabular
+  dentro del preview sacaba el foco al formulario de atrás (P4.6, pendiente
+  desde `AGENTS.md`). Nuevo hook `src/hooks/useFocusTrap.ts`, más `role="dialog"`
+  y `aria-modal` que faltaban.
+
+**Cerrado por decisión del usuario, no por trabajo pendiente:**
+
+- **El margen en vivo por línea.** El critique lo señalaba como la mayor
+  oportunidad de carácter del producto. El usuario decidió explícitamente que
+  **no quiere el costo visible en pantalla** mientras negocia, porque el cliente
+  está enfrente. Se queda con color y tooltip. No es un olvido.
+
 **Pendiente de este critique:**
 
 1. **Ayuda (heurística en 1/4).** Nada explica la diferencia entre Proforma y
