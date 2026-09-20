@@ -579,7 +579,10 @@ export default function Purchases() {
       {trackingModalPurchase && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => { setTrackingModalPurchase(null); closeTrackingForm(); }}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+          {/* Sin `animate-in`/`fade-in`/`zoom-in-95`: `tailwindcss-animate` no
+              esta instalado y esas clases no generan CSS. Era animacion que
+              nunca ocurrio. */}
+          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-4 border-b border-zinc-700 flex justify-between items-center bg-zinc-800/50 shrink-0">
                <div>
                   <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">

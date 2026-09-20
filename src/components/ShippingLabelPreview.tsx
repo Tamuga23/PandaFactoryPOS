@@ -2,8 +2,10 @@ import React, { useRef, useState } from 'react';
 import { Sale } from '../types';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { X, Download, Printer, Truck, MapPin, Phone, User, Info, Package } from 'lucide-react';
+import { X, Download, Truck, MapPin, Phone, User, Info, Package } from 'lucide-react';
 import { toast } from './Toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ShippingLabelPreviewProps {
   sale: Sale;
@@ -15,6 +17,7 @@ interface ShippingLabelPreviewProps {
 
 export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLogo, companyName }: ShippingLabelPreviewProps) {
   const labelRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownload = async () => {
@@ -47,6 +50,16 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
       setIsGenerating(false);
     }
   };
+
+  // Era el unico modal del sistema sin ESC. Todos los demas cierran con la
+  // tecla desde P4.7, asi que el operador ya aprendio que funciona: aca
+  // presionaba ESC, no pasaba nada, y tenia que ir a buscar la X con el mouse.
+  // No mientras genera el PDF: ese trabajo vive dentro del dialogo y cerrarlo
+  // a media generacion deja la descarga colgada sin decir por que.
+  useEscapeKey(isOpen && !isGenerating, onClose);
+  // Sin trampa, el Tab salia del dialogo hacia el POS o el Historial que
+  // quedan detras: controles que no se ven y que igual responden.
+  useFocusTrap(isOpen, modalRef);
 
   if (!isOpen) return null;
 
@@ -267,7 +280,12 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
     }
 
     return (
-      <div className="flex items-center justify-center h-full text-zinc-400">
+      /*
+        zinc-400 viene de la paleta de la consola y este bloque vive DENTRO del
+        papel blanco: daba 2.56:1, practicamente invisible. zinc-600 sobre
+        blanco da 7.73:1. Son dos mundos de color y no deben mezclarse.
+      */
+      <div className="flex items-center justify-center h-full text-zinc-600">
         Este transporte no requiere etiqueta de envío.
       </div>
     );
@@ -275,24 +293,56 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" 
-        onClick={onClose} 
+      {/*
+        El telon es un blanco de clic para el mouse, no un control: sin
+        `aria-hidden` un lector anuncia un elemento clicable sin nombre justo
+        antes del dialogo. El equivalente de teclado es ESC, que ya existe.
+        Se le quito `animate-in fade-in duration-300`: `tailwindcss-animate` no
+        esta instalado y esas clases no generan una sola linea de CSS.
+      */}
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        onClick={onClose}
+        aria-hidden="true"
       />
-      
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+
+      {/*
+        Era el unico modal sin semantica de dialogo: para un lector de pantalla
+        la etiqueta y el Historial de atras existian al mismo tiempo, en el
+        mismo plano. Ahora declara rol, modalidad y nombre, y el foco entra al
+        abrir en vez de quedarse en la fila de la venta.
+      */}
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-etiqueta-envio"
+        tabIndex={-1}
+        autoFocus
+        className="relative bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col"
+      >
         <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
-              <Truck className="w-6 h-6 text-orange-500" />
+            {/*
+              Era naranja: un sexto color que la paleta declarada no tiene
+              (cian accion · esmeralda exito · rosa peligro · ambar aviso).
+              Descargar la etiqueta es la accion de esta pantalla, asi que va
+              en cian como toda accion del sistema.
+            */}
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+              <Truck className="w-6 h-6 text-cyan-500" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white leading-none">Etiqueta de Envío</h2>
+              <h2 id="titulo-etiqueta-envio" className="text-xl font-bold text-white leading-none">Etiqueta de Envío</h2>
               <p className="text-zinc-400 text-xs mt-1">Venta {sale.invoiceNumber} • {sale.transport}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
-            <X className="w-6 h-6" />
+          <button
+            onClick={onClose}
+            aria-label="Cerrar la etiqueta de envío"
+            className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
+          >
+            <X className="w-6 h-6" aria-hidden="true" />
           </button>
         </div>
 
@@ -309,14 +359,21 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
         <div className="p-6 bg-zinc-900 border-t border-zinc-800 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl text-zinc-400 hover:text-white font-bold transition-all text-sm"
+            className="px-6 py-2.5 rounded-xl text-zinc-400 hover:text-white font-bold transition-all text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
           >
             Cerrar
           </button>
+          {/*
+            `bg-orange-600 hover:bg-orange-500` rompia dos reglas a la vez: el
+            color fuera de paleta, y el hover que ACLARA. Sobre relleno oscuro
+            el tono base va al 700 y el hover oscurece al 800: cyan-700 da
+            5.36:1 contra el texto blanco y cyan-800 sube a 7.27:1, asi que el
+            boton mejora al pasarle el mouse en vez de empeorar.
+          */}
           <button
             onClick={handleDownload}
             disabled={isGenerating}
-            className="px-8 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl shadow-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="px-8 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl shadow-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
           >
             {isGenerating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
             {isGenerating ? 'Generando...' : 'Descargar Etiqueta (4x6)'}

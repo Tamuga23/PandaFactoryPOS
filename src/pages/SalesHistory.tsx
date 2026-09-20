@@ -385,16 +385,27 @@ export default function SalesHistory() {
                     </button>
                   )}
 
-                  <button onClick={() => handleEdit(sale)} className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors">
-                    <Edit className="w-4 h-4" />
+                  {/* Era el unico boton de la fila sin `title`: un lector de
+                      pantalla lo anunciaba como "boton" a secas, entre otros
+                      cinco botones identicos. */}
+                  <button
+                    onClick={() => handleEdit(sale)}
+                    title="Editar venta"
+                    aria-label={`Editar la venta ${sale.invoiceNumber}`}
+                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors"
+                  >
+                    <Edit className="w-4 h-4" aria-hidden="true" />
                   </button>
+                  {/* Rotulo en ingles en una app que es toda en espanol, y
+                      naranja, que no esta en la paleta. Los dos corregidos. */}
                   {['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(sale.transport || '') && (
-                    <button 
-                      onClick={() => setLabelData(sale)} 
-                      title="Print Shipping Label"
-                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-orange-400 rounded-lg transition-colors"
+                    <button
+                      onClick={() => setLabelData(sale)}
+                      title="Etiqueta de envío"
+                      aria-label={`Ver la etiqueta de envío de la venta ${sale.invoiceNumber}`}
+                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors"
                     >
-                      <Truck className="w-4 h-4" />
+                      <Truck className="w-4 h-4" aria-hidden="true" />
                     </button>
                   )}
                   <button
