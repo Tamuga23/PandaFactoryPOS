@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Product, CartItem, Sale, ClientData } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
@@ -197,15 +197,31 @@ export default function POS() {
     if (v) setBorrador(v);
   }, []);
 
-  // Guardar en cada cambio. Es barato (un JSON chico a localStorage) y corre
-  // solo cuando hay algo que perder: con el carrito vacío borra la clave.
+  /**
+   * Guardar en cada cambio.
+   *
+   * DOS GUARDAS, y las dos son necesarias — sin ellas el borrador se borraba a
+   * sí mismo en el montaje que lo ofrecía:
+   *
+   * 1. `montado`: en el primer render el carrito está vacío, y este efecto
+   *    corre JUSTO DESPUÉS del de lectura, en el mismo commit. Sin saltear esa
+   *    primera pasada, `guardarVentaEnCurso` recibía un carrito vacío y hacía
+   *    `removeItem`: el borrador quedaba solo en memoria de React y un segundo
+   *    refresco lo perdía para siempre.
+   * 2. `borrador`: mientras el operador no decidió si recupera, no se pisa lo
+   *    guardado. Si empieza a cargar productos con la oferta en pantalla, el
+   *    carrito nuevo NO puede sobrescribir la venta que todavía puede querer.
+   */
+  const montado = useRef(false);
   useEffect(() => {
+    if (!montado.current) { montado.current = true; return; }
+    if (borrador) return;
     guardarVentaEnCurso({
       cart, customerName, customerEmail, customerPhone, customerAddress,
       selectedCustomerId, transport, paymentMethod, paymentReference,
       plazoMeses, discount, shipping, customNote,
     });
-  }, [cart, customerName, customerEmail, customerPhone, customerAddress,
+  }, [borrador, cart, customerName, customerEmail, customerPhone, customerAddress,
       selectedCustomerId, transport, paymentMethod, paymentReference,
       plazoMeses, discount, shipping, customNote]);
 
@@ -406,9 +422,13 @@ export default function POS() {
     try {
         assignedNumber = await recordSale(sale);
     } catch (e: any) {
-        toast.error(e?.message?.includes('inválida')
-          ? e.message
-          : 'No se pudo completar la venta. Verifique el stock e intente de nuevo.');
+        // `db.ts` ya humaniza permisos, conexión, cuota de Spark y concurrencia,
+        // y `recordSale` lanza el diagnóstico exacto ("Stock insuficiente de X.
+        // Pedido: 3, Disponible: 1"). Antes se descartaba todo eso y se decía
+        // siempre "verifique el stock", que es el consejo equivocado para
+        // cuatro de las cinco causas. El operador es su propia mesa de ayuda:
+        // el mensaje en pantalla es todo el soporte que hay.
+        toast.error(e?.message || 'No se pudo completar la venta. Intentá de nuevo.');
         setIsConfirming(false);
         return;
     }
@@ -503,7 +523,7 @@ export default function POS() {
         del POS a mitad de venta es parte del trabajo cuando sos también el
         administrador.
       */}
-      {borrador && cart.length === 0 && (
+      {borrador && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-4 py-3">
           <p className="text-sm text-zinc-200">
             Quedó una venta sin cobrar de {hace(borrador.guardadoEn)} —{' '}
@@ -511,6 +531,9 @@ export default function POS() {
               {borrador.cart.length} {borrador.cart.length === 1 ? 'línea' : 'líneas'}
             </span>
             {borrador.customerName.trim() && <> a nombre de {borrador.customerName.trim()}</>}.
+            {cart.length > 0 && (
+              <span className="text-amber-400"> Recuperarla reemplaza lo que tenés cargado ahora.</span>
+            )}
           </p>
           <div className="flex items-center gap-2">
             <button
