@@ -176,6 +176,16 @@ export default function POS() {
     setEditingPriceId(null);
   };
 
+  // Clientes que matchean lo tipeado. Sale del JSX para poder preguntar si hay
+  // alguno ANTES de montar el desplegable.
+  const coincidenciasCliente = useMemo(() => {
+    const q = customerName.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return customers.filter(c =>
+      c.fullName.toLowerCase().includes(q) || (c.phone && c.phone.includes(customerName.trim()))
+    );
+  }, [customers, customerName]);
+
   // P2.5: descuento por pago en efectivo (descEfectivoPct del catálogo).
   const pendingCashDiscount = cart.filter(i => (i.descEfectivoPct || 0) > 0 && !i.efectivoApplied);
   const appliedCashCount = cart.filter(i => i.efectivoApplied).length;
@@ -823,15 +833,25 @@ export default function POS() {
                 }}
                 onFocus={() => setShowCustomerPredictions(true)}
               />
-              {/* Autocomplete Dropdown */}
-              {showCustomerPredictions && customerName.trim().length > 1 && !selectedCustomerId && (
-                <div className="absolute z-10 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                  {customers
-                    .filter(c => c.fullName.toLowerCase().includes(customerName.toLowerCase()) || (c.phone && c.phone.includes(customerName)))
-                    .map(c => (
-                      <div 
-                        key={c.id}
-                        className="px-3 py-2 hover:bg-zinc-700 cursor-pointer flex flex-col"
+              {/*
+                Autocompletado. Cada opción es un <button>, no un <div onClick>:
+                antes no se alcanzaba con Tab y había que soltar el teclado a
+                mitad del formulario. Y el contenedor solo se monta si HAY
+                coincidencias — antes aparecía un panel vacío cuando el nombre
+                tipeado no matcheaba con nadie.
+              */}
+              {showCustomerPredictions && customerName.trim().length > 1 && !selectedCustomerId
+                && coincidenciasCliente.length > 0 && (
+                <ul
+                  role="listbox"
+                  aria-label="Clientes que coinciden"
+                  className="absolute z-10 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-48 overflow-y-auto list-none"
+                >
+                  {coincidenciasCliente.map(c => (
+                    <li key={c.id} role="option" aria-selected={false}>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-zinc-700 focus:bg-zinc-700 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-cyan-500 flex flex-col"
                         onClick={() => {
                           setSelectedCustomerId(c.id);
                           setCustomerName(c.fullName);
@@ -843,9 +863,10 @@ export default function POS() {
                       >
                         <span className="text-sm font-medium text-white">{c.fullName}</span>
                         <span className="text-[10px] text-zinc-400">{c.phone} {c.email ? `- ${c.email}` : ''}</span>
-                      </div>
-                    ))}
-                </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
             <div className="space-y-1">
