@@ -41,6 +41,12 @@ export default function POS() {
   const [customNote, setCustomNote] = useState('');
   const [previewData, setPreviewData] = useState<InvoiceData | null>(null);
   const [labelSaleData, setLabelSaleData] = useState<Sale | null>(null);
+  // La etiqueta de envío espera acá hasta que se cierre el preview. Antes se
+  // montaba apenas se confirmaba la venta, y como el preview es z-[100] contra
+  // el z-[60] de la etiqueta, quedaba invisible detrás y aparecía de golpe al
+  // cerrar el primero: un segundo diálogo que nadie pidió, justo al final del
+  // flujo. La regla del pico-final dice que se recuerda el final.
+  const [pendingLabelSale, setPendingLabelSale] = useState<Sale | null>(null);
   const [pendingSale, setPendingSale] = useState<{sale: Sale, isProforma: boolean} | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   // WhatsApp con PDF adjunto disponible en el preview tras confirmar la venta.
@@ -247,8 +253,15 @@ export default function POS() {
     }
 
     // P1.1: el número correlativo definitivo se asigna en la transacción de
-    // recordSale (counters/*). Aquí solo va un placeholder para el preview.
-    const newInvoiceNumber = 'POR ASIGNAR';
+    // recordSale (counters/*), así que antes de confirmar todavía no existe.
+    //
+    // Va vacío a propósito. Antes decía 'POR ASIGNAR' y eso se imprimía en el
+    // A4: cuando se gira la laptop para mostrarle la proforma al cliente —que
+    // es la razón de ser de una proforma— lo que el cliente leía era
+    // "Cotización No # POR ASIGNAR". InvoicePreview ahora oculta el renglón
+    // completo mientras no haya número, en vez de rellenarlo con un aviso
+    // interno.
+    const newInvoiceNumber = '';
 
     const sale: Omit<Sale, "ownerId"> = {
       id: uuidv4(),
@@ -350,6 +363,17 @@ export default function POS() {
     const confirmedSale = { ...sale, invoiceNumber: assignedNumber } as Sale;
     // Actualizar el preview abierto (pasa a modo descarga) con el número real.
     setPreviewData(prev => (prev ? { ...prev, invoiceNumber: assignedNumber } : prev));
+
+    // La operación es IRREVERSIBLE —escribe venta, descuenta stock, mueve el
+    // kardex y consume el correlativo— y hasta acá no confirmaba nada: el único
+    // indicio era que cambiaba la botonera del modal. En una conexión lenta no
+    // había forma de distinguir "se guardó" de "se colgó", y el instinto es
+    // volver a apretar.
+    toast.success(
+      `${isProforma ? 'Proforma' : 'Venta'} ${assignedNumber} registrada · ` +
+      `${formatCurrencyNIO(confirmedSale.total * currentExchangeRate)}` +
+      `${isProforma ? '' : ' · stock actualizado'}`,
+    );
     // Habilitar "Enviar por WhatsApp" (comparte el PDF) si hay teléfono.
     setWaShare(confirmedSale.customerPhone
       ? buildWhatsAppMessage(confirmedSale, formatCurrencyNIO(confirmedSale.total * currentExchangeRate))
@@ -375,9 +399,10 @@ export default function POS() {
     setPaymentMethod('EFECTIVO');
     setPlazoMeses(null);
 
-    // Prepare label if transport requires it
+    // Prepare label if transport requires it. Queda en espera: se monta recién
+    // cuando el operador cierra el preview, no debajo de él.
     if (['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(confirmedSale.transport || '')) {
-        setLabelSaleData(confirmedSale);
+        setPendingLabelSale(confirmedSale);
     }
 
     setPendingSale(null);
@@ -396,6 +421,11 @@ export default function POS() {
             setPreviewData(null);
             setPendingSale(null);
             setWaShare(null);
+            // Recién ahora la etiqueta tiene la pantalla para ella sola.
+            if (pendingLabelSale) {
+              setLabelSaleData(pendingLabelSale);
+              setPendingLabelSale(null);
+            }
           }}
           onConfirm={pendingSale ? handleConfirmCheckout : undefined}
           isConfirming={isConfirming}

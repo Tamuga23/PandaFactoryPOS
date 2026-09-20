@@ -35,6 +35,19 @@ export interface InvoiceData {
     logo?: string;
   };
   items: InvoiceItem[];
+  /**
+   * Cómo se pagó. La venta ya lo guardaba, pero el documento no lo imprimía:
+   * el cliente se llevaba un recibo que no dice si pagó en efectivo, por
+   * transferencia o con tarjeta — y el pie repetía un texto genérico con todos
+   * los métodos aceptados como si nada se hubiera cobrado todavía.
+   */
+  paymentMethod?: string;
+  /**
+   * El número de transferencia o voucher. Se tipeaba en el POS, se guardaba en
+   * Firestore, y no existía en este tipo: el dato se cargaba y nunca se podía
+   * leer en el papel, que es justo donde sirve para reclamar.
+   */
+  paymentReference?: string;
   shippingCostNIO: number;
   discountNIO: number;
   customNote: string;
@@ -202,8 +215,23 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
     <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden">
       {/* Navbar modal */}
       <div className="flex-none bg-zinc-950 p-4 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-[101]">
+        {/*
+          El título decía siempre "Vista Previa de Factura", incluso cuando el
+          documento era una Cotización y también DESPUÉS de confirmar. Ahora
+          nombra lo que hay en pantalla: qué documento es, y si ya quedó
+          registrado, con su número.
+        */}
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          Vista Previa de Factura
+          {onConfirm ? (
+            <>Revisá la {data.type === 'PROFORMA' ? 'cotización' : 'factura'}</>
+          ) : data.invoiceNumber ? (
+            <>
+              <Check className="w-5 h-5 text-emerald-400" />
+              {data.type === 'PROFORMA' ? 'Cotización' : 'Venta'} {data.invoiceNumber} registrada
+            </>
+          ) : (
+            <>{data.type === 'PROFORMA' ? 'Cotización' : 'Factura'}</>
+          )}
         </h2>
         <div className="flex items-center gap-4">
           {onConfirm ? (
@@ -241,7 +269,18 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                 {isGenerating ? 'Generando PDF...' : 'Descargar PDF'}
               </button>
-              <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-rose-500 rounded-lg transition-all">
+              {/*
+                Hover NEUTRO, no rosa. DESIGN.md reserva el rosa para lo
+                destructivo, y cerrar el preview no destruye nada — menos todavía
+                después de confirmar, cuando la venta ya está registrada. El
+                patrón terciario documentado es "al hover toma el color de su
+                acción: blanco para neutro".
+              */}
+              <button
+                onClick={onClose}
+                aria-label="Cerrar vista previa"
+                className="p-2 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              >
                 <X className="w-5 h-5" />
               </button>
             </>
@@ -268,10 +307,19 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                       <h1 className="text-3xl font-extrabold text-[#1a6ba0] tracking-tight mb-4">
                         {data.type === 'PROFORMA' ? 'Cotización' : 'Factura'}
                       </h1>
-                      <div className="flex items-center gap-4 text-[11px] font-semibold text-zinc-700">
-                        <span className="w-24">{data.type === 'PROFORMA' ? 'Cotización No #' : 'Factura No #'}</span>
-                        <span className="text-black font-bold uppercase">{data.invoiceNumber}</span>
-                      </div>
+                      {/*
+                        El renglón del número solo existe si hay número. El
+                        correlativo se asigna en la transacción de recordSale, así
+                        que antes de confirmar no hay nada que mostrar — y un
+                        placeholder interno impreso en el documento es lo que
+                        termina leyendo el cliente cuando se le gira la pantalla.
+                      */}
+                      {data.invoiceNumber && (
+                        <div className="flex items-center gap-4 text-[11px] font-semibold text-zinc-700">
+                          <span className="w-24">{data.type === 'PROFORMA' ? 'Cotización No #' : 'Factura No #'}</span>
+                          <span className="text-black font-bold uppercase">{data.invoiceNumber}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-4 text-[11px] font-semibold text-zinc-700 mt-1">
                         <span className="w-24">Fecha:</span>
                         <span className="text-black font-bold">{data.date}</span>
@@ -332,6 +380,30 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                         <span className="font-bold min-w-[60px]">Transporte:</span>
                         <span className="text-[#1a6ba0] font-bold uppercase py-0.5 px-2 border border-[#a2d8ed] bg-white rounded-full ml-1 text-[8px] tracking-wider shadow-sm">{data.client.transport || 'ENTREGA LOCAL'}</span>
                       </div>
+                      {/*
+                        Forma de pago y referencia. La venta ya los guardaba y el
+                        papel no los decía: el cliente se llevaba un recibo que no
+                        dejaba constancia de cómo pagó, y el número de
+                        transferencia que se tipeaba en el POS no se podía leer en
+                        ningún lado. Solo se imprime en el recibo oficial: en una
+                        cotización todavía no se pagó nada.
+                      */}
+                      {data.type !== 'PROFORMA' && data.paymentMethod && (
+                        <div className="flex text-[10px] text-zinc-700 items-center leading-tight mt-1">
+                          <span className="font-bold min-w-[60px]">Pago:</span>
+                          <span className="text-black font-bold ml-1">
+                            {data.paymentMethod === 'EFECTIVO' ? 'Efectivo'
+                              : data.paymentMethod === 'TRANSFERENCIA' ? 'Transferencia'
+                              : data.paymentMethod === 'TARJETA' ? 'Tarjeta'
+                              : data.paymentMethod === 'CREDITO' ? 'Crédito'
+                              : data.paymentMethod === 'FINANCIAMIENTO' ? 'Financiamiento'
+                              : data.paymentMethod}
+                          </span>
+                          {data.paymentReference && (
+                            <span className="text-zinc-600 ml-1">· Ref. {data.paymentReference}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

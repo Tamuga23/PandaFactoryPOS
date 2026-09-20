@@ -54,6 +54,8 @@ export function buildInvoiceDataFromSale(
       image: i.imageBase64,
       sku: i.sku,
     })),
+    paymentMethod: sale.paymentMethod,
+    paymentReference: sale.paymentReference || undefined,
     shippingCostNIO: sale.shipping || 0,
     discountNIO: sale.discount || 0,
     customNote: sale.notes || '',
