@@ -101,6 +101,18 @@ export default function POS() {
     setCart(cart.filter(item => item.id !== id));
   };
 
+  /**
+   * Descarta la venta en curso. No había forma de abandonar un carrito armado
+   * por error salvo sacar las líneas de a una: con seis productos cargados eso
+   * son seis clics con el cliente esperando.
+   */
+  const vaciarCarrito = () => {
+    if (cart.length === 0) return;
+    setCart([]);
+    setPlazoMeses(null);
+    toast.info('Venta descartada.');
+  };
+
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const taxRate = 0; // Set to 0 to match screenshot logic (Total = Gross + Shipping - Discount)
   const tax = subtotal * taxRate;
@@ -401,7 +413,7 @@ export default function POS() {
       )}
       <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-8rem)]">
       {/* Product Selection */}
-      <div className={`${showMobileCart ? 'hidden lg:flex' : 'flex'} w-full lg:w-2/3 flex-col bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden h-[calc(100vh-12rem)] lg:h-full`}>
+      <div className={`${showMobileCart ? 'hidden lg:flex' : 'flex'} w-full lg:w-3/5 flex-col bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden h-[calc(100vh-12rem)] lg:h-full`}>
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/30">
           <h3 className="font-semibold text-zinc-200">Catálogo</h3>
           <div className="relative w-64">
@@ -471,23 +483,54 @@ export default function POS() {
       )}
 
       {/* Cart Panel */}
-      <div className={`${!showMobileCart ? 'hidden lg:flex' : 'flex'} w-full lg:w-1/3 flex-col bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl`}>
-        <div className="p-4 border-b border-zinc-700 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+      <div className={`${!showMobileCart ? 'hidden lg:flex' : 'flex'} w-full lg:w-2/5 flex-col bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl`}>
+        {/*
+          El encabezado decía "Terminal POS" con un punto decorativo: repetía lo
+          que ya dice el ítem activo de la barra lateral y gastaba el renglón más
+          caro del panel. Ahora lleva el estado real de la venta — cuántas líneas
+          y a nombre de quién — que es lo que se consulta de reojo mientras se
+          cobra con el cliente enfrente.
+        */}
+        <div className="flex-none p-4 border-b border-zinc-700 flex justify-between items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
              {/* Back button for mobile */}
-             <button 
-               onClick={() => setShowMobileCart(false)} 
+             <button
+               onClick={() => setShowMobileCart(false)}
                className="lg:hidden p-1.5 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white flex items-center gap-2 px-3"
              >
                <span className="text-lg leading-none mb-0.5">←</span> Volver al Catálogo
              </button>
-             <h3 className="font-semibold text-cyan-400 flex items-center gap-2">
-                <span className="w-2 h-2 bg-cyan-500 rounded-full hidden lg:block"></span> Terminal POS
-             </h3>
+             <div className="min-w-0">
+               <h3 className="font-semibold text-zinc-200 leading-tight">
+                 {cart.length === 0
+                   ? 'Nueva venta'
+                   : `${cart.length} ${cart.length === 1 ? 'línea' : 'líneas'}`}
+               </h3>
+               <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold truncate">
+                 {customerName.trim() || 'Cliente de mostrador'}
+               </p>
+             </div>
           </div>
+          {cart.length > 0 && (
+            <button
+              type="button"
+              onClick={vaciarCarrito}
+              className="flex-none text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded px-2 py-1 transition-colors"
+            >
+              Vaciar
+            </button>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-[30vh]">
+        {/*
+          UNA sola área de scroll para líneas + formulario. Antes eran dos
+          apiladas (la de líneas y la del formulario con `max-h-[50vh]`), cada
+          una con su barra dentro de una columna angosta: el panel competía
+          consigo mismo y el total quedaba a mitad de camino. Ahora todo lo que
+          se completa scrollea junto, y el cierre queda fijo abajo.
+        */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+        <div className="p-4 space-y-3">
           {cart.length === 0 ? (
             <div className="text-center text-zinc-500 py-10 text-sm">El carrito está vacío</div>
           ) : (
@@ -539,7 +582,7 @@ export default function POS() {
           )}
         </div>
 
-        <div className="p-4 border-t border-zinc-700 bg-zinc-900 overflow-y-auto lg:max-h-[50vh] custom-scrollbar">
+        <div className="p-4 border-t border-zinc-700">
           {/* Sección: Cliente */}
           <p className="text-[10px] uppercase tracking-wider text-cyan-400/80 font-bold mb-2 flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-cyan-500"></span> Cliente
@@ -647,6 +690,16 @@ export default function POS() {
             </div>
           </div>
 
+          {/*
+            Sección: Pago. Antes el método de pago, la referencia, la nota y el
+            bloque de financiamiento caían debajo del rótulo "Entrega y ajustes",
+            que terminaba arrastrando 7+ controles. Son etapas distintas del
+            cobro y ahora se rotulan como tales: el orden de los campos no
+            cambia, cambia dónde empieza cada grupo.
+          */}
+          <p className="text-[10px] uppercase tracking-wider text-cyan-400/80 font-bold mb-2 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-cyan-500"></span> Pago
+          </p>
           {/* P2.5: método de pago + referencia */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="space-y-1">
@@ -780,28 +833,76 @@ export default function POS() {
             </div>
           )}
 
+        </div>
+        </div>
+
+        {/*
+          CIERRE FIJO. El total y el botón irreversible no se van nunca de
+          pantalla: antes vivían al final de un formulario con scroll propio, así
+          que la cifra que se lee en voz alta al cliente podía estar fuera de
+          vista justo cuando se la estaba diciendo.
+        */}
+        <div className="flex-none p-4 border-t border-zinc-700 bg-zinc-900">
           <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
             <div className="flex justify-between text-xs mb-2 text-zinc-300">
               <span>Monto Bruto</span>
-              <span>{formatCurrency(subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
+              <span className="tabular-nums">{formatCurrency(subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
             </div>
             {shipping > 0 && (
               <div className="flex justify-between text-xs mb-2 text-zinc-300">
                 <span>Costo de Envío</span>
-                <span>{formatCurrency(shipping, 'NIO')}</span>
+                <span className="tabular-nums">{formatCurrency(shipping, 'NIO')}</span>
               </div>
             )}
             {discount > 0 && (
               <div className="flex justify-between text-xs mb-2 text-rose-400">
                 <span>Descuento</span>
-                <span>-{formatCurrency(discount, 'NIO')}</span>
+                <span className="tabular-nums">-{formatCurrency(discount, 'NIO')}</span>
               </div>
             )}
             <div className="h-px bg-zinc-700 my-2"></div>
-            <div className="flex justify-between font-bold text-sm sm:text-lg text-zinc-100 mt-2">
-              <span>TOTAL (NIO)</span>
-              <span className="text-cyan-400">{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE)) + shipping - discount, 'NIO')}</span>
+            {/*
+              La cifra que se lee en voz alta. Antes era `text-sm sm:text-lg`
+              (18px), cuatro píxeles por encima del cuerpo: los cuatro elementos
+              más importantes de la pantalla cabían en un rango de 4px y ninguno
+              mandaba. `tabular-nums` es la Regla del Dinero Alineado de
+              DESIGN.md, que hasta ahora no se cumplía en ningún lado.
+            */}
+            <div className="flex items-baseline justify-between gap-2 mt-2">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 shrink-0">
+                {esFinanciada && planElegido ? 'Total a plazos' : 'Total a cobrar'}
+              </span>
+              <span className="text-3xl font-bold text-cyan-400 tabular-nums leading-none truncate">
+                {formatCurrency(
+                  esFinanciada && planElegido ? planElegido.totalNio : total * currentExchangeRate,
+                  'NIO',
+                )}
+              </span>
             </div>
+            {/*
+              En una venta financiada el número grande NO puede ser el de
+              contado: lo que el cliente paga son N cuotas. Se invierte la caja y
+              el contado baja a línea secundaria.
+            */}
+            {esFinanciada && planElegido && (
+              <div className="flex items-baseline justify-between gap-2 mt-1.5 pt-1.5 border-t border-zinc-700">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 shrink-0">
+                  {planElegido.meses} cuotas de
+                </span>
+                <span className="text-sm font-bold text-zinc-200 tabular-nums">
+                  {formatCurrency(planElegido.cuotaNio, 'NIO')}
+                  <span className="text-[10px] font-normal text-zinc-500"> /mes</span>
+                </span>
+              </div>
+            )}
+            {esFinanciada && planElegido && (
+              <div className="flex items-baseline justify-between gap-2 mt-1">
+                <span className="text-[10px] uppercase tracking-wider text-zinc-500 shrink-0">De contado</span>
+                <span className="text-[11px] text-zinc-400 tabular-nums">
+                  {formatCurrency(total * currentExchangeRate, 'NIO')}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex gap-2">

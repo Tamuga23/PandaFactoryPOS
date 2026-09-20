@@ -315,6 +315,64 @@ Lo grueso del pulido visual ya se hizo en la sesión del 2026-07-02 (toasts, pal
 
 ---
 
+## ESTADO — Critique de diseño del POS (2026-09-20)
+
+Se corrió `/impeccable critique src/pages/POS.tsx`. Puntaje inicial **23/40**
+(modo Operate, las 10 heurísticas aplican). Snapshot completo en
+`.impeccable/critique/2026-09-20T15-48-57Z__src-pages-pos-tsx.md`.
+
+**Aplicado (commit `b207b81` y siguiente):**
+
+- **P0 — las cuotas se calculaban sobre el bruto.** `planesParaVenta` recibía
+  solo `price × quantity`, sin envío ni descuento, mientras el total cobrado sí
+  los incluía. Con US$300 y C$500 de descuento, la pantalla decía *"paga C$332
+  más"* y cobraba C$832 más: el error era exactamente el descuento, cobrado de
+  vuelta dentro de la cuota. Se prorratea el ajuste sobre las líneas para
+  conservar el peso de cada categoría (lo que pondera el recargo). 9 casos de
+  regresión nuevos.
+- **P2 — herencia de estado entre ventas.** El reset no limpiaba
+  `selectedCustomerId`, `paymentMethod` ni `plazoMeses`: la venta siguiente sin
+  nombre se archivaba en el historial del cliente anterior. `transport` queda
+  pegajoso a propósito.
+- **Reparto y jerarquía del panel de cobro.** El catálogo pasa de 2/3 a 3/5 y el
+  panel de cobro de 1/3 a 2/5. Se elimina el doble scroll (el panel tenía dos
+  áreas apiladas, la de líneas y el formulario con `max-h-[50vh]`) y el cierre
+  —total y FACTURAR— queda fijo al pie. El TOTAL sube de 18px a 30px con
+  `tabular-nums`, y en venta financiada la caja se invierte: manda el total a
+  plazos, el contado baja a línea secundaria. Rótulo "Pago" propio (antes 7+
+  controles caían bajo "Entrega y ajustes"). Botón "Vaciar" (no existía forma de
+  abandonar un carrito salvo sacar las líneas de a una).
+
+**Pendiente de ese critique, en orden:**
+
+1. **P1 — el momento que ve el cliente.** `'POR ASIGNAR'` impreso en la proforma
+   (`POS.tsx:225`), TOTAL fuera de pantalla en el A4, **cero `toast.success`** al
+   confirmar una operación irreversible, y la etiqueta de envío montada detrás
+   del preview (`z-[60]` contra `z-[100]`) que aparece de golpe al cerrar.
+2. **P1 — contraste sistémico, y es de los tokens de `DESIGN.md`, no del POS.**
+   `text-white` sobre `bg-cyan-600` (el botón primario, `turquesa-accion`) da
+   **3.68:1** contra un piso AA de 4.5:1, y aparece en 11 archivos. El label
+   canónico `text-[10px] text-zinc-500` da **3.67:1** en 8 archivos. Las tarjetas
+   sin stock con `opacity-50` caen a **1.83–4.39:1**. Arreglar en el sistema.
+3. **P1 — el carrito no sobrevive a un F5.** Vive solo en `useState`. Persistir
+   en `localStorage` (cumple con Spark, no necesita servidor).
+4. **Accesibilidad del POS:** 11/11 botones sin anillo de foco declarado (el
+   resto del repo declara `focus:ring` 27 veces en `ProductCatalog` y 24 en
+   `Inventory`), 11/11 controles sin `htmlFor`/`id`, 4 botones de solo ícono sin
+   `aria-label`, `onClick` sobre `<div>` en la acción principal, y `aria-live`
+   ausente en todo `src/` (los 7 toasts de error no se anuncian).
+5. **Menores:** sin estado vacío de búsqueda, 9 campos con radio de chip (4px)
+   donde `DESIGN.md` fija 8px, inputs numéricos que arrancan en `0`, el mismo
+   ícono para Factura y Proforma, la tasa de cambio nunca visible, y
+   `paymentReference` que se captura pero **no existe** en `InvoicePreview` ni en
+   `invoice.ts`.
+
+**Hueco propio detectado:** `DESIGN.md` declara el mundo "Papel" (los documentos
+imprimibles) pero no le publica rampa tipográfica propia, y por eso el detector
+marca 23 tamaños de `InvoicePreview` como fuera de sistema. Falta esa sección.
+
+---
+
 ## Quick wins sugeridos (mayor retorno / menor esfuerzo)
 
 | # | Acción | Refs |
