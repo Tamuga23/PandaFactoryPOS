@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Product, CartItem, Sale, ClientData } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
-import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package, Receipt } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { planesParaVenta } from '../lib/financiamiento';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
@@ -61,6 +61,7 @@ export default function POS() {
   // Borrador encontrado al montar. Se ofrece, no se restaura solo: meterle una
   // venta ajena al operador sin avisar sería peor que perderla.
   const [borrador, setBorrador] = useState<VentaEnCurso | null>(null);
+  const buscadorRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -278,6 +279,35 @@ export default function POS() {
   }, [borrador, cart, customerName, customerEmail, customerPhone, customerAddress,
       selectedCustomerId, transport, paymentMethod, paymentReference,
       plazoMeses, discount, shipping, customNote]);
+
+  /**
+   * Atajos de teclado. El operador hace esto decenas de veces por dia y hasta
+   * ahora la accion mas repetida de la app exigia soltar el teclado y buscar un
+   * boton abajo a la derecha. El acelerador de SKU (Enter en la busqueda) ya
+   * demostraba que la pantalla sabe trabajar asi; faltaba terminarlo.
+   *
+   * No se disparan mientras se escribe en un campo, salvo F2/F3 — que son
+   * teclas de funcion y no producen texto.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const dentroDeCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(
+        (e.target as HTMLElement)?.tagName ?? '',
+      );
+      // Con un modal abierto el POS no manda: el preview tiene su propio ESC.
+      if (previewData || labelSaleData) return;
+
+      if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) handleTryCheckout(false); return; }
+      if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) handleTryCheckout(true); return; }
+      if (e.key === '/' && !dentroDeCampo) {
+        e.preventDefault();
+        buscadorRef.current?.focus();
+        buscadorRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const restaurarBorrador = () => {
     if (!borrador) return;
@@ -618,6 +648,7 @@ export default function POS() {
             </div>
             <input
               type="text"
+              ref={buscadorRef}
               className="block w-full pl-10 pr-3 py-1.5 border border-zinc-700 rounded-lg leading-5 bg-zinc-800 text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
               placeholder="Buscar por nombre, SKU o categoría… (Enter agrega)"
               value={searchTerm}
@@ -687,7 +718,7 @@ export default function POS() {
                 <p className="mt-1 text-[10px] text-zinc-400 uppercase">{product.sku}</p>
                 <div className="mt-3 flex justify-between items-center">
                   <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-cyan-500/10 text-cyan-500' : 'bg-rose-500/10 text-rose-400'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}`}>
                     Stock: {product.stock}
                   </span>
                 </div>
@@ -800,7 +831,21 @@ export default function POS() {
                   <button onClick={() => updateQuantity(item.id, -1)} aria-label={`Quitar una unidad de ${item.name}`} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
                     <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-xs font-medium w-6 text-center text-zinc-200">{item.quantity}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={item.stock}
+                    value={item.quantity}
+                    aria-label={`Cantidad de ${item.name}`}
+                    onChange={(e) => {
+                      const n = Math.floor(Number(e.target.value));
+                      if (!Number.isFinite(n)) return;
+                      // El techo de stock se respeta igual que con los botones.
+                      const fijada = Math.min(Math.max(1, n), item.stock);
+                      setCart(prev => prev.map(i => i.id === item.id ? { ...i, quantity: fijada } : i));
+                    }}
+                    className="text-xs font-medium w-9 text-center text-zinc-200 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
                   <button onClick={() => updateQuantity(item.id, 1)} aria-label={`Agregar una unidad de ${item.name}`} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -1163,25 +1208,41 @@ export default function POS() {
           </div>
 
           <div className="mt-4 flex gap-2">
+            {/*
+              Dos consecuencias OPUESTAS compartían el mismo ícono `FileText`, y
+              la proforma era además un botón de 56px sin etiqueta, descubrible
+              solo por `title`. Facturar mueve stock, kardex y el correlativo;
+              cotizar no escribe nada. Ahora se distinguen por ícono Y por
+              palabra: Receipt para el recibo, FileText para el papel que
+              todavía no compromete.
+            */}
             <button
               onClick={() => handleTryCheckout(false)}
               disabled={cart.length === 0}
+              title="Facturar (F2)"
               className="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
             >
+              <Receipt className="w-4 h-4" />
               FACTURAR
-              <FileText className="w-4 h-4" />
             </button>
             <button
               onClick={() => handleTryCheckout(true)}
               disabled={cart.length === 0}
-              title="Generar Proforma (Cotización)"
-              aria-label="Generar proforma (cotización)"
-              className="w-14 bg-zinc-800 hover:bg-zinc-700 text-cyan-400 font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Generar proforma — no descuenta stock (F3)"
+              className="px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
             >
-              <FileText className="w-5 h-5" />
+              <FileText className="w-4 h-4" />
+              Proforma
             </button>
           </div>
-          <p className="text-[10px] text-zinc-400 text-center mt-2 italic">El stock se verifica automáticamente al facturar</p>
+          <p className="text-[10px] text-zinc-400 text-center mt-2 italic">
+            El stock se verifica automáticamente al facturar
+          </p>
+          <p className="text-[10px] text-zinc-500 text-center mt-1">
+            <kbd className="font-sans font-bold text-zinc-400">F2</kbd> facturar ·{' '}
+            <kbd className="font-sans font-bold text-zinc-400">F3</kbd> proforma ·{' '}
+            <kbd className="font-sans font-bold text-zinc-400">/</kbd> buscar
+          </p>
         </div>
       </div>
     </div>

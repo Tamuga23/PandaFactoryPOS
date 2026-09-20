@@ -29,6 +29,14 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
+  /**
+   * Título real de la pantalla. El header decía "Resumen Principal del Sistema"
+   * en TODAS las páginas — también sobre el POS, donde se mueve la plata. Un
+   * encabezado que miente es peor que no tener ninguno.
+   */
+  const tituloPagina =
+    navigation.find(n => n.href === location.pathname)?.name ?? 'Panel Principal';
+
   return (
     <div className="min-h-screen bg-zinc-950 flex text-zinc-200 overflow-hidden relative">
       {/* Notificaciones globales (reemplazo de alert()) */}
@@ -120,15 +128,21 @@ export default function Layout({ children }: { children: ReactNode }) {
               <span className="text-lg font-bold tracking-tight"><span className="text-white">panda</span><span className="bg-gradient-to-r from-cyan-400 to-[#0a85a8] bg-clip-text text-transparent">store</span></span>
             </div>
           </div>
-          <button onClick={logout} className="p-2 text-zinc-400 hover:text-zinc-200 rounded-md bg-zinc-800/50">
+          <button onClick={logout} aria-label="Cerrar sesión" className="p-2 text-zinc-400 hover:text-zinc-200 rounded-md bg-zinc-800/50 focus:outline-none focus:ring-1 focus:ring-cyan-500">
             <LogOut className="w-5 h-5" />
           </button>
+          {/*
+            El <h2> del header de escritorio es `hidden md:flex` (display:none
+            en móvil), así que bajo 768px el árbol de accesibilidad saltaba de
+            h1 directo a h3. Este lo lee el lector y no lo ve nadie.
+          */}
+          <h2 className="sr-only">{tituloPagina}</h2>
         </div>
         
         {/* Top Header */}
         <header className="hidden md:flex h-16 border-b border-zinc-800 items-center justify-between px-8 bg-zinc-900/20">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-medium text-zinc-200">Resumen Principal del Sistema</h2>
+            <h2 className="text-lg font-medium text-zinc-200">{tituloPagina}</h2>
             <span className="px-2 py-1 bg-cyan-500/10 text-cyan-400 text-[10px] uppercase font-bold rounded border border-cyan-500/20">Conectado a la Nube</span>
           </div>
           <div className="flex items-center gap-6">
