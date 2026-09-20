@@ -291,7 +291,7 @@ export default function Inventory() {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-zinc-700 bg-zinc-800 rounded-lg leading-5 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
+            className="block w-full pl-10 pr-3 py-2 border border-zinc-700 bg-zinc-800 rounded-lg leading-5 text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
             placeholder="Buscar por nombre, SKU o categoría…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -309,7 +309,7 @@ export default function Inventory() {
           {/* P3.5: el alta de productos vive en UN solo lugar (Catálogo Maestro) */}
           <Link
             to="/catalog"
-            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-lg shadow-cyan-900/20 text-white bg-cyan-600 hover:bg-cyan-500 transition-colors"
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-lg shadow-cyan-900/20 text-white bg-cyan-700 hover:bg-cyan-600 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
             Nuevo Producto (Catálogo)
@@ -323,7 +323,7 @@ export default function Inventory() {
           <button
             onClick={() => setCategoryFilter('')}
             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-              !categoryFilter ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
+              !categoryFilter ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
             }`}
           >
             Todas ({products.length})
@@ -333,7 +333,7 @@ export default function Inventory() {
               key={cat}
               onClick={() => setCategoryFilter(categoryFilter === cat ? '' : cat)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                categoryFilter === cat ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
+                categoryFilter === cat ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
               }`}
             >
               {cat} ({products.filter(p => p.category === cat).length})
@@ -613,7 +613,7 @@ export default function Inventory() {
                         placeholder="Ej. conteo físico, dañado, muestra…"
                         className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       />
-                      <p className="text-[10px] text-zinc-500 mt-1">Queda registrado en el kardex del producto.</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">Queda registrado en el kardex del producto.</p>
                     </div>
                   </div>
                 </div>
@@ -629,7 +629,7 @@ export default function Inventory() {
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-600 text-sm font-medium text-white hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-700 text-sm font-medium text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors disabled:opacity-50"
                   >
                     {isSaving ? 'Guardando…' : 'Actualizar Stock'}
                   </button>
@@ -711,7 +711,7 @@ export default function Inventory() {
                   <button 
                     type="submit" 
                     disabled={isSaving}
-                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-cyan-700 text-base font-medium text-white hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? 'Procesando…' : 'Guardar Cambios'}
                   </button>

@@ -199,13 +199,13 @@ export default function SalesHistory() {
         <div className="flex bg-zinc-800 rounded-lg p-1 text-xs font-bold">
           <button
             onClick={() => setDocFilter('FACTURAS')}
-            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'FACTURAS' ? 'bg-cyan-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'FACTURAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'}`}
           >
             Facturas
           </button>
           <button
             onClick={() => setDocFilter('PROFORMAS')}
-            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'PROFORMAS' ? 'bg-cyan-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'PROFORMAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'}`}
           >
             Proformas
           </button>
@@ -225,17 +225,17 @@ export default function SalesHistory() {
       {/* P4.2: filtros de fecha / estado / método (sobre las ventas cargadas) */}
       <div className="flex flex-wrap items-end gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-xl">
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-500 font-bold">Desde</label>
+          <label className="text-[10px] uppercase text-zinc-400 font-bold">Desde</label>
           <input type="date" value={fStart} onChange={e => setFStart(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-500 font-bold">Hasta</label>
+          <label className="text-[10px] uppercase text-zinc-400 font-bold">Hasta</label>
           <input type="date" value={fEnd} onChange={e => setFEnd(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-500 font-bold">Estado</label>
+          <label className="text-[10px] uppercase text-zinc-400 font-bold">Estado</label>
           <select value={fStatus} onChange={e => setFStatus(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer">
             <option value="todos">Todos</option>
@@ -245,7 +245,7 @@ export default function SalesHistory() {
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-500 font-bold">Método de pago</label>
+          <label className="text-[10px] uppercase text-zinc-400 font-bold">Método de pago</label>
           <select value={fMethod} onChange={e => setFMethod(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer">
             <option value="todos">Todos</option>
@@ -264,7 +264,7 @@ export default function SalesHistory() {
             Limpiar filtros
           </button>
         )}
-        <span className="ml-auto text-[10px] text-zinc-500 self-center">{filteredSales.length} resultado(s) en lo cargado</span>
+        <span className="ml-auto text-[10px] text-zinc-400 self-center">{filteredSales.length} resultado(s) en lo cargado</span>
       </div>
 
       <div className="grid gap-4">
@@ -308,7 +308,7 @@ export default function SalesHistory() {
                      <p className="text-cyan-500 font-bold uppercase truncate">{sale.transport}</p>
                   </div>
                   <div className="text-left md:text-right flex flex-col justify-center">
-                     <p className="text-zinc-500 text-[10px] font-bold uppercase">Total</p>
+                     <p className="text-zinc-400 text-[10px] font-bold uppercase">Total</p>
                      <p className="text-xl font-bold text-cyan-400 truncate">{formatCurrency(sale.total)}</p>
                      {/* Venta financiada: el plazo y la cuota reales que se cobraron. */}
                      {sale.financiamiento && (
@@ -331,12 +331,12 @@ export default function SalesHistory() {
                         onClick={() => handleInvoiceProforma(sale)}
                         disabled={!!invoicingProformaId}
                         title="Convierte esta proforma en factura (verifica y descuenta stock)"
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
                       >
                         {invoicingProformaId === sale.id ? 'Facturando…' : 'FACTURAR'}
                       </button>
                     ) : (
-                      <span className="text-[10px] text-zinc-500 italic px-2">
+                      <span className="text-[10px] text-zinc-400 italic px-2">
                         {sale.notes?.includes('Facturada como') ? sale.notes.split('·').pop()?.trim() : 'Anulada'}
                       </span>
                     )
@@ -345,7 +345,7 @@ export default function SalesHistory() {
                     <button
                       onClick={() => handleStatusChange(sale, 'completed')}
                       title="Marcar Completada (descuenta stock si venía anulada)"
-                      className={`p-1.5 rounded ${sale.status === 'completed' ? 'bg-cyan-600 text-white' : 'text-zinc-500 hover:text-cyan-400'}`}
+                      className={`p-1.5 rounded ${sale.status === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'}`}
                     >
                       <CheckCircle className="w-4 h-4" />
                     </button>
@@ -408,7 +408,7 @@ export default function SalesHistory() {
             </div>
             
             {/* Expanded items view */}
-            <div className="px-4 py-2 bg-zinc-800/20 text-[10px] text-zinc-500 flex flex-wrap gap-x-4">
+            <div className="px-4 py-2 bg-zinc-800/20 text-[10px] text-zinc-400 flex flex-wrap gap-x-4">
                {sale.items.map(item => (
                  <span key={item.id}>• {item.quantity}x {item.name}</span>
                ))}
@@ -503,25 +503,25 @@ export default function SalesHistory() {
                 </div>
                 <div className="p-6 space-y-4">
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Nombre del cliente</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del cliente</label>
                       <input name="customerName" defaultValue={editingSale.customerName} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Teléfono</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
                       <input name="customerPhone" defaultValue={editingSale.customerPhone} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Dirección</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Dirección</label>
                       <textarea name="customerAddress" defaultValue={editingSale.customerAddress} rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200"></textarea>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Transporte</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
                       <input name="transport" defaultValue={editingSale.transport} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
                    </div>
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3">
                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition-all">GUARDAR CAMBIOS</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg transition-all">GUARDAR CAMBIOS</button>
                 </div>
              </form>
           </div>

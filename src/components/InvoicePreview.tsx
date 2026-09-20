@@ -239,7 +239,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
               <button
                 onClick={onConfirm}
                 disabled={isConfirming}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg disabled:opacity-50"
+                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg disabled:opacity-50"
               >
                 {isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                 {isConfirming ? 'Procesando...' : 'Confirmar Venta'}
@@ -255,7 +255,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   onClick={handleShareWhatsApp}
                   disabled={isSharing || isGenerating}
                   title="Comparte el PDF por WhatsApp (o lo descarga y abre el chat)"
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
                 >
                   {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
                   {isSharing ? 'Preparando…' : 'Enviar por WhatsApp'}

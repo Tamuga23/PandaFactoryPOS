@@ -346,7 +346,7 @@ export default function PurchaseRegistration({
              </h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Proveedor</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Proveedor</label>
                   {isCustomSupplier ? (
                     <div className="flex gap-2">
                       <input
@@ -374,7 +374,7 @@ export default function PurchaseRegistration({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Plataforma</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Plataforma</label>
                   {isCustomPlatform ? (
                     <div className="flex gap-2">
                       <input
@@ -399,7 +399,7 @@ export default function PurchaseRegistration({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Fecha de Adquisición</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Fecha de Adquisición</label>
                   <input
                     type="date"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -409,7 +409,7 @@ export default function PurchaseRegistration({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Financiación</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Financiación</label>
                   {isCustomFinancing ? (
                     <div className="flex gap-2">
                       <input
@@ -438,7 +438,7 @@ export default function PurchaseRegistration({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Canal de Envío</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Canal de Envío</label>
                   {isCustomShippingChannel ? (
                     <div className="flex gap-2">
                       <input
@@ -463,7 +463,7 @@ export default function PurchaseRegistration({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Modalidad</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Modalidad</label>
                   {isCustomShippingMode ? (
                     <div className="flex gap-2">
                       <input
@@ -488,7 +488,7 @@ export default function PurchaseRegistration({
                 </div>
                 
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">No. Orden Master (Opcional)</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">No. Orden Master (Opcional)</label>
                   <input
                     type="text"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -505,13 +505,13 @@ export default function PurchaseRegistration({
              <h4 className="text-zinc-100 font-bold mb-1 flex items-center gap-2 border-b border-zinc-700/50 pb-2">
                 <Tag className="w-4 h-4 text-amber-400" /> Costos de Importación (Landed Cost)
              </h4>
-             <p className="text-[10px] text-zinc-500 mb-4 leading-relaxed">
+             <p className="text-[10px] text-zinc-400 mb-4 leading-relaxed">
                Estos costos se suman al costo real de cada unidad al recibirla. El flete se calcula por peso con la tarifa $/lb
                (si un ítem no tiene peso, se prorratea el Flete Total por valor). Aduana y seguro siempre se prorratean por valor.
              </p>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Tarifa Flete (USD/lb)</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Tarifa Flete (USD/lb)</label>
                   <input
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
@@ -521,7 +521,7 @@ export default function PurchaseRegistration({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Flete Total (USD)</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Flete Total (USD)</label>
                   <input
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
@@ -531,7 +531,7 @@ export default function PurchaseRegistration({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Aduana / DGA (USD)</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Aduana / DGA (USD)</label>
                   <input
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
@@ -541,7 +541,7 @@ export default function PurchaseRegistration({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Seguro (USD)</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Seguro (USD)</label>
                   <input
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
@@ -603,7 +603,7 @@ export default function PurchaseRegistration({
                   {!isNewProduct ? (
                     <>
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Buscar Inventario</label>
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Buscar Inventario</label>
                         <select
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 outline-none"
                           value={itemForm.itemId}
@@ -619,7 +619,7 @@ export default function PurchaseRegistration({
                   ) : (
                     <>
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Nombre del Producto</label>
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Nombre del Producto</label>
                         <input
                           type="text"
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -628,7 +628,7 @@ export default function PurchaseRegistration({
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Categoría</label>
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Categoría</label>
                         {isCustomCategory ? (
                           <div className="flex gap-2">
                             <input
@@ -652,7 +652,7 @@ export default function PurchaseRegistration({
                         )}
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Precio Venta Catálogo (USD)</label>
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Precio Venta Catálogo (USD)</label>
                         <input
                           type="number"
                           step="any" min="0"
@@ -662,7 +662,7 @@ export default function PurchaseRegistration({
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                         <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Imagen del Producto (Opcional)</label>
+                         <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Imagen del Producto (Opcional)</label>
                          {itemForm.imagePreview ? (
                             <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-600">
                               <img src={itemForm.imagePreview} alt="Preview" className="w-full h-full object-cover" />
@@ -683,7 +683,7 @@ export default function PurchaseRegistration({
                   <div className="col-span-1 md:col-span-2 h-px bg-zinc-800 my-1"></div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-rose-400">Costo VNE (USD)</label>
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider text-rose-400">Costo VNE (USD)</label>
                     <input
                       type="number"
                       step="any" min="0"
@@ -695,7 +695,7 @@ export default function PurchaseRegistration({
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-cyan-400">Cantidad</label>
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider text-cyan-400">Cantidad</label>
                     <input
                       type="number"
                       min="1"
@@ -706,7 +706,7 @@ export default function PurchaseRegistration({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Color Específico</label>
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Color Específico</label>
                     <input
                       type="text"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -717,7 +717,7 @@ export default function PurchaseRegistration({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Peso Estimado (lbs) por la cantidad entera</label>
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Peso Estimado (lbs) por la cantidad entera</label>
                     <input
                       type="number"
                       step="any" min="0"
@@ -749,7 +749,7 @@ export default function PurchaseRegistration({
          <button
            onClick={handleSubmit}
            disabled={isSubmitting || items.length === 0}
-           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"
+           className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"
          >
            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
            {isSubmitting ? 'Procesando Múltiples Artículos...' : `Finalizar y Guardar ${items.length > 0 ? items.length : ''} Artículos`}

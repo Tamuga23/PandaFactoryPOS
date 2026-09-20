@@ -122,7 +122,7 @@ export default function UniversalObjections() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium"
         >
           <Plus className="w-4 h-4" />
           Nueva objeción
@@ -172,7 +172,7 @@ export default function UniversalObjections() {
                   disabled={!!editingId}
                   required
                   placeholder="garantia"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
@@ -182,7 +182,7 @@ export default function UniversalObjections() {
                   value={form.key}
                   onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
                   placeholder="garantia"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -206,7 +206,7 @@ export default function UniversalObjections() {
                 onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
                 required
                 placeholder="¿Tiene garantía / es original?"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none"
               />
             </div>
             <div>
@@ -219,7 +219,7 @@ export default function UniversalObjections() {
                 required
                 rows={4}
                 placeholder="Sí, es original y tiene 3 meses de garantía..."
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none resize-none"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none resize-none"
               />
             </div>
             <div className="flex justify-end gap-3 pt-1">
@@ -233,7 +233,7 @@ export default function UniversalObjections() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 text-sm bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando…' : editingId ? 'Actualizar' : 'Crear'}
               </button>

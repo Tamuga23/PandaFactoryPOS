@@ -149,8 +149,8 @@ export default function Settings() {
     <div className="max-w-4xl mx-auto space-y-8 relative">
       {notification && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg font-bold text-white shadow-xl transition-all ${
-          notification.type === 'success' ? 'bg-emerald-600' :
-          notification.type === 'error' ? 'bg-rose-600' : 'bg-cyan-600'
+          notification.type === 'success' ? 'bg-emerald-700' :
+          notification.type === 'error' ? 'bg-rose-600' : 'bg-cyan-700'
         }`}>
           {notification.message}
         </div>
@@ -239,7 +239,7 @@ export default function Settings() {
                     onChange={e => setFormData(p => ({ ...p, defaultExchangeRate: parseFloat(e.target.value) || 0 }))}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                   />
-                  <p className="text-[10px] text-zinc-500">Tasa de cambio del BCN congelada por ley (Ej. 36.6243).</p>
+                  <p className="text-[10px] text-zinc-400">Tasa de cambio del BCN congelada por ley (Ej. 36.6243).</p>
                 </div>
 
                 {/* Numeración de facturas (contador correlativo) */}
@@ -265,7 +265,7 @@ export default function Settings() {
                       {savingCounter ? 'Fijando…' : 'Fijar'}
                     </button>
                   </div>
-                  <p className="text-[10px] text-zinc-500">
+                  <p className="text-[10px] text-zinc-400">
                     Se emitirá como A-{String(parseInt(nextInvoiceNumber, 10) || 0).padStart(6, '0')}. Cuidado al bajarlo: podrías duplicar números ya usados.
                   </p>
                 </div>
@@ -305,7 +305,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50"
+              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50"
             >
               {isSaving ? (
                 <>Procesando...</>

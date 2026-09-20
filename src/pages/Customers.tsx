@@ -136,7 +136,7 @@ export default function Customers() {
           </div>
           <button 
             onClick={handleAddNew}
-            className="h-10 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20"
+            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20"
           >
             <Plus className="w-4 h-4" />
             Nuevo Cliente
@@ -160,7 +160,7 @@ export default function Customers() {
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-bold text-zinc-100 truncate text-sm leading-tight">{customer.fullName}</h3>
-                        <p className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                        <p className="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3" /> Registrado: {new Date(customer.createdAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -240,15 +240,15 @@ export default function Customers() {
               return (
                 <div className="grid grid-cols-3 gap-3 p-4 shrink-0">
                   <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-center">
-                    <p className="text-[10px] uppercase font-bold text-zinc-500">Total Gastado</p>
+                    <p className="text-[10px] uppercase font-bold text-zinc-400">Total Gastado</p>
                     <p className="text-lg font-bold text-emerald-400">{formatCurrency(totalSpent)}</p>
                   </div>
                   <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-center">
-                    <p className="text-[10px] uppercase font-bold text-zinc-500">Compras</p>
+                    <p className="text-[10px] uppercase font-bold text-zinc-400">Compras</p>
                     <p className="text-lg font-bold text-cyan-400">{completed.length}</p>
                   </div>
                   <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-center">
-                    <p className="text-[10px] uppercase font-bold text-zinc-500">Última</p>
+                    <p className="text-[10px] uppercase font-bold text-zinc-400">Última</p>
                     <p className="text-sm font-bold text-zinc-300 mt-1">{lastDate ? new Date(lastDate).toLocaleDateString() : '—'}</p>
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export default function Customers() {
                           {sale.documentType === 'PROFORMA' ? 'proforma' : (sale.status || 'completed')}
                         </span>
                       </p>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
                         {new Date(sale.date).toLocaleDateString()} · {sale.items.length} ítem(s) · {sale.items.slice(0, 2).map(i => i.name).join(', ')}{sale.items.length > 2 ? '…' : ''}
                       </p>
                     </div>
@@ -331,7 +331,7 @@ export default function Customers() {
                 </div>
                 <div className="p-6 space-y-4">
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Nombre completo (requerido)</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Nombre completo (requerido)</label>
                       <input
                          name="fullName"
                          required
@@ -342,7 +342,7 @@ export default function Customers() {
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold">Teléfono</label>
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
                         <input 
                            name="phone" 
                            defaultValue={editingCustomer?.phone} 
@@ -351,7 +351,7 @@ export default function Customers() {
                         />
                      </div>
                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold">Correo electrónico</label>
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold">Correo electrónico</label>
                         <input 
                            name="email" 
                            type="email"
@@ -362,7 +362,7 @@ export default function Customers() {
                      </div>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Dirección / datos de envío</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Dirección / datos de envío</label>
                       <textarea 
                          name="address" 
                          defaultValue={editingCustomer?.address} 
@@ -374,7 +374,7 @@ export default function Customers() {
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3 border-t border-zinc-800">
                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm">Guardar</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm">Guardar</button>
                 </div>
              </form>
           </div>

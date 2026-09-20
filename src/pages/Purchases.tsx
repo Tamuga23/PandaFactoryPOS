@@ -311,7 +311,7 @@ export default function Purchases() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+          className="bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           REGISTRAR ORDEN (FASE 1)
@@ -357,7 +357,7 @@ export default function Purchases() {
                           {isCancelled ? <Ban className="w-3 h-3" /> : isClosed ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                           <span>{isCancelled ? 'CANCELADA' : (p.status || 'OPEN')}</span>
                         </div>
-                        <span className="font-mono text-[10px] text-zinc-500 px-1">{p.id.slice(0, 8)}</span>
+                        <span className="font-mono text-[10px] text-zinc-400 px-1">{p.id.slice(0, 8)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs whitespace-nowrap">
@@ -370,7 +370,7 @@ export default function Purchases() {
                     </td>
                     <td className="px-6 py-4 text-xs">
                       <div className="font-bold text-zinc-200">{supplierName(p.supplier)}</div>
-                      <div className="text-zinc-500 text-[10px]">{p.shippingModality} via {p.shippingChannel}</div>
+                      <div className="text-zinc-400 text-[10px]">{p.shippingModality} via {p.shippingChannel}</div>
                     </td>
                     <td className="px-6 py-4 text-xs">
                       <div className="text-zinc-300">{p.items.length} ítems</div>
@@ -461,7 +461,7 @@ export default function Purchases() {
                   ['shippingChannel', 'Canal de envío'], ['shippingModality', 'Modalidad'],
                 ] as const).map(([key, label]) => (
                   <div key={key} className="space-y-1">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold">{label}</label>
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold">{label}</label>
                     <input
                       type="text"
                       value={orderForm[key]}
@@ -481,7 +481,7 @@ export default function Purchases() {
                     ['customsTaxes', 'Aduana USD'], ['insuranceCost', 'Seguro USD'],
                   ] as const).map(([key, label]) => (
                     <div key={key} className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">{label}</label>
+                      <label className="text-[10px] uppercase text-zinc-400 font-bold">{label}</label>
                       <input
                         type="number" step="any" min="0"
                         value={orderForm[key]}
@@ -567,7 +567,7 @@ export default function Purchases() {
               <button
                 onClick={saveOrderEdit}
                 disabled={isSavingOrder}
-                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-sm disabled:opacity-50"
+                className="px-6 py-2 bg-cyan-700 hover:bg-cyan-600 text-white font-bold rounded-lg text-sm disabled:opacity-50"
               >
                 {isSavingOrder ? 'Guardando…' : 'Guardar Cambios'}
               </button>
@@ -597,7 +597,7 @@ export default function Purchases() {
                      <h4 className="text-sm font-bold text-zinc-300 uppercase">Trackings de esta Orden</h4>
                      <button
                        onClick={() => setIsAddingTracking(true)}
-                       className="text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
+                       className="text-xs bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
                      >
                        <Plus className="w-3 h-3" /> Agregar Tracking
                      </button>
@@ -632,7 +632,7 @@ export default function Purchases() {
                             })()}
                          </div>
                          <div className="bg-zinc-900 border border-zinc-700/50 rounded-lg p-3">
-                            <p className="text-[10px] font-bold text-zinc-500 mb-2 uppercase">Items que vienen aquí:</p>
+                            <p className="text-[10px] font-bold text-zinc-400 mb-2 uppercase">Items que vienen aquí:</p>
                             <div className="space-y-1">
                               {t.itemsInBox.map(iib => {
                                  const pItem = trackingModalPurchase.items.find(i => i.id === iib.itemId);
@@ -698,11 +698,11 @@ export default function Purchases() {
                    
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                         <label className="text-[10px] uppercase text-zinc-500 font-bold">Tracking / Guía ID</label>
+                         <label className="text-[10px] uppercase text-zinc-400 font-bold">Tracking / Guía ID</label>
                          <input type="text" disabled={editingTracking?.isReceived} value={trackNumber} onChange={e=>setTrackNumber(e.target.value)} required className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
                       </div>
                       <div className="space-y-1">
-                         <label className="text-[10px] uppercase text-zinc-500 font-bold">Estado Logístico</label>
+                         <label className="text-[10px] uppercase text-zinc-400 font-bold">Estado Logístico</label>
                          <select disabled={editingTracking?.isReceived} value={trackStatus} onChange={e=>setTrackStatus(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500">
                             <option value="">Seleccionar...</option>
                             <option value="Procesando">Procesando</option>
@@ -738,7 +738,7 @@ export default function Purchases() {
                                   {missingInCatalog && (
                                     <span className="block text-[10px] text-amber-500">⚠ Ya no existe en el catálogo: al recibir NO sumará stock.</span>
                                   )}
-                                  <span className="block text-[10px] text-zinc-500">Ordenados: {pItem.quantity} | Disponibles para Asignar en cajas: {maxAllowed}</span>
+                                  <span className="block text-[10px] text-zinc-400">Ordenados: {pItem.quantity} | Disponibles para Asignar en cajas: {maxAllowed}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <input 
@@ -760,11 +760,11 @@ export default function Purchases() {
 
                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div className="space-y-1">
-                         <label className="text-[10px] uppercase text-zinc-500 font-bold">Peso Final Cobradas (lbs)</label>
+                         <label className="text-[10px] uppercase text-zinc-400 font-bold">Peso Final Cobradas (lbs)</label>
                          <input disabled={editingTracking?.isReceived} type="number" step="any" value={finalWeight} onChange={e=>setFinalWeight(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" placeholder="Ej. 5.5" />
                       </div>
                       <div className="space-y-1">
-                         <label className="text-[10px] uppercase text-zinc-500 font-bold">Agente Recibe (Miami)</label>
+                         <label className="text-[10px] uppercase text-zinc-400 font-bold">Agente Recibe (Miami)</label>
                          <input disabled={editingTracking?.isReceived} type="date" value={agentDate} onChange={e=>setAgentDate(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
                       </div>
                       <div className="space-y-1 col-span-2 md:col-span-1">
@@ -782,7 +782,7 @@ export default function Purchases() {
                       )}
                       
                       {!editingTracking?.isReceived && (
-                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
+                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
                            {isSavingPhase2 ? 'Guardando...' : 'Guardar y Asociar a Orden'}
                         </button>
                       )}

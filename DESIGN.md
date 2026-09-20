@@ -3,8 +3,9 @@ name: PandaStoreOS
 description: Consola oscura de punto de venta e importación, densa y plana, con un solo acento turquesa.
 colors:
   turquesa-electrico: "#22d3ee"
-  turquesa-accion: "#0891b2"
+  turquesa-accion: "#0e7490"
   turquesa-foco: "#06b6d4"
+  turquesa-accion-hover: "#0891b2"
   carbon-fondo: "#09090b"
   carbon-superficie: "#18181b"
   carbon-control: "#27272a"
@@ -70,7 +71,7 @@ components:
     rounded: "{rounded.control}"
     padding: "12px 24px"
   boton-primario-hover:
-    backgroundColor: "{colors.turquesa-foco}"
+    backgroundColor: "{colors.turquesa-accion-hover}"
     textColor: "{colors.texto-maximo}"
   boton-secundario:
     backgroundColor: "{colors.carbon-control}"
@@ -81,7 +82,7 @@ components:
     backgroundColor: "{colors.carbon-borde}"
     textColor: "{colors.texto-maximo}"
   boton-confirmar:
-    backgroundColor: "#059669"
+    backgroundColor: "#047857"
     textColor: "{colors.texto-maximo}"
     rounded: "{rounded.control}"
     padding: "12px 24px"
@@ -168,10 +169,13 @@ hay algo semántico que decir.
 - **Turquesa Eléctrico** (`#22d3ee`): la cifra y el dato que importa. Precio en el
   POS, total de la venta, utilidad bruta en Reportes, íconos de encabezado de
   sección. Es el color al que el ojo va primero en cualquier pantalla (72 usos).
-- **Turquesa Acción** (`#0891b2`): el relleno del botón primario, y solo eso.
-  FACTURAR, Guardar, Nuevo Cliente, Registrar Orden.
-- **Turquesa Foco** (`#06b6d4`): dos trabajos — el hover del botón primario (que
-  **aclara**, nunca oscurece) y el anillo de foco de todo campo.
+- **Turquesa Acción** (`#0e7490`): el relleno del botón primario, y solo eso.
+  FACTURAR, Guardar, Nuevo Cliente, Registrar Orden. Sobre él, texto blanco da
+  **5.36:1** — pasa AA. El valor anterior (`#0891b2`) daba 3.68:1 y no llegaba:
+  el botón más importante de la app era el que no cumplía.
+- **Turquesa Acción Hover** (`#0891b2`): el hover del primario, que **aclara**
+  (700 → 600), nunca oscurece.
+- **Turquesa Foco** (`#06b6d4`): el anillo de foco de todo campo.
 
 El turquesa también aparece teñido al 10% (`bg-cyan-500/10`, 19 usos) como
 superficie de badge informativo y de ícono contenido.
@@ -209,8 +213,16 @@ superficie de badge informativo y de ícono contenido.
 Texto, de más a menos voz: **Texto Máximo** (`#ffffff`) para títulos y texto sobre
 color · **Texto Cuerpo** (`#e4e4e7`) por defecto · **Texto Control** (`#d4d4d8`)
 para la etiqueta del botón secundario · **Texto Secundario** (`#a1a1aa`) para
-labels y controles terciarios en reposo · **Texto Terciario** (`#71717a`) para
-ayuda, SKU, fechas y estados vacíos.
+**las etiquetas de campo**, los placeholders y los controles terciarios en reposo
+· **Texto Terciario** (`#71717a`) solo para lo genuinamente accesorio: unidades
+sueltas y metadatos que se pueden no leer.
+
+> La etiqueta de campo usaba Texto Terciario y daba **3.67:1** sobre la
+> superficie — por debajo del piso AA de 4.5:1, y era el texto de menor
+> contraste de la pantalla. Pero el nombre de un campo no es información
+> accesoria: dice qué se está por escribir. Pasa a Texto Secundario, que da
+> **6.91:1**. Los placeholders estaban peor (**3.08:1**, el peor ratio del
+> proyecto) y suben igual, a **5.81:1**.
 
 ### El mundo impreso
 
@@ -218,11 +230,33 @@ ayuda, SKU, fechas y estados vacíos.
 gobiernan la factura A4 y la etiqueta de envío. Esta paleta **no comparte nada**
 con la consola, y no debe hacerlo: son objetos que se imprimen y se entregan.
 
+**El mundo Papel tiene su propia escala tipográfica, y no es la de la consola.**
+Son lienzos de tamaño fijo — la factura mide `794×1123px` (A4 a 96 dpi) y la
+etiqueta `384×576px` — donde el píxel equivale a un punto de impresión, así que
+la escala en `rem` de la interfaz no aplica. La rampa real, medida sobre lo que
+ya se imprime:
+
+- **Titular de documento** (30px / 800): "Factura" o "Cotización" en Azul
+  Documento; en la etiqueta, 30px / 900 con interletraje negativo.
+- **Destinatario** (24px / 900): el nombre grande de la etiqueta de envío.
+- **Cuerpo de documento** (11px / 600): datos de cliente, filas de la tabla.
+- **Micro de documento** (9px y 8px): pies, condiciones, referencias.
+
+Los pesos 800 y 900 **solo existen acá**. No están en el `@import` de Inter, así
+que el navegador los sintetiza: se tolera en un documento que se rasteriza a PDF
+una vez, y no se debe llevar a la interfaz.
+
 ### Named Rules
 
 **La Regla de la Luz Única.** El turquesa es el único color de marca. Si algo
 está en turquesa es porque es dinero o porque es la acción a tomar. Un segundo
 acento decorativo rompe el tablero.
+
+**La Regla del Relleno Oscuro.** Sobre un relleno de color con texto blanco, el
+tono va en el escalón **700**, no en el 600. `cyan-700` da 5.36:1 y `emerald-700`
+5.48:1; sus respectivos 600 daban 3.68:1 y 3.77:1 y no pasaban AA. El hover sube
+al 600 — el primario **aclara al pasar el mouse, nunca oscurece**. `rose-600` es
+la excepción: ya da 4.70:1 y se queda donde está.
 
 **La Regla del Tinte sin Borde.** El badge canónico es tinte al 10% + texto al
 500, *sin* borde (56 casos contra 24). El borde `/20` se agrega solo cuando el

@@ -150,7 +150,7 @@ export default function CategoryObjections() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium"
         >
           <Plus className="w-4 h-4" />
           Nueva objeción
@@ -230,7 +230,7 @@ export default function CategoryObjections() {
                   disabled={!!editingId}
                   required
                   placeholder="manta"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
@@ -268,7 +268,7 @@ export default function CategoryObjections() {
                     required
                     autoFocus
                     placeholder="mi-categoria"
-                    className="mt-2 w-full bg-zinc-800 border border-cyan-500/50 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
+                    className="mt-2 w-full bg-zinc-800 border border-cyan-500/50 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none"
                   />
                 )}
               </div>
@@ -293,7 +293,7 @@ export default function CategoryObjections() {
                 onChange={(e) => setForm((f) => ({ ...f, pregunta: e.target.value }))}
                 required
                 placeholder="¿Incluye manta / pantalla?"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none"
               />
             </div>
             <div>
@@ -306,7 +306,7 @@ export default function CategoryObjections() {
                 required
                 rows={4}
                 placeholder="No necesita manta: una pared blanca y lisa funciona muy bien…"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none resize-none"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none resize-none"
               />
             </div>
             <div className="flex justify-end gap-3 pt-1">
@@ -320,7 +320,7 @@ export default function CategoryObjections() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 text-sm bg-cyan-700 text-white rounded-lg hover:bg-cyan-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando…' : editingId ? 'Actualizar' : 'Crear'}
               </button>
