@@ -234,12 +234,38 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
           )}
         </h2>
         <div className="flex items-center gap-4">
+          {/*
+            Resumen pegado al botón irreversible. El TOTAL vive al pie de un A4
+            de 1123px, así que en una laptop se ve el tercio superior del
+            documento: se confirmaba de memoria la operación que escribe la
+            venta, descuenta stock, mueve el kardex y consume el correlativo.
+            Acá está lo mínimo para decidir sin scrollear.
+          */}
+          {onConfirm && (
+            <div className="hidden sm:flex flex-col items-end leading-tight mr-1">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400">
+                {data.client.fullName || 'Cliente final'}
+                {data.paymentMethod && <> · {data.paymentMethod}</>}
+              </span>
+              <span className="text-lg font-bold text-cyan-400 tabular-nums">
+                {formatCurrencyNIO(
+                  data.financiamiento ? data.financiamiento.totalNio : total,
+                )}
+                {data.financiamiento && (
+                  <span className="text-[10px] font-normal text-zinc-400">
+                    {' '}en {data.financiamiento.plazoMeses} cuotas
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
           {onConfirm ? (
             <>
               <button
                 onClick={onConfirm}
                 disabled={isConfirming}
-                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg disabled:opacity-50"
+                autoFocus
+                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50"
               >
                 {isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                 {isConfirming ? 'Procesando...' : 'Confirmar Venta'}
