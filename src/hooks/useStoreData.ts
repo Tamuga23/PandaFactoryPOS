@@ -16,6 +16,7 @@ const TABLET_ONLY_SALE_ITEM_FIELDS = [
   'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania',
   'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo',
   'efectivoApplied', // P2.5: flag de UI del carrito, no viaja a Firestore
+  'precioAntesEfectivo', // idem: precio previo al descuento, para poder revertirlo
   // Excepción de financiamiento del producto: el CartItem la arrastra porque
   // extiende Product, pero isValidSaleItem no la permite y la venta entera
   // sería rechazada por las reglas. El plan cobrado va a nivel de VENTA, en

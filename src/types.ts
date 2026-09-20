@@ -53,6 +53,12 @@ export interface CartItem extends Product {
   serialNumbers?: string[]; // Pilar 1: Seriales/IMEI para electrónicos
   /** Solo UI del carrito: precio efectivo aplicado a esta línea (se limpia al guardar). */
   efectivoApplied?: boolean;
+  /**
+   * Solo UI del carrito: el precio que la línea tenía justo ANTES de aplicarle
+   * el descuento de efectivo. Puede ser un precio negociado a mano, por eso no
+   * alcanza con releer el catálogo para revertir. Se limpia al guardar.
+   */
+  precioAntesEfectivo?: number;
 }
 
 export interface Customer {

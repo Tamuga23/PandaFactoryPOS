@@ -158,7 +158,19 @@ export default function POS() {
     const nio = Math.max(0, Number(nioValue) || 0);
     setCart(prev => prev.map(item =>
       item.id === id
-        ? { ...item, price: round2(nio / currentExchangeRate), efectivoApplied: false }
+        // `efectivoApplied` se MANTIENE: si se pone en false, el chip vuelve a
+        // ofrecer "Aplicar" sobre un precio que ya venía rebajado, y el
+        // descuento se compone sin que nadie lo note. El operador acaba de
+        // fijar el precio que quiere cobrar; no hay nada más que descontar.
+        //
+        // Y el precio tipeado pasa a ser TAMBIÉN el de reversión: si después se
+        // cambia la forma de pago, la línea vuelve a lo que el operador fijó a
+        // mano, no a un valor anterior que ya descartó.
+        ? {
+            ...item,
+            price: round2(nio / currentExchangeRate),
+            ...(item.efectivoApplied ? { precioAntesEfectivo: round2(nio / currentExchangeRate) } : {}),
+          }
         : item
     ));
     setEditingPriceId(null);
@@ -171,23 +183,55 @@ export default function POS() {
   const applyCashDiscount = () => {
     setCart(prev => prev.map(item =>
       (item.descEfectivoPct || 0) > 0 && !item.efectivoApplied
-        ? { ...item, price: round2(item.price * (1 - (item.descEfectivoPct || 0) / 100)), efectivoApplied: true }
+        ? {
+            ...item,
+            // Se recuerda el precio EXACTO de antes del descuento. Antes no se
+            // guardaba y para revertir había que leer el catálogo, lo que
+            // borraba cualquier negociación hecha en esa línea.
+            precioAntesEfectivo: item.price,
+            price: round2(item.price * (1 - (item.descEfectivoPct || 0) / 100)),
+            efectivoApplied: true,
+          }
         : item
     ));
   };
 
+  /**
+   * Revierte el precio de efectivo. Devuelve el precio que la línea tenía justo
+   * antes de aplicarlo — que puede ser un precio negociado a mano, no el del
+   * catálogo.
+   *
+   * Antes leía `products.find(...).price`, así que revertir pisaba la
+   * negociación. Y como esto lo dispara automáticamente el cambio de forma de
+   * pago, el total cambiaba solo, sin aviso, después de haberle dicho un número
+   * al cliente en voz alta.
+   */
   const removeCashDiscount = () => {
+    let revertidas = 0;
     setCart(prev => prev.map(item => {
       if (!item.efectivoApplied) return item;
-      // Restaura el precio base del catálogo (pierde negociación manual en esa línea).
-      const base = products.find(p => p.id === item.id)?.price ?? item.price;
-      return { ...item, price: base, efectivoApplied: false };
+      revertidas++;
+      const previo = item.precioAntesEfectivo
+        ?? products.find(p => p.id === item.id)?.price
+        ?? item.price;
+      const { precioAntesEfectivo: _omitido, ...resto } = item;
+      return { ...resto, price: previo, efectivoApplied: false };
     }));
+    return revertidas;
   };
 
   // Si el método deja de ser EFECTIVO, quitar los precios efectivos aplicados.
+  // Se AVISA: es plata que cambia sin que el operador lo haya pedido.
   useEffect(() => {
-    if (paymentMethod !== 'EFECTIVO' && appliedCashCount > 0) removeCashDiscount();
+    if (paymentMethod !== 'EFECTIVO' && appliedCashCount > 0) {
+      const n = removeCashDiscount();
+      if (n > 0) {
+        toast.info(
+          `Se quitó el precio de efectivo en ${n} ${n === 1 ? 'línea' : 'líneas'}: ` +
+          `el total cambió.`,
+        );
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMethod]);
 
