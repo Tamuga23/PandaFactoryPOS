@@ -119,6 +119,7 @@ export default function POS() {
 
   const removeFromCart = (id: string) => {
     setCart(cart.filter(item => item.id !== id));
+    setConfirmandoVaciar(false);
   };
 
   /**
@@ -126,11 +127,22 @@ export default function POS() {
    * por error salvo sacar las líneas de a una: con seis productos cargados eso
    * son seis clics con el cliente esperando.
    */
+  /**
+   * Descarta la venta en curso, en DOS pasos.
+   *
+   * Antes bastaba un clic: con seis líneas cargadas y el cliente enfrente, un
+   * toque accidental borraba todo sin deshacer. Y era incoherente con el resto
+   * del sistema — borrar una venta YA REGISTRADA exige un modal de dos pasos
+   * en el Historial, o sea que la acción más reversible tenía más fricción que
+   * la menos reversible.
+   */
+  const [confirmandoVaciar, setConfirmandoVaciar] = useState(false);
   const vaciarCarrito = () => {
     if (cart.length === 0) return;
     setCart([]);
     setPlazoMeses(null);
     setPagaCon('');
+    setConfirmandoVaciar(false);
     borrarVentaEnCurso();
     toast.info('Venta descartada.');
   };
@@ -782,13 +794,32 @@ export default function POS() {
              </div>
           </div>
           {cart.length > 0 && (
-            <button
-              type="button"
-              onClick={vaciarCarrito}
-              className="flex-none text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded px-2 py-1 transition-colors"
-            >
-              Vaciar
-            </button>
+            confirmandoVaciar ? (
+              <div className="flex-none flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={vaciarCarrito}
+                  className="text-[10px] uppercase tracking-wider font-bold text-white bg-rose-600 hover:bg-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-400 rounded px-2 py-1 transition-colors"
+                >
+                  Descartar {cart.length} {cart.length === 1 ? 'línea' : 'líneas'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoVaciar(false)}
+                  className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded px-2 py-1 transition-colors"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmandoVaciar(true)}
+                className="flex-none text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded px-2 py-1 transition-colors"
+              >
+                Vaciar
+              </button>
+            )
           )}
         </div>
 
@@ -821,18 +852,39 @@ export default function POS() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                         if (e.key === 'Escape') setEditingPriceId(null);
                       }}
-                      className="w-24 bg-zinc-900 border border-cyan-600 rounded px-1.5 py-0.5 text-xs text-cyan-300 outline-none"
+                      className="w-24 bg-zinc-900 border border-cyan-600 rounded-lg px-1.5 py-0.5 text-xs text-cyan-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                     />
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setEditingPriceId(item.id)}
-                      title={item.price < (item.cost || 0) ? '¡Precio por debajo del costo! Clic para editar' : 'Clic para editar el precio de esta línea'}
-                      className={`text-xs font-semibold hover:underline decoration-dotted ${item.price < (item.cost || 0) ? 'text-rose-400' : 'text-cyan-400'}`}
-                    >
-                      {formatCurrency(item.price * currentExchangeRate, 'NIO')}
-                      {item.efectivoApplied && <span className="text-emerald-400 ml-1 no-underline">·efectivo</span>}
-                    </button>
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      {/*
+                        El precio editable no tenía ninguna afordancia en reposo:
+                        había que SABER que se podía clickear. El subrayado
+                        punteado ahora está siempre, no solo en hover.
+                      */}
+                      <button
+                        type="button"
+                        onClick={() => setEditingPriceId(item.id)}
+                        aria-label={`Editar el precio de ${item.name}`}
+                        title={item.price < (item.cost || 0) ? '¡Precio por debajo del costo! Clic para editar' : 'Clic para editar el precio de esta línea'}
+                        className={`text-xs font-semibold underline decoration-dotted underline-offset-2 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded ${item.price < (item.cost || 0) ? 'text-rose-400' : 'text-cyan-400'}`}
+                      >
+                        {formatCurrency(item.price * currentExchangeRate, 'NIO')}
+                      </button>
+                      {item.efectivoApplied && <span className="text-[10px] text-emerald-400">·efectivo</span>}
+                      {/*
+                        Total de la línea. Antes solo estaba el precio unitario:
+                        con cantidad 3 había que multiplicar de memoria mientras
+                        el cliente esperaba.
+                      */}
+                      {item.quantity > 1 && (
+                        <span className="text-[10px] text-zinc-400 tabular-nums">
+                          × {item.quantity} ={' '}
+                          <span className="font-bold text-zinc-300">
+                            {formatCurrency(item.price * item.quantity * currentExchangeRate, 'NIO')}
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center space-x-1 bg-zinc-800 rounded-md border border-zinc-700 p-0.5">
@@ -1167,7 +1219,7 @@ export default function POS() {
         <div className="flex-none p-4 border-t border-zinc-700 bg-zinc-900">
           <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
             <div className="flex justify-between text-xs mb-2 text-zinc-300">
-              <span>Monto Bruto</span>
+              <span>Subtotal</span>
               <span className="tabular-nums">{formatCurrency(subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
             </div>
             {shipping > 0 && (

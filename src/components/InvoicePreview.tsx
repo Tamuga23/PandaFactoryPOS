@@ -5,6 +5,7 @@ import { formatCurrencyNIO } from '../lib/utils';
 import { Download, X, Loader2, Check, MessageCircle } from 'lucide-react';
 import { toast } from './Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export interface InvoiceItem {
   id: string;
@@ -100,6 +101,8 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
   const [modoCliente, setModoCliente] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  // Raíz del diálogo, para atrapar el foco adentro (P4.6 de AGENTS.md).
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // El A4 mide 1123px de alto fijos. Para que entre entero en pantalla se
   // escala por transform (no por reflow: reflowar cambiaría la paginación que
@@ -118,6 +121,8 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
     isOpen && !isConfirming && !isGenerating && !isSharing,
     () => (modoCliente ? setModoCliente(false) : onClose()),
   );
+  // Tabular dentro del diálogo ya no saca el foco al formulario de atrás.
+  useFocusTrap(isOpen, modalRef);
 
   if (!isOpen) return null;
 
@@ -241,7 +246,13 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={data.type === 'PROFORMA' ? 'Vista previa de la cotización' : 'Vista previa de la factura'}
+      className="fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden"
+    >
       {/* Navbar modal */}
       <div className={`flex-none bg-zinc-950 p-4 border-b border-zinc-800 items-center justify-between sticky top-0 z-[101] ${modoCliente ? 'hidden' : 'flex'}`}>
         {/*
