@@ -34,6 +34,11 @@ export default function POS() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [showCustomerPredictions, setShowCustomerPredictions] = useState(false);
+  // Opcion resaltada del autocompletado de cliente. -1 = ninguna.
+  // El foco NUNCA sale del input: lo que se mueve es `aria-activedescendant`,
+  // que es como el patron combobox de ARIA evita que el usuario pierda el
+  // cursor de texto mientras elige.
+  const [clienteActivo, setClienteActivo] = useState(-1);
 
   const [transport, setTransport] = useState('ENTREGA LOCAL');
   // P2.5: método de pago real (antes hardcodeado EFECTIVO) + referencia.
@@ -210,6 +215,78 @@ export default function POS() {
       c.fullName.toLowerCase().includes(q) || (c.phone && c.phone.includes(customerName.trim()))
     );
   }, [customers, customerName]);
+
+  // Una sola definicion de "el desplegable esta abierto". Antes la condicion
+  // vivia solo en el JSX, asi que el input no tenia como declarar
+  // `aria-expanded` ni el teclado como saber si habia algo que recorrer.
+  const sugerenciasAbiertas =
+    showCustomerPredictions &&
+    customerName.trim().length > 1 &&
+    !selectedCustomerId &&
+    coincidenciasCliente.length > 0;
+
+  const elegirCliente = (c: typeof coincidenciasCliente[number]) => {
+    setSelectedCustomerId(c.id);
+    setCustomerName(c.fullName);
+    setCustomerPhone(c.phone || '');
+    setCustomerEmail(c.email || '');
+    setCustomerAddress(c.address || '');
+    setShowCustomerPredictions(false);
+    setClienteActivo(-1);
+  };
+
+  // Al cambiar lo tipeado cambia la lista: si no se reinicia, el indice viejo
+  // apunta a otro cliente y Enter registra la venta a nombre de quien no es.
+  useEffect(() => {
+    setClienteActivo(-1);
+  }, [customerName]);
+
+  // La lista tiene `max-h-48 overflow-y-auto`: sin esto las flechas resaltan
+  // una opcion que queda fuera de la ventana visible y parece que no pasa nada.
+  useEffect(() => {
+    if (clienteActivo < 0) return;
+    document
+      .getElementById(`pos-cliente-op-${clienteActivo}`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [clienteActivo]);
+
+  const onTeclaCliente = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!sugerenciasAbiertas) {
+      // Flecha abajo con el campo ya escrito vuelve a abrir la lista que se
+      // habia cerrado con Escape, sin tener que borrar y retipear.
+      if (e.key === 'ArrowDown' && coincidenciasCliente.length > 0 && !selectedCustomerId) {
+        e.preventDefault();
+        setShowCustomerPredictions(true);
+        setClienteActivo(0);
+      }
+      return;
+    }
+    const ultimo = coincidenciasCliente.length - 1;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setClienteActivo(a => (a >= ultimo ? 0 : a + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setClienteActivo(a => (a <= 0 ? ultimo : a - 1));
+    } else if (e.key === 'Enter') {
+      // Solo intercepta el Enter si hay una opcion resaltada. Sin resaltar,
+      // el Enter sigue siendo del formulario: el operador que tipea un nombre
+      // nuevo no queda atrapado en un desplegable que no pidio.
+      if (clienteActivo >= 0) {
+        e.preventDefault();
+        elegirCliente(coincidenciasCliente[clienteActivo]);
+      }
+    } else if (e.key === 'Escape') {
+      // No se propaga: ESC cierra la lista, no el modal ni la pantalla.
+      e.preventDefault();
+      e.stopPropagation();
+      setShowCustomerPredictions(false);
+      setClienteActivo(-1);
+    } else if (e.key === 'Tab') {
+      setShowCustomerPredictions(false);
+      setClienteActivo(-1);
+    }
+  };
 
   // P2.5: descuento por pago en efectivo (descEfectivoPct del catálogo).
   const pendingCashDiscount = cart.filter(i => (i.descEfectivoPct || 0) > 0 && !i.efectivoApplied);
@@ -939,9 +1016,29 @@ export default function POS() {
                 Nombre del Cliente
                 <span className="normal-case font-normal text-zinc-400"> · opcional</span>
               </label>
-              <input id="pos-cliente-nombre" 
-                type="text" 
-                placeholder="Ignacio Lula..." 
+              {/*
+                Era un input comun con una lista colgando: nada le decia al
+                lector de pantalla que habia aparecido un desplegable, y el
+                teclado no llegaba a el sin tabular por cada opcion. Ahora es
+                el patron combobox completo (ARIA 1.2, foco en el input):
+                `aria-expanded` anuncia la apertura, `aria-activedescendant`
+                dice cual opcion esta resaltada, y las flechas la mueven.
+                `autoComplete="off"` porque si no, el desplegable del navegador
+                se monta encima del nuestro.
+              */}
+              <input id="pos-cliente-nombre"
+                type="text"
+                placeholder="Ignacio Lula..."
+                role="combobox"
+                aria-expanded={sugerenciasAbiertas}
+                aria-controls="pos-cliente-sugerencias"
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  sugerenciasAbiertas && clienteActivo >= 0
+                    ? `pos-cliente-op-${clienteActivo}`
+                    : undefined
+                }
+                autoComplete="off"
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={customerName}
                 onChange={(e) => {
@@ -950,38 +1047,49 @@ export default function POS() {
                   if (selectedCustomerId) setSelectedCustomerId(null);
                 }}
                 onFocus={() => setShowCustomerPredictions(true)}
+                onKeyDown={onTeclaCliente}
+                onBlur={() => {
+                  // El desplegable se abria con el foco y no se cerraba con
+                  // nada: al hacer clic en otra parte del formulario quedaba
+                  // flotando sobre el campo de telefono, tapandolo. Elegir una
+                  // opcion no pasa por aca porque el <ul> cancela su mousedown.
+                  setShowCustomerPredictions(false);
+                  setClienteActivo(-1);
+                }}
               />
               {/*
-                Autocompletado. Cada opción es un <button>, no un <div onClick>:
-                antes no se alcanzaba con Tab y había que soltar el teclado a
-                mitad del formulario. Y el contenedor solo se monta si HAY
-                coincidencias — antes aparecía un panel vacío cuando el nombre
-                tipeado no matcheaba con nadie.
+                El contenedor solo se monta si HAY coincidencias: antes aparecia
+                un panel vacio cuando el nombre tipeado no matcheaba con nadie.
+                Cada opcion era un <button> dentro del <li role="option">, que
+                es contenido invalido para un option y ademas metia una parada
+                de Tab por cliente: con ocho coincidencias habia que tabular
+                ocho veces para salir del campo. Ahora el <li> ES la opcion y se
+                recorre con las flechas, que es lo que el rol prometia.
+                `onMouseDown` con preventDefault: sin eso el input pierde el
+                foco antes de que llegue el click y el desplegable se desmonta
+                debajo del cursor.
               */}
-              {showCustomerPredictions && customerName.trim().length > 1 && !selectedCustomerId
-                && coincidenciasCliente.length > 0 && (
+              {sugerenciasAbiertas && (
                 <ul
+                  id="pos-cliente-sugerencias"
                   role="listbox"
                   aria-label="Clientes que coinciden"
                   className="absolute z-10 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-48 overflow-y-auto list-none"
+                  onMouseDown={(e) => e.preventDefault()}
                 >
-                  {coincidenciasCliente.map(c => (
-                    <li key={c.id} role="option" aria-selected={false}>
-                      <button
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-zinc-700 focus:bg-zinc-700 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-cyan-500 flex flex-col"
-                        onClick={() => {
-                          setSelectedCustomerId(c.id);
-                          setCustomerName(c.fullName);
-                          setCustomerPhone(c.phone || '');
-                          setCustomerEmail(c.email || '');
-                          setCustomerAddress(c.address || '');
-                          setShowCustomerPredictions(false);
-                        }}
-                      >
-                        <span className="text-sm font-medium text-white">{c.fullName}</span>
-                        <span className="text-[10px] text-zinc-400">{c.phone} {c.email ? `- ${c.email}` : ''}</span>
-                      </button>
+                  {coincidenciasCliente.map((c, idx) => (
+                    <li
+                      key={c.id}
+                      id={`pos-cliente-op-${idx}`}
+                      role="option"
+                      aria-selected={idx === clienteActivo}
+                      onClick={() => elegirCliente(c)}
+                      className={`px-3 py-2 flex flex-col cursor-pointer hover:bg-zinc-700 ${
+                        idx === clienteActivo ? 'bg-zinc-700' : ''
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-white">{c.fullName}</span>
+                      <span className="text-[10px] text-zinc-400">{c.phone} {c.email ? `- ${c.email}` : ''}</span>
                     </li>
                   ))}
                 </ul>
@@ -1136,15 +1244,47 @@ export default function POS() {
                 </p>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="pos-plazo-rotulo">
-                    {planesVenta.map((pl) => {
+                  {/*
+                    Decia `role="radiogroup"` pero se comportaba como dos
+                    botones sueltos: cada uno era una parada de Tab y las
+                    flechas no hacian nada. Un lector de pantalla anuncia "1 de
+                    2" y el usuario presiona la flecha esperando el segundo.
+                    Ahora es el patron completo: una sola parada de Tab para
+                    todo el grupo (la opcion elegida, o la primera si todavia no
+                    hay ninguna) y las flechas mueven la eleccion, que es como
+                    funciona un grupo de radios nativo.
+                  */}
+                  <div
+                    className="grid grid-cols-2 gap-2"
+                    role="radiogroup"
+                    aria-labelledby="pos-plazo-rotulo"
+                    onKeyDown={(e) => {
+                      const paso =
+                        e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1
+                        : 0;
+                      if (paso === 0) return;
+                      e.preventDefault();
+                      const i = planesVenta.findIndex((p) => p.meses === plazoMeses);
+                      const desde = i < 0 ? (paso > 0 ? -1 : 0) : i;
+                      const dest = planesVenta[(desde + paso + planesVenta.length) % planesVenta.length];
+                      setPlazoMeses(dest.meses);
+                      // El foco sigue a la eleccion: si se queda atras, el
+                      // anillo de foco y la opcion marcada apuntan a plazos
+                      // distintos.
+                      document.getElementById(`pos-plazo-${dest.meses}`)?.focus();
+                    }}
+                  >
+                    {planesVenta.map((pl, idx) => {
                       const activo = plazoMeses === pl.meses;
                       return (
                         <button
                           key={pl.meses}
+                          id={`pos-plazo-${pl.meses}`}
                           type="button"
                           role="radio"
                           aria-checked={activo}
+                          tabIndex={plazoMeses === null ? (idx === 0 ? 0 : -1) : activo ? 0 : -1}
                           onClick={() => setPlazoMeses(pl.meses)}
                           className={`text-left p-2.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                             activo
