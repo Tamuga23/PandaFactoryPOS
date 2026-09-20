@@ -63,19 +63,31 @@ export function Toaster() {
   if (items.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[min(92vw,380px)]">
+    // Región viva. Sin esto, los toasts no se anuncian a un lector de pantalla
+    // — y en el POS son el ÚNICO canal de 7 errores que bloquean el cobro (sin
+    // stock, descuento mayor al total, venta que no califica para cuotas,
+    // plazo sin elegir, venta fallida). `role="alert"` para lo que interrumpe,
+    // `role="status"` para lo demás: es la diferencia entre cortarle la frase
+    // al lector o esperar a que termine.
+    <div
+      className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[min(92vw,380px)]"
+      aria-live="polite"
+      aria-atomic="false"
+    >
       {items.map((t) => {
         const Icon = ICONS[t.type];
         return (
           <div
             key={t.id}
+            role={t.type === 'error' ? 'alert' : 'status'}
             className={`flex items-start gap-2.5 rounded-xl border ${BORDER[t.type]} bg-zinc-900/95 backdrop-blur px-4 py-3 text-sm shadow-2xl`}
           >
-            <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${ICON_COLOR[t.type]}`} />
+            <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${ICON_COLOR[t.type]}`} aria-hidden="true" />
             <span className="flex-1 text-zinc-100 leading-snug">{t.text}</span>
             <button
               onClick={() => setItems((prev) => prev.filter((i) => i.id !== t.id))}
-              className="shrink-0 p-1 -m-1 text-zinc-500 hover:text-zinc-200 transition-colors"
+              aria-label="Cerrar aviso"
+              className="shrink-0 p-1 -m-1 text-zinc-400 hover:text-zinc-200 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
             >
               <X className="w-4 h-4" />
             </button>

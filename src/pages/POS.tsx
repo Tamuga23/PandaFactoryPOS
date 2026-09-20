@@ -11,6 +11,13 @@ import { toast } from '../components/Toast';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { formatCurrencyNIO } from '../lib/utils';
 import { round2 } from '../lib/validations';
+import {
+  guardarVentaEnCurso,
+  leerVentaEnCurso,
+  borrarVentaEnCurso,
+  hace,
+  type VentaEnCurso,
+} from '../lib/ventaEnCurso';
 
 export default function POS() {
   const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer, configFinanciamiento } = useStore();
@@ -51,6 +58,9 @@ export default function POS() {
   const [isConfirming, setIsConfirming] = useState(false);
   // WhatsApp con PDF adjunto disponible en el preview tras confirmar la venta.
   const [waShare, setWaShare] = useState<{ text: string; link: string | null } | null>(null);
+  // Borrador encontrado al montar. Se ofrece, no se restaura solo: meterle una
+  // venta ajena al operador sin avisar sería peor que perderla.
+  const [borrador, setBorrador] = useState<VentaEnCurso | null>(null);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -116,6 +126,7 @@ export default function POS() {
     if (cart.length === 0) return;
     setCart([]);
     setPlazoMeses(null);
+    borrarVentaEnCurso();
     toast.info('Venta descartada.');
   };
 
@@ -179,6 +190,48 @@ export default function POS() {
     if (paymentMethod !== 'EFECTIVO' && appliedCashCount > 0) removeCashDiscount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMethod]);
+
+  // Al montar: ¿quedó una venta a medias? Se ofrece; no se restaura sola.
+  useEffect(() => {
+    const v = leerVentaEnCurso();
+    if (v) setBorrador(v);
+  }, []);
+
+  // Guardar en cada cambio. Es barato (un JSON chico a localStorage) y corre
+  // solo cuando hay algo que perder: con el carrito vacío borra la clave.
+  useEffect(() => {
+    guardarVentaEnCurso({
+      cart, customerName, customerEmail, customerPhone, customerAddress,
+      selectedCustomerId, transport, paymentMethod, paymentReference,
+      plazoMeses, discount, shipping, customNote,
+    });
+  }, [cart, customerName, customerEmail, customerPhone, customerAddress,
+      selectedCustomerId, transport, paymentMethod, paymentReference,
+      plazoMeses, discount, shipping, customNote]);
+
+  const restaurarBorrador = () => {
+    if (!borrador) return;
+    setCart(borrador.cart);
+    setCustomerName(borrador.customerName);
+    setCustomerEmail(borrador.customerEmail);
+    setCustomerPhone(borrador.customerPhone);
+    setCustomerAddress(borrador.customerAddress);
+    setSelectedCustomerId(borrador.selectedCustomerId);
+    setTransport(borrador.transport);
+    setPaymentMethod(borrador.paymentMethod);
+    setPaymentReference(borrador.paymentReference);
+    setPlazoMeses(borrador.plazoMeses);
+    setDiscount(borrador.discount);
+    setShipping(borrador.shipping);
+    setCustomNote(borrador.customNote);
+    setBorrador(null);
+    toast.success('Venta recuperada.');
+  };
+
+  const descartarBorrador = () => {
+    borrarVentaEnCurso();
+    setBorrador(null);
+  };
 
   // ---- Financiamiento a plazos -------------------------------------------
   // El recargo lo define la categoría de cada producto (o su override). Si el
@@ -398,6 +451,8 @@ export default function POS() {
     // misma jornada salen por la misma vía.
     setPaymentMethod('EFECTIVO');
     setPlazoMeses(null);
+    // La venta ya está registrada: el borrador no tiene nada que recuperar.
+    borrarVentaEnCurso();
 
     // Prepare label if transport requires it. Queda en espera: se monta recién
     // cuando el operador cierra el preview, no debajo de él.
@@ -441,6 +496,40 @@ export default function POS() {
           companyName={companyInfo?.name}
         />
       )}
+      {/*
+        Barra de recuperación. Aparece solo si quedó una venta a medias y no se
+        restaura sola: el operador decide. Antes, un F5 o un clic al Catálogo
+        Maestro para corregir un precio destruía el carrito sin aviso — y salir
+        del POS a mitad de venta es parte del trabajo cuando sos también el
+        administrador.
+      */}
+      {borrador && cart.length === 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-4 py-3">
+          <p className="text-sm text-zinc-200">
+            Quedó una venta sin cobrar de {hace(borrador.guardadoEn)} —{' '}
+            <span className="font-bold">
+              {borrador.cart.length} {borrador.cart.length === 1 ? 'línea' : 'líneas'}
+            </span>
+            {borrador.customerName.trim() && <> a nombre de {borrador.customerName.trim()}</>}.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={descartarBorrador}
+              className="text-xs font-bold text-zinc-400 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded px-3 py-2 transition-colors"
+            >
+              Descartar
+            </button>
+            <button
+              type="button"
+              onClick={restaurarBorrador}
+              className="text-xs font-bold bg-cyan-700 hover:bg-cyan-600 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded-lg px-4 py-2 transition-colors"
+            >
+              Recuperar venta
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-8rem)]">
       {/* Product Selection */}
       <div className={`${showMobileCart ? 'hidden lg:flex' : 'flex'} w-full lg:w-3/5 flex-col bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden h-[calc(100vh-12rem)] lg:h-full`}>
@@ -463,34 +552,69 @@ export default function POS() {
         
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/*
+              Cada tarjeta es un <button>, no un <div onClick>. Agregar al
+              carrito es LA acción de esta pantalla y antes no se alcanzaba con
+              Tab: el único camino de teclado era saberse el SKU de memoria.
+              Además, `disabled` cuando no hay stock reemplaza al toast de
+              error: la tarjeta decía `cursor-not-allowed` pero igual respondía.
+            */}
+            {filteredProducts.length === 0 && (
+              <div className="col-span-full py-12 text-center">
+                <p className="text-sm text-zinc-300">
+                  {searchTerm.trim()
+                    ? <>No hay productos que coincidan con «{searchTerm.trim()}».</>
+                    : 'No hay productos activos en el catálogo.'}
+                </p>
+                {searchTerm.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="mt-3 text-xs font-bold text-cyan-400 hover:text-cyan-300 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded px-3 py-1.5"
+                  >
+                    Limpiar búsqueda
+                  </button>
+                )}
+              </div>
+            )}
             {filteredProducts.map(product => (
-              <div 
-                key={product.id} 
+              <button
+                key={product.id}
+                type="button"
                 onClick={() => addToCart(product)}
-                className={`relative rounded-xl border p-3 cursor-pointer transition-colors ${
-                  product.stock > 0 
-                    ? 'bg-zinc-800/40 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 shadow-sm' 
-                    : 'bg-zinc-900/50 border-zinc-800 opacity-50 cursor-not-allowed'
+                disabled={product.stock <= 0}
+                aria-label={`Agregar ${product.name} al carrito`}
+                className={`relative text-left w-full rounded-xl border p-3 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                  product.stock > 0
+                    ? 'bg-zinc-800/40 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 shadow-sm cursor-pointer'
+                    : 'bg-zinc-900/50 border-zinc-800 cursor-not-allowed'
                 }`}
               >
+                {/*
+                  La opacidad va SOLO sobre la imagen, no sobre la tarjeta. Antes
+                  era `opacity-50` en el contenedor entero, y eso componía también
+                  el texto contra el fondo: el nombre caía a 4.39:1, el precio a
+                  3.33:1 y el SKU a 1.83:1. Atenuar la foto comunica lo mismo sin
+                  volver ilegible lo que hay que leer.
+                */}
                 {product.imageBase64 ? (
-                  <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-zinc-900 mb-3 border border-zinc-800">
-                    <img src={product.imageBase64} alt={product.name} className="h-24 w-full object-cover" />
+                  <div className={`aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-zinc-900 mb-3 border border-zinc-800 ${product.stock > 0 ? '' : 'opacity-40'}`}>
+                    <img src={product.imageBase64} alt="" className="h-24 w-full object-cover" />
                   </div>
                 ) : (
-                  <div className="h-24 w-full rounded-lg bg-zinc-800 mb-3 border border-zinc-700 flex items-center justify-center">
-                    <Package className="h-8 w-8 text-zinc-600" />
+                  <div className={`h-24 w-full rounded-lg bg-zinc-800 mb-3 border border-zinc-700 flex items-center justify-center ${product.stock > 0 ? '' : 'opacity-40'}`}>
+                    <Package className="h-8 w-8 text-zinc-500" aria-hidden="true" />
                   </div>
                 )}
                 <h3 className="text-sm font-medium text-zinc-200 line-clamp-2 leading-tight">{product.name}</h3>
                 <p className="mt-1 text-[10px] text-zinc-400 uppercase">{product.sku}</p>
                 <div className="mt-3 flex justify-between items-center">
                   <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-cyan-500/10 text-cyan-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-cyan-500/10 text-cyan-500' : 'bg-rose-500/10 text-rose-400'}`}>
                     Stock: {product.stock}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -596,15 +720,15 @@ export default function POS() {
                   )}
                 </div>
                 <div className="flex items-center space-x-1 bg-zinc-800 rounded-md border border-zinc-700 p-0.5">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
+                  <button onClick={() => updateQuantity(item.id, -1)} aria-label={`Quitar una unidad de ${item.name}`} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                   <span className="text-xs font-medium w-6 text-center text-zinc-200">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">
+                  <button onClick={() => updateQuantity(item.id, 1)} aria-label={`Agregar una unidad de ${item.name}`} className="p-2 rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <button onClick={() => removeFromCart(item.id)} className="p-2 ml-1 text-zinc-500 hover:text-rose-400 transition-colors">
+                <button onClick={() => removeFromCart(item.id)} aria-label={`Quitar ${item.name} del carrito`} className="p-2 ml-1 text-zinc-400 hover:text-rose-400 transition-colors focus:outline-none focus:ring-1 focus:ring-rose-500 rounded">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -623,7 +747,7 @@ export default function POS() {
               <input 
                 type="text" 
                 placeholder="Ignacio Lula..." 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
                 value={customerName}
                 onChange={(e) => {
                   setCustomerName(e.target.value);
@@ -662,7 +786,7 @@ export default function POS() {
               <input 
                 type="text" 
                 placeholder="8765 9876" 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
               />
@@ -674,7 +798,7 @@ export default function POS() {
             <textarea 
               rows={2}
               placeholder="Barrio Avenida Brasil..." 
-              className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
               value={customerAddress}
               onChange={(e) => setCustomerAddress(e.target.value)}
             />
@@ -688,7 +812,7 @@ export default function POS() {
             <div className="space-y-1">
               <label className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
               <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
                 value={transport}
                 onChange={(e) => setTransport(e.target.value)}
               >
@@ -702,8 +826,8 @@ export default function POS() {
               <label className="text-[10px] uppercase font-bold text-rose-400">Descuento (NIO)</label>
               <input 
                 type="number" 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
-                value={discount}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                value={discount || ''}
                 min="0"
                 onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
               />
@@ -712,8 +836,8 @@ export default function POS() {
               <label className="text-[10px] uppercase font-bold text-cyan-400">Envío (NIO)</label>
               <input 
                 type="number" 
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
-                value={shipping}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                value={shipping || ''}
                 min="0"
                 onChange={(e) => setShipping(Math.max(0, Number(e.target.value) || 0))}
               />
@@ -735,7 +859,7 @@ export default function POS() {
             <div className="space-y-1">
               <label className="text-[10px] uppercase text-zinc-400 font-bold">Método de Pago</label>
               <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as Sale['paymentMethod'])}
               >
@@ -751,7 +875,7 @@ export default function POS() {
               <input
                 type="text"
                 placeholder="N° de transferencia / voucher…"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
               />
@@ -763,7 +887,7 @@ export default function POS() {
             <textarea 
               rows={2}
               placeholder="Ref: Carlos Pago mediante Transferencia..." 
-              className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500"
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
             />
@@ -899,8 +1023,17 @@ export default function POS() {
               DESIGN.md, que hasta ahora no se cumplía en ningún lado.
             */}
             <div className="flex items-baseline justify-between gap-2 mt-2">
+              {/*
+                La tasa con la que se convierte TODO no se mostraba en ninguna
+                parte: el operador no tenía forma de verificar cuál se usó sin
+                ir a Configuración. Va acá, al lado del total, que es donde
+                importa.
+              */}
               <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 shrink-0">
                 {esFinanciada && planElegido ? 'Total a plazos' : 'Total a cobrar'}
+                <span className="block normal-case tracking-normal font-normal text-zinc-500">
+                  a {currentExchangeRate.toFixed(4)}
+                </span>
               </span>
               <span className="text-3xl font-bold text-cyan-400 tabular-nums leading-none truncate">
                 {formatCurrency(
