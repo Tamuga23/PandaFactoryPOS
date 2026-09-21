@@ -244,25 +244,25 @@ export default function Reports() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4"/> Total Ventas</div>
             <div className="text-3xl font-bold text-emerald-400 font-mono relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
          </div>
          
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-rose-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4"/> Costo de Ventas</div>
             <div className="text-3xl font-bold text-rose-400 font-mono relative z-10">{formatCurrency(metrics.totalCost)}</div>
          </div>
 
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4"/> Utilidad Bruta</div>
             <div className="text-3xl font-bold text-cyan-400 font-mono relative z-10">{formatCurrency(metrics.grossProfit)}</div>
          </div>
 
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-fuchsia-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Percent className="w-4 h-4"/> Margen %</div>
             <div className="text-3xl font-bold text-fuchsia-400 font-mono relative z-10">{metrics.margin.toFixed(1)}%</div>
@@ -271,7 +271,7 @@ export default function Reports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
            <h3 className="text-sm font-bold text-zinc-100 mb-6">Revenue vs Cost (Tendencia Mensual)</h3>
            <div className="h-72">
              <ResponsiveContainer width="100%" height="100%">
@@ -301,7 +301,7 @@ export default function Reports() {
         </div>
 
         {/* Categories BarChart */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col">
            <h3 className="text-sm font-bold text-zinc-100 mb-6">Top Categorías por Ingreso</h3>
            <div className="flex-1 min-h-[16rem]">
              <ResponsiveContainer width="100%" height="100%">
@@ -321,7 +321,7 @@ export default function Reports() {
       </div>
 
       {/* Product Performance Table */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800">
            <h3 className="text-sm font-bold text-zinc-100">Performance de Productos (Detallado)</h3>
         </div>

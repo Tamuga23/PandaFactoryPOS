@@ -161,7 +161,7 @@ export default function FinanciamientoSettings({
   const cordobas = (n: number) => `C$${n.toLocaleString('es-NI')}`;
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-xl">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
       <div className="flex items-start justify-between gap-4 mb-1">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-cyan-400" />

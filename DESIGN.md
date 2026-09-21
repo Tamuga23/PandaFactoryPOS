@@ -415,13 +415,26 @@ La profundidad se construye con tres recursos, en este orden:
 
 ### Shadow Vocabulary
 
-- **Flotante** (`shadow-2xl`, 16 usos): lo único que está por encima de la
-  interfaz — modales, el panel del carrito, el toast.
-- **Afirmación** (`shadow-lg`, 21 usos, 12 de ellos el botón primario): peso
-  sobre el botón de acción, a veces teñido de turquesa
-  (`shadow-lg shadow-cyan-900/20`).
-- **Papel** (`shadow-xl` / `shadow-sm`): los documentos imprimibles y los paneles
-  de Reportes y Configuración.
+- **Flotante** (`shadow-2xl`): lo único que está por encima de la interfaz —
+  modales, el panel del carrito, el toast, el desplegable del autocompletado y
+  la barra fija del POS en móvil. Todos ellos tapan contenido de verdad.
+- **Afirmación** (`shadow-lg`, en el botón primario): peso sobre el botón de
+  acción, a veces teñido de turquesa (`shadow-lg shadow-cyan-900/20`).
+  **Es la única excepción viva a la doctrina plana y está pendiente de
+  decisión**: un botón no flota, así que estrictamente la regla lo alcanza.
+  Se deja anotado en vez de cambiarlo de callada, porque toca el control más
+  visible de la aplicación.
+- **Papel** (`shadow-xl`): **sólo los documentos imprimibles.**
+
+> **Decisión (2026-09-20).** Esta lista bendecía `shadow-xl` / `shadow-sm` en
+> "los paneles de Reportes y Configuración", que es exactamente lo que la Regla
+> del Reposo Plano de abajo prohíbe. Dos secciones vecinas mandaban cosas
+> opuestas y quien maquetaba un panel nuevo podía cumplir cualquiera de las dos
+> creyendo que cumplía el sistema. **Gana la doctrina plana**: se quitaron 18
+> sombras en reposo — los 7 paneles de Reportes, los 3 de Configuración, el de
+> Financiamiento, el del Catálogo Maestro y sus dos pestañas, el ítem de
+> navegación activo, la tarjeta de producto del POS, la tarjeta de cliente y la
+> fila del Historial. Ninguna de esas superficies flota sobre nada.
 
 ### Named Rules
 

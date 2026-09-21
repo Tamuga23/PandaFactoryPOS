@@ -84,7 +84,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 onClick={closeMobileMenu}
                 className={cn(
                   isActive
-                    ? 'bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-zinc-800 text-white'
                     : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white transition-colors',
                   // Los 11 items del menu no declaraban foco: es el primer
                   // lugar al que llega el Tab en CADA pantalla, y el anillo

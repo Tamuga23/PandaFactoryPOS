@@ -156,7 +156,7 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-lg">
+      <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div className="p-2 bg-cyan-500/10 rounded-lg">
           <SettingsIcon className="w-6 h-6 text-cyan-400" />
         </div>
@@ -166,7 +166,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
         <form onSubmit={handleSubmit} className="divide-y divide-zinc-800">
           <div className="p-8 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -329,7 +329,7 @@ export default function Settings() {
         />
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl overflow-hidden mt-8">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mt-8">
         <div className="p-8 space-y-4">
           <h3 className="text-sm font-bold text-rose-500 uppercase flex items-center gap-2">
             <Eraser className="w-4 h-4" /> Zona de Peligro - Limpieza de Datos
@@ -353,7 +353,7 @@ export default function Settings() {
                   type="button"
                   onClick={handleCleanDuplicates}
                   disabled={isCleaning}
-                  className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center justify-center flex-1"
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center justify-center flex-1"
                 >
                   {isCleaning ? 'Limpiando...' : 'Sí, Eliminar'}
                 </button>

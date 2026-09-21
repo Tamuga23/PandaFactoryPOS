@@ -269,7 +269,7 @@ export default function SalesHistory() {
 
       <div className="grid gap-4">
         {filteredSales.map(sale => (
-          <div key={sale.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg group">
+          <div key={sale.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden group">
             <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-zinc-800/50">
                <div className="flex items-center gap-4 w-full lg:w-auto">
                   <div className={`p-3 rounded-lg flex-shrink-0 ${
@@ -495,7 +495,7 @@ export default function SalesHistory() {
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold rounded-lg transition-colors"
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-lg transition-colors"
               >
                 Eliminar definitivamente
               </button>

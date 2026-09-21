@@ -827,7 +827,7 @@ export default function POS() {
                 aria-label={`Agregar ${product.name} al carrito`}
                 className={`relative text-left w-full rounded-xl border p-3 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                   product.stock > 0
-                    ? 'bg-zinc-800/40 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 shadow-sm cursor-pointer'
+                    ? 'bg-zinc-800/40 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 cursor-pointer'
                     : 'bg-zinc-900/50 border-zinc-800 cursor-not-allowed'
                 }`}
               >

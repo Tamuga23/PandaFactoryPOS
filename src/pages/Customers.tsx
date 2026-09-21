@@ -146,7 +146,7 @@ export default function Customers() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCustomers.map(customer => (
-          <div key={customer.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between shadow-lg relative group overflow-hidden">
+          <div key={customer.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between relative group overflow-hidden">
              
              {/* Background glow hover */}
              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 via-cyan-500/0 to-cyan-500/5 group-hover:to-cyan-500/10 transition-colors pointer-events-none" />

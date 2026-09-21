@@ -656,6 +656,33 @@ export function useStoreData() {
     try {
       // Pilar 3: Transacción atómica (stock + contador + venta).
       await runTransaction(db, async (transaction) => {
+        // 0. IDEMPOTENCIA. Antes que nada, preguntar si esta venta YA existe.
+        //
+        // El caso que esto cubre es el peor de todos y el más difícil de ver:
+        // la transacción falla con `unavailable` o `deadline-exceeded`, que
+        // significan "no sé si se guardó" — el servidor pudo haber commiteado
+        // y la respuesta no llegó de vuelta. El operador ve el error, el modal
+        // queda igual, y el instinto es apretar otra vez. Sin esta guarda, el
+        // segundo intento vuelve a leer el stock del servidor (YA descontado),
+        // lo descuenta de nuevo, incrementa el contador otra vez y crea un
+        // SEGUNDO movimiento de kardex con el mismo `refId`, mientras el
+        // `transaction.set(saleRef)` pisa la venta con el nuevo número.
+        // Resultado: stock -2 por una venta de 1, un correlativo saltado, dos
+        // movimientos por el mismo hecho y una sola factura. Nada en la
+        // pantalla lo delata, y el kardex —que existe para ser la verdad
+        // inmutable del inventario— queda mintiendo.
+        //
+        // Reintentar tiene que ser gratis. Si el doc ya está, se devuelve su
+        // número y se sale SIN escribir nada. El `sale.id` es un uuid que se
+        // genera una vez por preview, así que dos confirmaciones del mismo
+        // preview son el mismo hecho; volver a FACTURAR genera un uuid nuevo y
+        // sí es una venta distinta, como debe ser.
+        const saleSnap = await transaction.get(saleRef);
+        if (saleSnap.exists()) {
+          assignedNumber = String((saleSnap.data() as any).invoiceNumber || '');
+          return; // sin escrituras: el stock y el contador ya se movieron
+        }
+
         // 1. LECTURAS (Firestore exige hacerlas todas antes de escribir)
         const counterSnap = await transaction.get(counterRef);
         const nextValue = ((counterSnap.exists() ? counterSnap.data().value : 0) || 0) + 1;
