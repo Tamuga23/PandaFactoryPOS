@@ -590,8 +590,29 @@ export function useStoreData() {
       fullSale.items = fullSale.items.map(sanitizeSaleItem);
     }
 
-    // P1.7: validar ANTES de escribir (el invoiceNumber definitivo se asigna adentro).
-    const parsedSale = SaleSchema.safeParse(fullSale);
+    // P1.7: validar ANTES de escribir. El `invoiceNumber` queda FUERA de este
+    // parse porque todavía no existe: el correlativo definitivo se asigna más
+    // abajo, dentro de la transacción, leyendo `counters/*`.
+    //
+    // Esto no era así y rompía el producto entero. El schema pide
+    // `z.string().min(1)`; el POS manda `''` a propósito, para que el preview
+    // oculte el renglón del número mientras no haya número en vez de
+    // enseñarle al cliente un texto interno. Las dos decisiones son correctas
+    // por separado y juntas hacían que TODA venta y TODA proforma murieran acá
+    // con un mensaje de librería sin traducir. `tsc` y el build no pueden
+    // verlo: el tipo sigue siendo `string`, el vacío también es string.
+    // (El camino de SalesHistory seguía mandando 'POR ASIGNAR' y por eso
+    // funcionaba: la divergencia entre los dos caminos era la pista.)
+    //
+    // Se valida una COPIA con un número de relleno en vez de `.omit()`: zod
+    // lanza `.omit() cannot be used on object schemas containing refinements`
+    // y este schema tiene un `.refine` para la cédula. `tsc` no lo ve porque a
+    // nivel de tipos `.omit()` existe igual. El relleno no viaja a Firestore:
+    // el documento se escribe más abajo con `assignedNumber`.
+    const parsedSale = SaleSchema.safeParse({
+      ...fullSale,
+      invoiceNumber: fullSale.invoiceNumber || 'PENDIENTE',
+    });
     if (!parsedSale.success) {
       const err = new Error(`Venta inválida — ${zodErrorMsg(parsedSale)}`);
       console.error('Zod validation failed:', err.message);
@@ -676,6 +697,13 @@ export function useStoreData() {
           }
         });
 
+        // El número sí es obligatorio en el documento que se escribe: lo que
+        // se sacó del parse de arriba fue el estado previo a asignarlo, no la
+        // garantía. Si por lo que sea llegamos acá sin número, es preferible
+        // abortar la transacción que escribir una venta sin identificar.
+        if (!assignedNumber) {
+          throw new Error('No se pudo asignar el número de documento. La venta no se registró.');
+        }
         transaction.set(counterRef, { value: nextValue, updatedAt: Date.now() });
         transaction.set(saleRef, { ...fullSale, invoiceNumber: assignedNumber });
       });

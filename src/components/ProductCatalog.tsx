@@ -832,7 +832,7 @@ export default function ProductCatalog({
         {/* --- Ficha técnica (campos según la categoría) --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
           <div className="flex items-baseline justify-between mb-1 gap-4">
-            <h4 className="text-md font-medium text-cyan-400">Ficha Técnica</h4>
+            <h4 className="text-base font-medium text-cyan-400">Ficha Técnica</h4>
             {specFields.length > 0 && (
               <span className="text-xs text-zinc-500">
                 Campos de <b className="text-zinc-400">{specCategoryLabel}</b> · {specsCargadas} de {specFields.length} cargados
@@ -920,7 +920,7 @@ export default function ProductCatalog({
         {/* --- Bullets --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
           <div className="flex justify-between items-center mb-4">
-            <h4 className="text-md font-medium text-cyan-400">Guiones de Venta (Bullets)</h4>
+            <h4 className="text-base font-medium text-cyan-400">Guiones de Venta (Bullets)</h4>
             <button type="button" onClick={handleBulletAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
               <Plus className="w-3 h-3" /> Agregar Bullet
             </button>
@@ -986,7 +986,7 @@ export default function ProductCatalog({
         {/* --- Objeciones Override --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
           <div className="flex justify-between items-center mb-4">
-            <h4 className="text-md font-medium text-cyan-400">Respuestas a Objeciones (Override)</h4>
+            <h4 className="text-base font-medium text-cyan-400">Respuestas a Objeciones (Override)</h4>
             <button type="button" onClick={handleObjAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
               <Plus className="w-3 h-3" /> Agregar Objeción
             </button>
@@ -1012,7 +1012,7 @@ export default function ProductCatalog({
 
         {/* --- Media (URLs) --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
-          <h4 className="text-md font-medium text-cyan-400 mb-4">Multimedia del Catálogo Público (URLs)</h4>
+          <h4 className="text-base font-medium text-cyan-400 mb-4">Multimedia del Catálogo Público (URLs)</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm text-zinc-400 mb-1">Imagen Principal (URL Alta Calidad)</label>

@@ -63,8 +63,12 @@ export default function Layout({ children }: { children: ReactNode }) {
             )}
             <span className="text-white">panda</span><span className="-ml-1 bg-gradient-to-r from-cyan-400 to-[#0a85a8] bg-clip-text text-transparent">store</span>
           </h1>
-          <button 
-            className="md:hidden p-2 text-zinc-400 hover:text-white"
+          {/* Era de solo icono y sin nombre: un lector lo anunciaba como
+              "boton" a secas. Y sin anillo de foco, que sobre una superficie
+              casi negra deja el default del navegador, que es impredecible. */}
+          <button
+            aria-label="Cerrar el menu"
+            className="md:hidden p-2 text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-md"
             onClick={closeMobileMenu}
           >
             <X className="w-5 h-5" />
@@ -82,7 +86,11 @@ export default function Layout({ children }: { children: ReactNode }) {
                   isActive
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white transition-colors',
-                  'group flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer'
+                  // Los 11 items del menu no declaraban foco: es el primer
+                  // lugar al que llega el Tab en CADA pantalla, y el anillo
+                  // caia al default del navegador sobre zinc-900.
+                  'group flex items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-500'
                 )}
               >
                 <item.icon
@@ -113,8 +121,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between bg-zinc-900 border-b border-zinc-800 px-4 py-3 shrink-0">
           <div className="flex items-center gap-3">
-            <button 
-              className="p-2 -ml-2 text-zinc-400 hover:text-white cursor-pointer"
+            <button
+              aria-label="Abrir el menu"
+              className="p-2 -ml-2 text-zinc-400 hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-md"
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu className="w-6 h-6" />
@@ -158,18 +167,25 @@ export default function Layout({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3 border-l border-zinc-800 pl-6">
               <div className="text-right hidden lg:block">
                 <p className="text-sm font-medium text-zinc-200 leading-none">{user?.displayName || 'Usuario'}</p>
-                <p className="text-xs text-zinc-500 mt-1">{user?.email}</p>
+                {/* zinc-500 sobre el header da 4.05:1. Desde que el POS entra
+                    con email/password y claim `admin`, saber CON QUE CUENTA se
+                    esta operando dejo de ser accesorio. zinc-400 da 7.45:1. */}
+                <p className="text-xs text-zinc-400 mt-1">{user?.email}</p>
               </div>
+              {/* El avatar iba con alt="Avatar": el nombre y el correo ya
+                  estan en el <p> de al lado, asi que "imagen, Avatar" solo
+                  agrega ruido. Decorativa. */}
               {user?.photoURL ? (
-                <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-zinc-700" />
+                <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full border border-zinc-700" />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-400">
                   {user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
               )}
-              <button 
+              <button
                 onClick={logout}
-                className="ml-2 p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors"
+                aria-label="Cerrar sesion"
+                className="ml-2 p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
                 title="Cerrar Sesión"
               >
                 <LogOut className="w-4 h-4" />

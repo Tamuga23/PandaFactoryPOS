@@ -60,7 +60,13 @@ export function Toaster() {
     };
   }, []);
 
-  if (items.length === 0) return null;
+  // NO se hace `return null` cuando no hay avisos. La region viva tiene que
+  // existir ANTES de que llegue su primer contenido: los lectores de pantalla
+  // observan mutaciones DENTRO de una region preexistente, y una region que
+  // nace ya poblada es el caso clasico que no se anuncia. Como los toasts son
+  // el UNICO canal de los errores que bloquean el cobro, perder ese anuncio
+  // deja al operador sin forma de enterarse de que la venta no se registro.
+  // `pointer-events-none` mientras esta vacia para no comerse clics.
 
   return (
     // Región viva. Sin esto, los toasts no se anuncian a un lector de pantalla
@@ -80,7 +86,9 @@ export function Toaster() {
         Escala real del proyecto: 10 · 40 · 50 · 60 · 80 · 100-102 (modales) ·
         200 (avisos). Los avisos van siempre arriba de todo.
       */
-      className="fixed top-4 right-4 z-[200] flex flex-col gap-2 w-[min(92vw,380px)]"
+      className={`fixed top-4 right-4 z-[200] flex flex-col gap-2 w-[min(92vw,380px)] ${
+        items.length === 0 ? 'pointer-events-none' : ''
+      }`}
       aria-live="polite"
       aria-atomic="false"
     >

@@ -86,7 +86,13 @@ components:
     textColor: "{colors.texto-maximo}"
     rounded: "{rounded.control}"
     padding: "12px 24px"
-  boton-peligro:
+  boton-peligro-disparador:
+    backgroundColor: "rgba(225,29,72,0.2)"
+    borderColor: "rgba(244,63,94,0.3)"
+    textColor: "{colors.peligro-alerta}"
+    rounded: "{rounded.control}"
+    padding: "8px 16px"
+  boton-peligro-confirmar:
     backgroundColor: "#e11d48"
     textColor: "{colors.texto-maximo}"
     rounded: "{rounded.control}"
@@ -100,6 +106,9 @@ components:
   campo-foco:
     backgroundColor: "{colors.carbon-control}"
     textColor: "{colors.texto-cuerpo}"
+    borderColor: "{colors.turquesa-foco}"
+    ringColor: "{colors.turquesa-foco}"
+    ringWidth: "1px"
   tarjeta:
     backgroundColor: "{colors.carbon-superficie}"
     textColor: "{colors.texto-cuerpo}"
@@ -168,7 +177,7 @@ hay algo semántico que decir.
 
 - **Turquesa Eléctrico** (`#22d3ee`): la cifra y el dato que importa. Precio en el
   POS, total de la venta, utilidad bruta en Reportes, íconos de encabezado de
-  sección. Es el color al que el ojo va primero en cualquier pantalla (72 usos).
+  sección. Es el color al que el ojo va primero en cualquier pantalla (97 usos).
 - **Turquesa Acción** (`#0e7490`): el relleno del botón primario, y solo eso.
   FACTURAR, Guardar, Nuevo Cliente, Registrar Orden. Sobre él, texto blanco da
   **5.36:1** — pasa AA. El valor anterior (`#0891b2`) daba 3.68:1 y no llegaba:
@@ -255,9 +264,19 @@ acento decorativo rompe el tablero.
 
 **La Regla del Relleno Oscuro.** Sobre un relleno de color con texto blanco, el
 tono base va en el escalón **700** y el hover **oscurece al 800**. Medido:
-`cyan-700` 5.36:1 → `cyan-800` 7.27:1; `emerald-700` 5.48:1 → `emerald-800`
-7.68:1. Los dos estados pasan AA. `rose-600` es la excepción: ya da 4.70:1 y se
-queda donde está.
+`cyan-700` 5.28:1 → `cyan-800` 7.22:1; `emerald-700` 5.36:1 → `emerald-800`
+7.6:1. Los dos estados pasan AA. `rose-600` es la excepción: da **4.53:1** y se
+queda donde está, pero su hover **también oscurece** — `rose-500` da 3.75:1 y
+reprueba.
+
+> **Nota de medición (2026-09-20).** Los ratios de este documento estaban
+> calculados sobre los hex de **Tailwind v3**. El proyecto compila **Tailwind
+> v4**, que define su paleta en **OKLCH** (`--color-rose-600: oklch(58.6%
+> 0.253 17.585)`, verificado en el CSS que se embarca). Los números bajan un
+> par de centésimas en todos lados, y en un caso eso importa: el margen de
+> `rose-600` no era 0.20 sino **0.03**. Cualquier ratio nuevo se mide contra
+> los valores OKLCH de `node_modules/tailwindcss/theme.css`, no contra una
+> tabla de hex de v3.
 
 > **Corrección (2026-09-20).** La primera versión de esta regla decía que el
 > hover **aclara** al 600, "nunca oscurece". Era una inferencia del patrón
@@ -299,10 +318,14 @@ veces contra 95 de `font-medium`: el sistema es afirmativo por defecto.
   tarjeta o diálogo. Convive con el anterior sin una regla que los separe.
 - **Body** (400, 14px): cuerpo base, valor de campo, celda de tabla.
 - **Micro** (400, 12px): ayuda, metadato de tarjeta, chip.
-- **Label** (700, 10px, `0.05em`, mayúsculas): **la etiqueta del sistema**. 74
-  apariciones en 9 archivos. Es el ladrillo tipográfico más reconocible de la
+- **Label** (700, 10px, `0.05em`, mayúsculas): **la etiqueta del sistema**. 136
+  apariciones en 13 archivos. Es el ladrillo tipográfico más reconocible de la
   interfaz — cuando la escala de Tailwind no alcanzó para densificar, se bajó
   a 10px arbitrarios antes que agrandar el formulario.
+  **Ojo:** 22 de esas apariciones viven **dentro de los lienzos de papel**
+  (13 en la factura, 9 en la etiqueta), y 10px no está en la rampa del papel.
+  Es la mezcla de los dos mundos filtrándose por el lado que nadie audita: el
+  detector no la ve porque valida contra una sola rampa.
 - **Dato** (monoespaciada, 700, 14px): KPIs, tabla de Reportes, delta del kardex.
 
 ### Named Rules
@@ -312,10 +335,21 @@ mayúsculas de 10px, negrita. Es lo que separa "qué es este campo" de "qué dic
 este campo", sin gastar un pixel de más.
 
 **La Regla del Dinero Alineado.** Toda columna de cifras se alinea a la derecha
-y usa `tabular-nums`. *Hoy el sistema no cumple esta regla* — `tabular-nums`
-aparece 3 veces en todo el repo y las tres son un número de teléfono. Queda
-escrita como objetivo, no como descripción: en un POS, las columnas de C$ que no
-alinean son un error de lectura esperando ocurrir.
+y usa `tabular-nums`. *El sistema la cumple a medias*: `tabular-nums` aparece
+**14 veces**, de las cuales 3 son teléfonos de la etiqueta de envío y el resto
+es dinero — el POS entero ya la cumple (carrito, totales, vuelto) y la factura
+también.
+
+Lo que falta está identificado y es chico: las cuatro pantallas donde el
+operador **compara** cifras en vez de cobrar una sola — el Total del Historial
+(la cifra más grande de cada fila, y además alineada a la derecha recién desde
+`md:`), la columna Precio de Inventario, la columna Total del Dashboard y los
+montos de Clientes. En un POS, las columnas de C$ que no alinean son un error de
+lectura esperando ocurrir.
+
+> Ojo con el mecanismo: Reportes consigue el mismo efecto con `font-mono`, que
+> **cambia la familia**. `tabular-nums` conserva Inter. Elegir uno de los dos y
+> no mezclarlos.
 
 ## Layout
 
@@ -343,10 +377,23 @@ El ritmo es la escala de 4px de Tailwind — `gap-2` (124 usos), `px-4` (129),
 (`px-4 py-2`, `px-4 py-3`, `px-6 py-4`, entre otras) según la página. Es la
 inconsistencia estructural más visible del sistema.
 
-**El apilamiento está desordenado.** Hay 34 usos de `z-index` en siete niveles,
-con cuatro valores arbitrarios (`z-50`, `z-[60]`, `z-[80]`, `z-[100]`, `z-[101]`).
-Los nueve shells de modal usan **cuatro** valores distintos. Se documenta como
-está; no hay una escala nombrada que respetar todavía.
+**El apilamiento está desordenado.** Hay 36 declaraciones vivas de `z-index` en
+**diez** niveles: `z-0` · `z-10` · `z-30` · `z-40` · `z-50` · `z-[60]` · `z-[80]` ·
+`z-[100]`–`z-[102]` · `z-[200]`. Los shells de modal usan **cuatro** valores
+distintos. Se documenta como está; no hay una escala nombrada que respetar
+todavía.
+
+Lo único que sí es regla: **los avisos (`z-[200]`) van siempre por encima de
+todo modal**, porque son el único canal de los errores que bloquean el cobro.
+
+> Un empate de `z-index` no es neutral: desempata el orden del DOM. El telón
+> del menú móvil (`Layout.tsx`) y la barra "Ver Carrito" del POS compartían
+> `z-40`, los dos `fixed` en el contexto raíz, y la barra — montada después,
+> dentro de `<main>` — se pintaba **encima** del velo. La barra bajó a `z-30`.
+> Nota de CSS que vale para todo el proyecto: `<main>` es `position: relative`
+> con `z-index: auto`, o sea que **no crea contexto de apilamiento**, y ningún
+> ancestro suyo tiene `transform`, `filter` ni `will-change`. Por eso los
+> modales `fixed` de las páginas suben limpio hasta la raíz.
 
 **Lienzos de impresión.** La factura es un A4 literal de `794×1123px` con
 `40px` de margen; la etiqueta es de `384×576px`. Son los únicos tamaños fijos
@@ -414,8 +461,10 @@ notable es que, aun así, **el color es consistente y la geometría no**.
 
 ### Buttons
 
-- **Primario** — `#0891b2` de fondo, texto blanco, negrita, radio Control. El
-  hover **aclara** a `#06b6d4`. El color y el peso no varían nunca; el padding sí
+- **Primario** — **Turquesa Acción** (`#0e7490`, `bg-cyan-700`) de fondo, texto
+  blanco, negrita, radio Control. El hover **oscurece** a Turquesa Acción Hover
+  (`#155e75`, `bg-cyan-800`). 22 botones lo cumplen y ninguno usa ya el
+  `#0891b2` de relleno. El color y el peso no varían nunca; el padding sí
   (cinco combinaciones distintas en uso) y la sombra es opcional en tres formas.
 - **Secundario** — Carbón Control de fondo, Texto Control de etiqueta, hover a
   Carbón Borde con texto blanco.
@@ -433,11 +482,24 @@ notable es que, aun así, **el color es consistente y la geometría no**.
 Receta única en 117 apariciones: Carbón Control de fondo, Carbón Borde de 1px,
 radio Control.
 
-**El foco es el punto más frágil del sistema.** Hay **cinco dialectos**
-conviviendo, todos hacia el mismo turquesa, ninguno unificado. El más frecuente
-(44 líneas) es `focus:border-cyan-500` **sin anillo**. Y `focus-visible` no
-existe en ninguna parte: hay 131 `outline-none`, 74 de ellos incondicionales, y
-de 135 `<button>` del proyecto **solo 5** declaran anillo de foco.
+**El foco sigue siendo el punto más frágil del sistema, pero ya no es un
+desierto.** Hay **cinco dialectos** conviviendo, todos hacia el mismo turquesa,
+ninguno unificado. La receta recomendada — `focus:border-cyan-500 focus:ring-1
+focus:ring-cyan-500` con anillo — **ya es mayoría en campos**. `focus-visible`
+no existe en ninguna parte del proyecto.
+
+El agujero real no está en los campos: está en los **botones**, y está muy
+concentrado. `POS.tsx`, `ShippingLabelPreview.tsx` y `Toast.tsx` declaran foco
+en el 100% de los suyos; `SalesHistory.tsx` (17 botones), `Purchases.tsx` (15),
+`Customers.tsx` (9) y las dos pantallas de Objeciones casi no declaran ninguno.
+Son, además, las pantallas de las acciones irreversibles.
+
+> Las cifras de esta sección se habían quedado viejas y **daban vuelta el
+> diagnóstico**: decían que el dialecto dominante era el campo sin anillo
+> (ya no lo es) y que los botones con foco eran 5 de 135 (son más, y el hueco
+> está concentrado en cuatro archivos, no repartido). Un documento que mide mal
+> manda a trabajar sobre el problema equivocado. Las métricas absolutas de aquí
+> en más se leen como una foto con fecha, no como una constante.
 
 ### Cards / Containers
 
@@ -474,8 +536,13 @@ Carbón Superficie al 95% + `backdrop-blur` + borde del color semántico al 40% 
 - **Do** construir profundidad con capas tonales y bordes, no con sombras.
 - **Do** usar la etiqueta de 10px en caja alta y negrita para todo rótulo de
   campo. Es la firma del sistema.
-- **Do** aclarar en el hover del botón primario (600 → 500). Oscurecer va al
-  revés del sistema.
+- **Do** oscurecer en el hover de todo relleno de color con texto blanco
+  (700 → 800). Aclarar al 600 devuelve el botón primario a **3.68:1**, que es el
+  número que este mismo documento declara reprobado en la Regla del Relleno
+  Oscuro. Esta línea decía lo contrario hasta el 2026-09-20 y era la
+  contradicción más cara del documento: los Do's son la única sección escrita
+  en imperativo, o sea la que más se obedece, y mandaba reintroducir a mano la
+  falla de AA que el sistema acababa de arreglar en 22 botones.
 - **Do** dar dos escalones a toda acción destructiva: teñido primero, sólido solo
   al confirmar.
 - **Do** alinear a la derecha y usar `tabular-nums` en cualquier columna de

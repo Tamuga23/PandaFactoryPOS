@@ -354,7 +354,7 @@
       },
       "label": {
         "displayName": "Etiqueta",
-        "purpose": "El rótulo de campo del sistema: 10px, mayúsculas, negrita. 74 usos en 9 archivos."
+        "purpose": "El rótulo de campo del sistema: 10px, mayúsculas, negrita. 136 usos en 13 archivos. 22 de ellos viven dentro de los lienzos de papel, donde 10px no pertenece a la rampa."
       },
       "dato": {
         "displayName": "Dato numérico",
@@ -420,7 +420,7 @@
       "name": "Botón primario",
       "kind": "button",
       "refersTo": "boton-primario",
-      "description": "La única acción afirmativa: FACTURAR, Guardar, Nuevo Cliente. El hover aclara, nunca oscurece.",
+      "description": "La única acción afirmativa: FACTURAR, Guardar, Nuevo Cliente. El hover OSCURECE al 800, nunca aclara: aclarar al 600 devuelve el boton a 3.68:1.",
       "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/></svg>Guardar Cambios</button>",
       "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background-color: #0e7490; color: #ffffff; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(8,145,178,0.2); transition: background-color 150ms; } .ds-btn-primary:hover { background-color: #155e75; } .ds-btn-primary:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }"
     },
@@ -446,7 +446,7 @@
       "refersTo": "campo",
       "description": "Receta única en 117 apariciones. La etiqueta de 10px en caja alta es parte del componente, no un extra.",
       "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-precio\">Precio de lista (USD)</label><input class=\"ds-field-input\" id=\"ds-precio\" type=\"text\" placeholder=\"0.00\" /></div>",
-      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #71717a; } .ds-field-input { padding: 8px 12px; background-color: #27272a; color: #e4e4e7; font-family: inherit; font-size: 14px; border: 1px solid #3f3f46; border-radius: 8px; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-field-input::placeholder { color: #71717a; } .ds-field-input:focus { border-color: #06b6d4; box-shadow: 0 0 0 1px #06b6d4; } .ds-field-input:disabled { opacity: 0.5; }"
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #a1a1aa; } .ds-field-input { padding: 8px 12px; background-color: #27272a; color: #e4e4e7; font-family: inherit; font-size: 14px; border: 1px solid #3f3f46; border-radius: 8px; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-field-input::placeholder { color: #a1a1aa; } .ds-field-input:focus { border-color: #06b6d4; box-shadow: 0 0 0 1px #06b6d4; } .ds-field-input:disabled { opacity: 0.5; }"
     },
     {
       "name": "Tarjeta",
@@ -470,7 +470,7 @@
       "refersTo": "nav-item-activo",
       "description": "El ícono en Turquesa Foco es lo que marca el estado activo, no solo el fondo Carbón Control.",
       "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/></svg>Punto de venta</a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 7h-9M14 17H5\"/><circle cx=\"17\" cy=\"17\" r=\"3\"/><circle cx=\"7\" cy=\"7\" r=\"3\"/></svg>Inventario</a></nav>",
-      "css": ".ds-nav { display: flex; flex-direction: column; gap: 4px; width: 240px; padding: 8px; background-color: #18181b; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #a1a1aa; text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-nav-item:hover { background-color: rgba(39,39,42,0.5); color: #e4e4e7; } .ds-nav-item-active { background-color: #27272a; color: #ffffff; font-weight: 700; } .ds-nav-item-active svg { color: #06b6d4; }"
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 4px; width: 256px; padding: 8px; background-color: #18181b; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #a1a1aa; text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-nav-item:hover { background-color: rgba(39,39,42,0.5); color: #e4e4e7; } .ds-nav-item-active { background-color: #27272a; color: #ffffff; font-weight: 700; } .ds-nav-item-active svg { color: #06b6d4; }"
     },
     {
       "name": "Toast",
@@ -522,7 +522,7 @@
       },
       {
         "name": "La Regla del Dinero Alineado",
-        "body": "Toda columna de cifras se alinea a la derecha y usa tabular-nums. Hoy el sistema no cumple esta regla: tabular-nums aparece 3 veces en todo el repo y las tres son un número de teléfono. Queda escrita como objetivo, no como descripción.",
+        "body": "Toda columna de cifras se alinea a la derecha y usa tabular-nums. Hoy el sistema no cumple esta regla: tabular-nums aparece 14 veces: 3 son teléfonos y el resto es dinero. El POS ya la cumple entera; falta el Historial, Inventario, Dashboard y Clientes. Queda escrita como objetivo parcialmente alcanzado, no como descripción.",
         "section": "typography"
       },
       {
@@ -550,7 +550,7 @@
       "Do usar el turquesa solo para dinero y para la próxima acción. Su escasez es lo que lo hace funcionar.",
       "Do construir profundidad con capas tonales y bordes, no con sombras.",
       "Do usar la etiqueta de 10px en caja alta y negrita para todo rótulo de campo. Es la firma del sistema.",
-      "Do aclarar en el hover del botón primario (600 → 500). Oscurecer va al revés del sistema.",
+      "Do oscurecer en el hover de todo relleno de color con texto blanco (700 → 800). Aclarar al 600 devuelve el botón primario a 3.68:1, que la Regla del Relleno Oscuro declara reprobado.",
       "Do dar dos escalones a toda acción destructiva: teñido primero, sólido solo al confirmar.",
       "Do alinear a la derecha y usar tabular-nums en cualquier columna de cifras nueva. El sistema todavía no lo hace; empezá a cumplirlo.",
       "Do declarar un anillo de foco visible en cada control nuevo. Ya hay cinco dialectos: elegí focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 y no inventes un sexto."

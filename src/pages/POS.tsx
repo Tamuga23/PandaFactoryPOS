@@ -398,8 +398,24 @@ export default function POS() {
       // Con un modal abierto el POS no manda: el preview tiene su propio ESC.
       if (previewData || labelSaleData) return;
 
-      if (e.key === 'F2') { e.preventDefault(); if (cart.length > 0) handleTryCheckout(false); return; }
-      if (e.key === 'F3') { e.preventDefault(); if (cart.length > 0) handleTryCheckout(true); return; }
+      // El precio de línea se confirma SOLO con `onBlur`. Con el mouse eso
+      // funciona solo (el mousedown sobre FACTURAR dispara el blur antes del
+      // click), pero F2 es un keydown en `window` y no saca el foco del input:
+      // el operador negociaba, tecleaba 3500, apretaba F2 y se facturaba el
+      // precio anterior. Se fuerza el blur y se difiere un tick para que el
+      // commit ya esté aplicado cuando se arme la venta.
+      if (e.key === 'F2' || e.key === 'F3') {
+        e.preventDefault();
+        if (cart.length === 0) return;
+        const proforma = e.key === 'F3';
+        if (editingPriceId !== null) {
+          (document.activeElement as HTMLElement | null)?.blur();
+          setTimeout(() => handleTryCheckout(proforma), 0);
+        } else {
+          handleTryCheckout(proforma);
+        }
+        return;
+      }
       if (e.key === '/' && !dentroDeCampo) {
         e.preventDefault();
         buscadorRef.current?.focus();
@@ -408,8 +424,18 @@ export default function POS() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.length, previewData, labelSaleData]);
+    // SIN arreglo de dependencias, a propósito. Antes decía
+    // `[cart.length, previewData, labelSaleData]` con un `eslint-disable` que
+    // silenciaba justamente la regla que existe para atrapar esto: la clausura
+    // quedaba congelada en el render donde `cart.length` cambió por última
+    // vez, y TODO lo que el operador tocara después era invisible para F2/F3,
+    // porque nada de eso altera la cantidad de líneas — el precio negociado,
+    // la cantidad, el cliente entero, la forma de pago, el descuento, el
+    // flete, el transporte, el plazo de las cuotas. Apretar F2 con el
+    // formulario lleno emitía una factura con el cliente vacío, EFECTIVO, sin
+    // descuento y a precio de lista, consumiendo un correlativo irreversible.
+    // Re-suscribir en cada render cuesta un addEventListener y es lo correcto.
+  });
 
   const restaurarBorrador = () => {
     if (!borrador) return;
@@ -812,9 +838,17 @@ export default function POS() {
                   3.33:1 y el SKU a 1.83:1. Atenuar la foto comunica lo mismo sin
                   volver ilegible lo que hay que leer.
                 */}
+                {/*
+                  `aspect-w-1 aspect-h-1` no generaba una sola linea de CSS:
+                  vienen de `@tailwindcss/aspect-ratio`, que no esta instalado
+                  (verificado contra el CSS compilado de dist/ y contra
+                  node_modules/@tailwindcss/). Quien leia el codigo veia una
+                  caja cuadrada pedida; lo que recortaba de verdad era el
+                  `h-24` del <img>. `aspect-square` si es core de Tailwind v4.
+                */}
                 {product.imageBase64 ? (
-                  <div className={`aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-zinc-900 mb-3 border border-zinc-800 ${product.stock > 0 ? '' : 'opacity-40'}`}>
-                    <img src={product.imageBase64} alt="" className="h-24 w-full object-cover" />
+                  <div className={`aspect-square w-full overflow-hidden rounded-lg bg-zinc-900 mb-3 border border-zinc-800 ${product.stock > 0 ? '' : 'opacity-40'}`}>
+                    <img src={product.imageBase64} alt="" className="h-full w-full object-cover" />
                   </div>
                 ) : (
                   <div className={`h-24 w-full rounded-lg bg-zinc-800 mb-3 border border-zinc-700 flex items-center justify-center ${product.stock > 0 ? '' : 'opacity-40'}`}>
@@ -837,7 +871,16 @@ export default function POS() {
 
       {/* Mobile Sticky Bottom Bar (when viewing catalog) */}
       {!showMobileCart && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-900 border-t border-zinc-700 z-40 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+        /*
+          z-30, no z-40: el telon del menu movil (Layout.tsx:47) tambien es
+          z-40 y tambien es `fixed` en el contexto raiz. Empatados, desempata
+          el orden del DOM, y esta barra se monta dentro de <main>, o sea
+          despues: quedaba iluminada por encima del velo. Bajo 768px los dos
+          estan visibles a la vez (telon `md:hidden`, barra `lg:hidden`), asi
+          que el operador que tocaba la barra creyendo cerrar el menu abria el
+          carrito.
+        */
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-900 border-t border-zinc-700 z-30 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
            <button 
              onClick={() => setShowMobileCart(true)}
              className="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-cyan-400"
@@ -883,10 +926,19 @@ export default function POS() {
           {cart.length > 0 && (
             confirmandoVaciar ? (
               <div className="flex-none flex items-center gap-1">
+                {/*
+                  El hover de este boton ACLARABA: blanco sobre rose-500 da
+                  3.75:1 y no pasa AA, justo en el instante previo al clic
+                  irreversible. Es el mismo fallo que describe la Correccion de
+                  la Regla del Relleno Oscuro, y este boton habia quedado sin
+                  corregir. rose-700 da 6.03:1. Y sube de px-2 py-1 a px-3 py-2:
+                  la confirmacion de un descarte no puede ser el blanco mas
+                  chico del panel.
+                */}
                 <button
                   type="button"
                   onClick={vaciarCarrito}
-                  className="text-[10px] uppercase tracking-wider font-bold text-white bg-rose-600 hover:bg-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-400 rounded px-2 py-1 transition-colors"
+                  className="text-[10px] uppercase tracking-wider font-bold text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-1 focus:ring-rose-400 rounded px-3 py-2 transition-colors"
                 >
                   Descartar {cart.length} {cart.length === 1 ? 'línea' : 'líneas'}
                 </button>
@@ -933,6 +985,7 @@ export default function POS() {
                       type="number"
                       min="0"
                       step="any"
+                      aria-label={`Precio de ${item.name} en cordobas`}
                       defaultValue={round2(item.price * currentExchangeRate)}
                       onBlur={(e) => commitLinePrice(item.id, e.target.value)}
                       onKeyDown={(e) => {
@@ -1089,7 +1142,14 @@ export default function POS() {
                       }`}
                     >
                       <span className="text-sm font-medium text-white">{c.fullName}</span>
-                      <span className="text-[10px] text-zinc-400">{c.phone} {c.email ? `- ${c.email}` : ''}</span>
+                      {/*
+                        zinc-400 sobre el resalte zinc-700 da 3.98:1. El
+                        telefono es justo el dato que distingue a dos clientes
+                        con el mismo nombre, y perdia contraste en el momento
+                        de elegir. zinc-300 da 7.07:1 sobre el resalte y 10.08:1
+                        en reposo.
+                      */}
+                      <span className="text-[10px] text-zinc-300">{c.phone} {c.email ? `- ${c.email}` : ''}</span>
                     </li>
                   ))}
                 </ul>

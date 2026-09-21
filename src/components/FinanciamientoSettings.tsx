@@ -211,7 +211,7 @@ export default function FinanciamientoSettings({
 
       {/* --- Recargo por categoría --- */}
       <div className="mt-8 border-t border-zinc-800/50 pt-6">
-        <h3 className="text-md font-medium text-cyan-400 mb-1">Recargo por categoría</h3>
+        <h3 className="text-base font-medium text-cyan-400 mb-1">Recargo por categoría</h3>
         <p className="text-xs text-zinc-500 mb-4">
           Poné 0 en los dos plazos, o marcá &ldquo;0% interés&rdquo;, para que la categoría se anuncie
           como financiamiento sin interés.
@@ -289,7 +289,7 @@ export default function FinanciamientoSettings({
       {/* --- Vista previa --- */}
       <div className="mt-8 border-t border-zinc-800/50 pt-6">
         <div className="flex items-center justify-between gap-4 mb-1">
-          <h3 className="text-md font-medium text-cyan-400">Vista previa</h3>
+          <h3 className="text-base font-medium text-cyan-400">Vista previa</h3>
           <label className="flex items-center gap-2 text-xs text-zinc-400">
             Producto de USD
             <input
