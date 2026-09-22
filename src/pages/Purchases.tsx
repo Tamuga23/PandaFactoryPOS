@@ -148,8 +148,11 @@ export default function Purchases() {
       toast.success('Orden actualizada.');
       setEditingOrder(null);
       setOrderForm(null);
-    } catch {
-      toast.error('No se pudo actualizar la orden.');
+    } catch (e: any) {
+      // `db.ts` humaniza permisos, cuota de Spark, concurrencia y conexión, y
+      // las transacciones lanzan diagnósticos exactos. Un `catch` sin parámetro
+      // los tira a la basura para decir "no se pudo".
+      toast.error(e?.message || 'No se pudo actualizar la orden.');
     } finally {
       setIsSavingOrder(false);
     }
@@ -165,8 +168,8 @@ export default function Purchases() {
     try {
       await cancelPurchase(p.id);
       toast.success('Orden cancelada. No se podrá recibir mercadería de ella.');
-    } catch {
-      toast.error('No se pudo cancelar la orden.');
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo cancelar la orden.');
     }
   };
 
@@ -394,13 +397,36 @@ export default function Purchases() {
     const unidades = boxItems.reduce((a, b) => a + b.quantity, 0);
 
     try {
-      await updatePurchase(updatedPurchase);
+      const { faltantes, unidadesNoEntraron } = await updatePurchase(updatedPurchase);
       closeTrackingForm();
       if (vaARecibir) {
-        toast.success(
-          `Caja recibida · ${unidades} unidad(es) sumadas al inventario, ` +
-          `con su costo de importación prorrateado. Queda en el kardex.`,
-        );
+        /*
+          Las unidades de productos que ya no están en el catálogo NO entran al
+          inventario —el stock sólo se toca si el producto existe— pero el
+          tracking igual queda recibido y la orden igual se cierra. El aviso
+          decía «N unidades sumadas» contando también ésas.
+
+          La pantalla ya advertía antes de recibir («⚠ ya no existe en
+          catálogo»), pero ese cartel se lee ANTES y este aviso se lee DESPUÉS,
+          y se contradecían.
+        */
+        const entraron = Math.max(0, unidades - unidadesNoEntraron);
+
+        if (entraron > 0) {
+          toast.success(
+            `Caja recibida · ${entraron} unidad(es) sumadas al inventario, ` +
+            `con su costo de importación prorrateado. Queda en el kardex.`,
+          );
+        } else {
+          toast.success('Caja marcada como recibida.');
+        }
+        if (faltantes.length > 0) {
+          toast.error(
+            `${faltantes.length === 1 ? 'Este producto ya no existe' : 'Estos productos ya no existen'} ` +
+            `en el catálogo, así que sus unidades NO entraron al inventario ni al kardex, ` +
+            `aunque la caja figure recibida: ${faltantes.join(', ')}.`,
+          );
+        }
       } else {
         toast.success(
           newTracking.trackingNumber

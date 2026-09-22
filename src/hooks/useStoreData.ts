@@ -361,24 +361,56 @@ export function useStoreData() {
   const bulkUpdateProducts = async (ids: string[], updates: Partial<Product>, motivo?: string) => {
     if (!user) return;
     try {
-      const batch = writeBatch(db);
-      
       const safeUpdates: any = { ...updates, updatedAt: Date.now() };
       Object.keys(safeUpdates).forEach(key => safeUpdates[key] === undefined && delete safeUpdates[key]);
 
-      ids.forEach((id) => {
-        batch.update(doc(db, 'products', id), safeUpdates);
-        // P2.7: si el bulk cambia stock, dejar rastro en el kardex.
-        if (typeof updates.stock === 'number') {
-          const p = products.find(pr => pr.id === id);
-          batch.set(doc(collection(db, 'movimientos')), buildMovimiento({
-            productId: id, productName: p?.name, sku: p?.sku,
-            tipo: 'ajuste', delta: updates.stock - (p?.stock || 0),
-            stockDespues: updates.stock, fecha: Date.now(),
-            motivo: motivo || 'Ajuste masivo',
-          }));
+      /*
+        Cuando el lote TOCA STOCK va por transacción, no por batch.
+
+        El delta del kardex se calculaba contra `products`, que es el estado de
+        React: la caché del cliente. Si alguno de los N productos se vendió en
+        los segundos anteriores, el delta registrado no era el cambio que
+        ocurrió, y el write pisaba la venta. `adjustStock` —el camino de a uno—
+        sí es transaccional y lee del servidor; el de a veinte no lo era, que es
+        la asimetría del lado peor: el que multiplica el daño por N.
+
+        Y si el producto no estaba en la caché, el delta salía igual a
+        `updates.stock`, como si hubiera partido de cero.
+
+        Firestore permite 500 escrituras por transacción y acá van 2 por
+        producto, así que se corta en 200 por vuelta. Sin ese corte, a partir de
+        250 seleccionados el lote entero fallaba.
+      */
+      if (typeof updates.stock === 'number') {
+        const LOTE = 200;
+        for (let i = 0; i < ids.length; i += LOTE) {
+          const tanda = ids.slice(i, i + LOTE);
+          await runTransaction(db, async (transaction) => {
+            const snaps = await Promise.all(
+              tanda.map(id => transaction.get(doc(db, 'products', id))),
+            );
+            snaps.forEach((snap, idx) => {
+              if (!snap.exists()) return; // borrado en el medio: se saltea
+              const server = snap.data() as Product;
+              const id = tanda[idx];
+              transaction.update(doc(db, 'products', id), safeUpdates);
+              const delta = (updates.stock as number) - (server.stock || 0);
+              if (delta !== 0) {
+                transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+                  productId: id, productName: server.name, sku: server.sku,
+                  tipo: 'ajuste', delta, stockDespues: updates.stock as number,
+                  fecha: Date.now(), motivo: motivo || 'Ajuste masivo',
+                }));
+              }
+            });
+          });
         }
-      });
+        return;
+      }
+
+      // Sin stock de por medio no hay invariante que proteger: el batch alcanza.
+      const batch = writeBatch(db);
+      ids.forEach((id) => batch.update(doc(db, 'products', id), safeUpdates));
       await batch.commit();
     } catch (e) {
       handleFirestoreError(e, 'update', `products/bulk`);
@@ -895,8 +927,24 @@ export function useStoreData() {
     }
   };
 
-  const updatePurchase = async (purchase: Purchase) => {
-    if (!user) return;
+  /**
+   * Devuelve los productos de las cajas recibidas que YA NO EXISTEN en el
+   * catálogo, para que el caller no diga que entró mercadería que no entró.
+   *
+   * El tracking se marcaba `isReceived`, `receivedQuantity` subía, la orden
+   * pasaba a CLOSED y el aviso decía «N unidad(es) sumadas al inventario» —
+   * cuando el `if (serverProduct)` que gobierna el stock no se había cumplido y
+   * no había entrado nada ni quedado un solo movimiento en el kardex. Tres
+   * registros afirmando lo mismo, y la única fuente que decía la verdad era el
+   * kardex, por omisión. Nadie mira un movimiento que no existe.
+   */
+  const updatePurchase = async (
+    purchase: Purchase,
+  ): Promise<{ faltantes: string[]; unidadesNoEntraron: number }> => {
+    if (!user) return { faltantes: [], unidadesNoEntraron: 0 };
+    // Se reinician dentro del callback: la transacción puede reintentarse.
+    let faltantes: string[] = [];
+    let unidadesNoEntraron = 0;
     try {
       // Copia profunda de lo que vamos a mutar (items/trackings) para no tocar el estado de React.
       const updatedPurchase: Purchase = {
@@ -908,9 +956,35 @@ export function useStoreData() {
         })),
       };
 
-      // Strip all undefined fields to avoid Firestore errors
+      /*
+        Los `undefined` se borran del objeto porque Firestore los rechaza. Pero
+        `transaction.update` sólo toca las claves que le llegan, así que borrar
+        una clave equivale a "no tocar ese campo" — y el editor de órdenes manda
+        `undefined` justamente para decir "vaciar": su helper es
+        `num(v) => Number(v) > 0 ? Number(v) : undefined`.
+
+        Resultado: el operador cargaba $120 de aduana por error, entraba a
+        editar, borraba el campo, guardaba, y leía "Orden actualizada." Los $120
+        seguían ahí, y se iban a prorratear al costo de cada unidad cuando
+        llegara la mercadería.
+
+        Es el mismo defecto que `updateProduct` ya había resuelto con
+        `deleteField()`, y cuyo comentario dice que un guardado que informa éxito
+        y no aplica el cambio es peor que uno que falla. La lección se había
+        aplicado a los campos de la tablet y no a los cuatro que definen el
+        landed cost, que es lo que mueve plata.
+
+        Sólo van acá campos DECLARADOS OPCIONALES en `firestore.rules` (los siete
+        lo están) y sólo si quien llama distingue "vaciar" de "no tocar".
+      */
+      const VACIABLES = [
+        'freightCost', 'customsTaxes', 'insuranceCost', 'shippingRatePerLb',
+        'platform', 'orderNumber', 'financing',
+      ];
+      const aVaciar: string[] = [];
       Object.keys(updatedPurchase).forEach(key => {
         if ((updatedPurchase as any)[key] === undefined) {
+          if (VACIABLES.includes(key)) aVaciar.push(key);
           delete (updatedPurchase as any)[key];
         }
       });
@@ -1016,6 +1090,9 @@ export function useStoreData() {
         // Acumulador por producto: un solo write aunque el producto venga en varias cajas.
         const productChanges = new Map<string, { addStock: number; newCost: number }>();
 
+        faltantes = [];
+        unidadesNoEntraron = 0;
+
         toProcess.forEach(tracking => {
           {
             tracking.isReceived = true; // Mark tracking as synced
@@ -1023,6 +1100,14 @@ export function useStoreData() {
             (tracking.itemsInBox || []).forEach(boxItem => {
               // 1. Stock y costo (WAC) con datos del SERVIDOR leídos en la transacción
               const serverProduct = serverProducts.get(boxItem.itemId);
+              if (!serverProduct) {
+                // Se anota para que el aviso no cuente unidades que no entraron.
+                // El conteo se hace acá, donde están los datos: cruzarlo por
+                // nombre del lado del caller falla con nombres repetidos.
+                const enOrden = updatedPurchase.items.find(i => i.id === boxItem.itemId);
+                faltantes.push(enOrden?.name || boxItem.itemId);
+                unidadesNoEntraron += boxItem.quantity;
+              }
               if (serverProduct) {
                 const prev = productChanges.get(boxItem.itemId);
                 const baseStock = serverProduct.stock + (prev?.addStock || 0);
@@ -1162,11 +1247,32 @@ export function useStoreData() {
             refId: purchase.id, fecha: Date.now(),
           }));
         });
-        transaction.update(purchaseRef, updatedPurchase as any);
+        /*
+          Validar ANTES de escribir, como hace `recordPurchase`. Era la única
+          escritura de compras que no pasaba por Zod, y es la que fija el landed
+          cost de cada unidad.
+
+          `stockAdded` se completa en vez de exigirse: el campo es opcional en
+          las reglas, así que puede faltar en órdenes viejas, y no vale la pena
+          dejar sin editar una orden de 2024 por un booleano que el sistema ya
+          no usa para decidir nada (manda `status`).
+        */
+        const paraValidar = { ...updatedPurchase, stockAdded: updatedPurchase.stockAdded ?? false };
+        const revision = PurchaseSchema.safeParse(paraValidar);
+        if (!revision.success) throw new Error(`Orden inválida — ${zodErrorMsg(revision)}`);
+
+        // Los campos que el editor dejó en blanco se borran de verdad; ver
+        // `VACIABLES` arriba. `deleteField()` es lo único que Firestore entiende
+        // como "sacá este campo" dentro de un update.
+        const escritura: any = { ...paraValidar };
+        aVaciar.forEach(k => { escritura[k] = deleteField(); });
+        transaction.update(purchaseRef, escritura);
         }
       });
+      return { faltantes, unidadesNoEntraron };
     } catch (e) {
       handleFirestoreError(e, 'update', `purchases/${purchase.id}`);
+      return { faltantes: [], unidadesNoEntraron: 0 };
     }
   };
 
@@ -1398,6 +1504,20 @@ export function useStoreData() {
     try {
       const data: any = { ...result.data };
       Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      /*
+        Es el único alta del sistema con id elegido a mano: el formulario tiene
+        un campo de texto libre con placeholder «garantia». `setDoc` sobre un id
+        que ya existe REEMPLAZA el documento entero —título y respuesta— y la
+        pantalla decía «Objeción creada correctamente».
+
+        Lo que se destruía es el guion de venta que la tablet le muestra al
+        cliente. `addProduct` tiene check de unicidad de SKU exactamente por esto.
+      */
+      if (universalObjections.some((o) => o.id === objection.id)) {
+        throw new Error(
+          `Ya existe una objeción con el id "${objection.id}". Elegí otro, o editá la que ya está.`,
+        );
+      }
       await setDoc(doc(db, 'objeciones_universales', objection.id), data);
     } catch (e) {
       handleFirestoreError(e, 'create', `objeciones_universales/${objection.id}`);
@@ -1449,6 +1569,12 @@ export function useStoreData() {
     try {
       const data: any = { ...result.data };
       Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      // Mismo caso que en las universales: id a mano, `setDoc` que reemplaza.
+      if (categoryObjections.some((o) => o.id === objection.id)) {
+        throw new Error(
+          `Ya existe una objeción con el id "${objection.id}". Elegí otro, o editá la que ya está.`,
+        );
+      }
       await setDoc(doc(db, 'objeciones_categoria', objection.id), data);
     } catch (e) {
       handleFirestoreError(e, 'create', `objeciones_categoria/${objection.id}`);

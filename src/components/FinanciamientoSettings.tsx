@@ -143,8 +143,12 @@ export default function FinanciamientoSettings({
     try {
       await setDoc(doc(db, 'config', 'financiamiento'), paraGuardar);
       notificar('Reglas de financiamiento guardadas. La tablet las toma al instante; la web, en 15 min.', 'success');
-    } catch {
-      notificar('No se pudo guardar. ¿Desplegaste firestore.rules con la colección `config`?', 'error');
+    } catch (e: any) {
+      notificar(
+        e?.message ||
+          'No se pudo guardar. ¿Desplegaste firestore.rules con la colección `config`?',
+        'error',
+      );
     } finally {
       setGuardando(false);
     }

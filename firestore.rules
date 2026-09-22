@@ -75,6 +75,16 @@ service cloud.firestore {
         && (data.ownerId is string)
         && (data.date is number || data.date is timestamp)
         && data.items is list && data.items.size() <= 100
+        // OJO: esto valida SOLO EL PRIMER renglon. El lenguaje de reglas no
+        // tiene bucles, asi que no hay forma de recorrer la lista entera: los
+        // renglones 2..N no pasan por el whitelist de campos, ni por el tope de
+        // precio, ni por la coincidencia serialNumbers.size() == quantity.
+        //
+        // La defensa real de los renglones es Zod del lado del cliente
+        // (CartItemSchema corre sobre el array completo en recordSale) mas
+        // sanitizeSaleItem, que saca los campos de tablet. Esta linea es una
+        // prueba de forma, no una garantia — no confiar en ella para decidir
+        // que un campo nuevo "ya esta cubierto".
         && (data.items.size() == 0 || isValidSaleItem(data.items[0]))
         && data.subtotal is number
         && data.tax is number

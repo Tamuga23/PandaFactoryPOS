@@ -292,6 +292,20 @@ export default function Inventory() {
         isReordering: updatedIsReordering,
       });
       closeModal();
+      /*
+        Era la única escritura de inventario que no confirmaba nada: el modal se
+        cerraba y listo. Todas sus hermanas avisan —recordSale dice "stock
+        actualizado", el ajuste masivo dice cuántos productos tocó, la recepción
+        dice cuántas unidades entraron— y ésta, que exige motivo y escribe en el
+        kardex, se iba en silencio.
+      \*/
+      if (newStock !== editingProduct.stock) {
+        toast.success(
+          `«${editingProduct.name}»: ${editingProduct.stock} → ${newStock} unidades. Queda en el kardex.`,
+        );
+      } else {
+        toast.success(`«${editingProduct.name}» actualizado.`);
+      }
     } catch (error: any) {
       console.error('Error updating stock:', error);
       // El mensaje real: `adjustStock` lanza "El producto ya no existe", y las
