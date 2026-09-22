@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 import { formatCurrencyNIO } from '../lib/utils';
-import { Download, X, Loader2, Check, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Download, X, Loader2, Check, MessageCircle, AlertTriangle, Printer } from 'lucide-react';
 import { toast } from './Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -257,7 +257,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
       tabIndex={-1}
       autoFocus
       aria-label={data.type === 'PROFORMA' ? 'Vista previa de la cotización' : 'Vista previa de la factura'}
-      className="fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden"
+      className="dialogo-impresion fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden"
     >
       {/* Navbar modal */}
       <div className={`flex-none bg-zinc-950 p-4 border-b border-zinc-800 items-center justify-between sticky top-0 z-[101] ${modoCliente ? 'hidden' : 'flex'}`}>
@@ -373,6 +373,29 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   {isSharing ? 'Preparando…' : 'Enviar por WhatsApp'}
                 </button>
               )}
+              {/*
+                Imprimir DIRECTO. Antes el único camino era descargar el PDF,
+                salir de la aplicación, buscar el archivo en Descargas, abrirlo
+                y hacer Ctrl+P: cuatro acciones fuera del sistema por venta, con
+                el cliente esperando el papel.
+
+                Usa `window.print()` sobre la hoja `@media print` de
+                `index.css`, así que imprime EXACTAMENTE el mismo A4 que está en
+                pantalla — sin rasterizar nada y sin el rato de espera de
+                "Generando PDF...", que hace tres pasadas de `html-to-image` por
+                página con las fotos en base64 adentro.
+
+                "Descargar PDF" se queda: sirve para el envío digital y para
+                WhatsApp, que necesitan un archivo.
+              */}
+              <button
+                onClick={() => window.print()}
+                disabled={isGenerating || isSharing}
+                className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
+              >
+                <Printer className="w-5 h-5" aria-hidden="true" />
+                Imprimir
+              </button>
               <button
                 onClick={handleDownloadPDF}
                 disabled={isGenerating || isSharing}
@@ -401,7 +424,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
       </div>
 
       {/* Pages Container scrollable */}
-      <div className={`flex-1 overflow-auto custom-scrollbar ${modoCliente ? 'bg-zinc-200 p-0 flex items-start justify-center' : 'p-8'}`}>
+      <div className={`scroll-impresion flex-1 overflow-auto custom-scrollbar ${modoCliente ? 'bg-zinc-200 p-0 flex items-start justify-center' : 'p-8'}`}>
         {modoCliente && (
           <button
             type="button"
@@ -413,7 +436,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
         )}
         <div
           ref={containerRef}
-          className="flex flex-col items-center gap-8 pb-16 min-w-max mx-auto"
+          className="zona-impresion flex flex-col items-center gap-8 pb-16 min-w-max mx-auto"
           style={modoCliente ? { transform: `scale(${escala})`, transformOrigin: 'top center' } : undefined}
         >
           {pages.map((page, pageIndex) => (

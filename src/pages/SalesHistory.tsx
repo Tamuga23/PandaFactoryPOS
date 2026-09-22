@@ -3,13 +3,20 @@ import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
 import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
 import { Calendar, User, Phone, MapPin, Trash2, Edit, CheckCircle, RotateCcw, XCircle, Search, FileText, Truck, Printer, MessageCircle } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
+import { v5 as uuidv5 } from 'uuid';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+
+/**
+ * Espacio de nombres fijo para derivar el id de la factura a partir del de la
+ * proforma. Es una constante arbitraria pero ESTABLE: si cambia, dos intentos
+ * de facturar la misma proforma dejan de reconocerse entre sí.
+ */
+const NS_PROFORMA_A_FACTURA = '7f1c0a5e-9b3d-4a2e-8c41-2f6d5b0e91a7';
 
 // P4.1: estados en español para los chips.
 const STATUS_LABEL: Record<string, string> = {
@@ -101,40 +108,75 @@ export default function SalesHistory() {
     handleReprint(sale);
   };
 
-  // P2.5: convertir proforma en factura (verifica stock en la transacción).
+  /**
+   * P2.5: convertir proforma en factura (verifica stock en la transacción).
+   *
+   * Son DOS escrituras y hay que tratarlas por separado, porque la segunda
+   * puede fallar cuando la primera ya ocurrió.
+   *
+   * Antes las dos vivían en un solo `try`, así que si `updateSale` fallaba
+   * —permisos, red, cuota de Spark— el `catch` se comía el ÉXITO de
+   * `recordSale` y mostraba "No se pudo facturar la proforma". La factura
+   * existía, el stock ya había bajado y el correlativo ya se había consumido,
+   * pero la pantalla decía lo contrario: la proforma seguía en verde y el único
+   * botón disponible creaba una SEGUNDA factura y volvía a descontar stock. El
+   * mensaje decía lo opuesto de lo que pasó y la única acción a mano empeoraba
+   * el daño.
+   */
   const handleInvoiceProforma = async (p: Sale) => {
     if (invoicingProformaId) return;
     setInvoicingProformaId(p.id);
+
+    /*
+      El id de la factura se DERIVA de la proforma, no se sortea al azar.
+      Así, si el operador reintenta después de un fallo ambiguo, cae sobre el
+      MISMO documento y la guarda de idempotencia de `recordSale` devuelve el
+      número ya asignado sin volver a tocar stock ni contador. Con un uuid al
+      azar cada reintento era una venta nueva, que es justo lo que no se quiere.
+    */
+    const newSale: Sale = {
+      ...p,
+      id: uuidv5(p.id, NS_PROFORMA_A_FACTURA),
+      date: Date.now(),
+      documentType: 'RECIBO_OFICIAL',
+      invoiceNumber: 'POR ASIGNAR',
+      status: 'completed',
+      paymentMethod: p.paymentMethod || 'EFECTIVO',
+      notes: `${p.notes ? p.notes + ' · ' : ''}Origen: proforma ${p.invoiceNumber}`,
+    };
+
+    let num: string;
     try {
-      const newSale: Sale = {
-        ...p,
-        id: uuidv4(),
-        date: Date.now(),
-        documentType: 'RECIBO_OFICIAL',
-        invoiceNumber: 'POR ASIGNAR',
-        status: 'completed',
-        paymentMethod: p.paymentMethod || 'EFECTIVO',
-        notes: `${p.notes ? p.notes + ' · ' : ''}Origen: proforma ${p.invoiceNumber}`,
-      };
-      const num = await recordSale(newSale);
-      // Marca la proforma como consumida (cancelled) con referencia cruzada.
+      num = await recordSale(newSale);
+    } catch (e: any) {
+      // Acá la factura NO se creó: el stock y el correlativo están intactos.
+      toast.error(e?.message || 'No se pudo facturar la proforma. Verificá el stock.');
+      setInvoicingProformaId(null);
+      return;
+    }
+
+    // A partir de esta línea la factura EXISTE. Nada de lo que siga puede
+    // volver a decir que no se pudo facturar.
+    try {
       await updateSale({
         ...p,
         status: 'cancelled',
         notes: `${p.notes ? p.notes + ' · ' : ''}Facturada como ${num}`,
       });
       toast.success(`Proforma facturada como ${num} — stock descontado.`);
-      const finalSale = { ...newSale, invoiceNumber: num };
-      const rate = finalSale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
-      setReprintWa(finalSale.customerPhone ? buildWhatsAppMessage(finalSale, formatCurrencyNIO(finalSale.total * rate)) : null);
-      setReprintData(buildInvoiceDataFromSale(finalSale, companyInfo));
-    } catch (e: any) {
-      toast.error(e?.message?.includes('Stock') || e?.message?.includes('inválida')
-        ? e.message
-        : 'No se pudo facturar la proforma. Verificá el stock.');
-    } finally {
-      setInvoicingProformaId(null);
+    } catch {
+      toast.error(
+        `La factura ${num} SÍ se creó y el stock ya se descontó. Lo que no pude ` +
+        `es marcar la proforma como facturada: NO la vuelvas a facturar. ` +
+        `Cancelala a mano desde el Historial.`,
+      );
     }
+
+    const finalSale = { ...newSale, invoiceNumber: num };
+    const rate = finalSale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
+    setReprintWa(finalSale.customerPhone ? buildWhatsAppMessage(finalSale, formatCurrencyNIO(finalSale.total * rate)) : null);
+    setReprintData(buildInvoiceDataFromSale(finalSale, companyInfo));
+    setInvoicingProformaId(null);
   };
 
   // P1.2 + P4.5: no se borran ventas completadas; el resto pasa por un modal
