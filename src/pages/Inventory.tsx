@@ -648,7 +648,7 @@ export default function Inventory() {
                     type="button" 
                     onClick={closeModal} 
                     disabled={isSaving}
-                    className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-zinc-700 px-4 py-2 bg-zinc-800 text-sm font-medium text-zinc-300 hover:bg-zinc-700 focus:outline-none transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-zinc-700 px-4 py-2 bg-zinc-800 text-sm font-medium text-zinc-300 hover:bg-zinc-700 focus:outline-none transition-colors disabled:opacity-50 focus:ring-2 focus:ring-cyan-500"
                   >
                     Cancelar
                   </button>

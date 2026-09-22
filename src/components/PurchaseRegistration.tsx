@@ -412,7 +412,7 @@ export default function PurchaseRegistration({
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Fecha de Adquisición</label>
                   <input aria-label="Fecha de Adquisición"
                     type="date"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                     value={acquisitionDate}
                     onChange={(e) => setAcquisitionDate(e.target.value)}
                   />
@@ -501,7 +501,7 @@ export default function PurchaseRegistration({
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">No. Orden Master (Opcional)</label>
                   <input aria-label="No. Orden Master (Opcional)"
                     type="text"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                     value={orderNumber}
                     onChange={(e) => setOrderNumber(e.target.value)}
                     placeholder="Ej. 114-1234567-890"
@@ -632,7 +632,7 @@ export default function PurchaseRegistration({
                         <label htmlFor="ordencompra-nombre-del-producto" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Nombre del Producto</label>
                         <input id="ordencompra-nombre-del-producto"
                           type="text"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                           value={itemForm.description}
                           onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
                         />
@@ -643,7 +643,7 @@ export default function PurchaseRegistration({
                           <div className="flex gap-2">
                             <input id="ordencompra-categoria"
                               type="text"
-                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                               value={itemForm.category}
                               onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
                             />
@@ -651,7 +651,7 @@ export default function PurchaseRegistration({
                           </div>
                         ) : (
                           <select aria-label="Categoría"
-                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                             value={itemForm.category}
                             onChange={handleCategoryChange}
                           >
@@ -666,7 +666,7 @@ export default function PurchaseRegistration({
                         <input aria-label="Precio Venta Catálogo (USD)"
                           type="number"
                           step="any" min="0"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                           value={itemForm.catalogPriceUSD || ''}
                           onChange={(e) => setItemForm({ ...itemForm, catalogPriceUSD: Number(e.target.value) })}
                         />
@@ -704,7 +704,7 @@ export default function PurchaseRegistration({
                     <input aria-label="Costo VNE (USD)"
                       type="number"
                       step="any" min="0"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.unitCost || ''}
                       onChange={(e) => setItemForm({ ...itemForm, unitCost: Number(e.target.value) })}
                       placeholder="Costo de compra"
@@ -716,7 +716,7 @@ export default function PurchaseRegistration({
                     <input aria-label="Cantidad"
                       type="number"
                       min="1"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.quantity || ''}
                       onChange={(e) => setItemForm({ ...itemForm, quantity: Number(e.target.value) })}
                     />
@@ -726,7 +726,7 @@ export default function PurchaseRegistration({
                     <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Color Específico</label>
                     <input aria-label="Color Específico"
                       type="text"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.color}
                       onChange={(e) => setItemForm({ ...itemForm, color: e.target.value })}
                       placeholder="Ej. Negro"
@@ -738,7 +738,7 @@ export default function PurchaseRegistration({
                     <input id="ordencompra-peso-estimado-lbs-por-la-cantidad-entera"
                       type="number"
                       step="any" min="0"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.estimatedWeight}
                       onChange={(e) => setItemForm({ ...itemForm, estimatedWeight: e.target.value })}
                       placeholder="Ej. 2.5"

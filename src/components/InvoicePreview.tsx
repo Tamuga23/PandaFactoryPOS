@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 import { formatCurrencyNIO } from '../lib/utils';
-import { Download, X, Loader2, Check, MessageCircle } from 'lucide-react';
+import { Download, X, Loader2, Check, MessageCircle, AlertTriangle } from 'lucide-react';
 import { toast } from './Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -70,6 +70,10 @@ interface InvoicePreviewProps {
   onClose: () => void;
   onConfirm?: () => void;
   isConfirming?: boolean;
+  /** Si viene, el diálogo muestra que el último intento FALLÓ, con el motivo.
+   *  El aviso flotante no alcanza: el modal ocupa la pantalla entera y es
+   *  donde el operador está mirando cuando aprieta el botón. */
+  errorConfirmacion?: string | null;
   /** Si viene, muestra "Enviar por WhatsApp": comparte el PDF vía navigator.share
    *  (con fallback: descarga el PDF y abre wa.me para adjuntarlo a mano). */
   whatsApp?: { text: string; link: string | null } | null;
@@ -82,7 +86,7 @@ const TABLE_HEADER_HEIGHT = 35; // Reduced from 45
 const ITEM_WITH_IMAGE_HEIGHT = 65; // Reduced from 125
 const ITEM_WITHOUT_IMAGE_HEIGHT = 40; // Reduced from 65
 
-export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming, whatsApp }: InvoicePreviewProps) {
+export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming, whatsApp, errorConfirmacion }: InvoicePreviewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   /**
@@ -316,13 +320,41 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
           )}
           {onConfirm ? (
             <>
+              {/*
+                Si el intento anterior falló, el diálogo lo dice ACÁ, pegado al
+                botón. Antes el único rastro era un aviso flotante que se
+                borraba solo: el modal volvía a mostrar el mismo botón verde,
+                sin marca de error y sin razón, y el instinto es apretar otra
+                vez. El botón además pasa a decir "Reintentar", que es lo que
+                de verdad va a hacer.
+              */}
+              {errorConfirmacion && !isConfirming && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 max-w-md"
+                >
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
+                  <p className="text-rose-300 text-xs leading-snug">{errorConfirmacion}</p>
+                </div>
+              )}
               <button
                 onClick={onConfirm}
                 disabled={isConfirming}
                 className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50"
               >
                 {isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                {isConfirming ? 'Procesando...' : 'Confirmar Venta'}
+                {/*
+                  Decía "Confirmar Venta" también cuando el documento era una
+                  COTIZACIÓN, que no mueve stock ni cobra nada. El botón tiene
+                  que decir qué hace.
+                */}
+                {isConfirming
+                  ? 'Procesando...'
+                  : errorConfirmacion
+                    ? 'Reintentar'
+                    : data.type === 'PROFORMA'
+                      ? 'Guardar Cotización'
+                      : 'Confirmar Venta'}
               </button>
               <button onClick={onClose} disabled={isConfirming} className="bg-zinc-800 text-zinc-300 hover:text-white px-4 py-2.5 rounded-lg hover:bg-zinc-700 transition-all font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500">
                 Editar Datos

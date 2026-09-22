@@ -225,7 +225,7 @@ export default function Reports() {
                 type="date" 
                 value={dateRange.start}
                 onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400" 
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" 
               />
            </div>
            <div className="h-6 w-px bg-zinc-800"></div>
@@ -235,7 +235,7 @@ export default function Reports() {
                 type="date"
                 value={dateRange.end}
                 onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400"
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               />
            </div>
         </div>

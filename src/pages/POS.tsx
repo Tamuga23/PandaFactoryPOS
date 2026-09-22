@@ -68,6 +68,9 @@ export default function POS() {
   const [pendingLabelSale, setPendingLabelSale] = useState<Sale | null>(null);
   const [pendingSale, setPendingSale] = useState<{sale: Sale, isProforma: boolean} | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  // Motivo del último intento fallido de registrar la venta. Se pinta DENTRO
+  // del diálogo, no sólo en el aviso flotante.
+  const [errorConfirmacion, setErrorConfirmacion] = useState<string | null>(null);
   // WhatsApp con PDF adjunto disponible en el preview tras confirmar la venta.
   const [waShare, setWaShare] = useState<{ text: string; link: string | null } | null>(null);
   // Borrador encontrado al montar. Se ofrece, no se restaura solo: meterle una
@@ -645,6 +648,7 @@ export default function POS() {
 
   const handleConfirmCheckout = async () => {
     if (!pendingSale) return;
+    setErrorConfirmacion(null);
     setIsConfirming(true);
     
     const { sale, isProforma } = pendingSale;
@@ -695,7 +699,11 @@ export default function POS() {
         // siempre "verifique el stock", que es el consejo equivocado para
         // cuatro de las cinco causas. El operador es su propia mesa de ayuda:
         // el mensaje en pantalla es todo el soporte que hay.
-        toast.error(e?.message || 'No se pudo completar la venta. Intentá de nuevo.');
+        const msg = e?.message || 'No se pudo completar la venta. Intentá de nuevo.';
+        toast.error(msg);
+        // Y ADEMÁS dentro del diálogo, que es donde está la atención: el aviso
+        // flotante vive en la esquina opuesta y el modal ocupa la pantalla.
+        setErrorConfirmacion(msg);
         setIsConfirming(false);
         return;
     }
@@ -775,6 +783,7 @@ export default function POS() {
             setPreviewData(null);
             setPendingSale(null);
             setWaShare(null);
+            setErrorConfirmacion(null);
             // Recién ahora la etiqueta tiene la pantalla para ella sola.
             if (pendingLabelSale) {
               setLabelSaleData(pendingLabelSale);
@@ -783,6 +792,7 @@ export default function POS() {
           }}
           onConfirm={pendingSale ? handleConfirmCheckout : undefined}
           isConfirming={isConfirming}
+          errorConfirmacion={errorConfirmacion}
           whatsApp={waShare}
         />
       )}

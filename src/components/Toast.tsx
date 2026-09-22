@@ -51,6 +51,22 @@ export function Toaster() {
     pushToast = (t) => {
       const id = ++seq;
       setItems((prev) => [...prev.slice(-3), { ...t, id }]);
+      /*
+        Los ERRORES no se autodestruyen. Los avisos de este POS son el único
+        canal de los fallos que bloquean el cobro, y el operador es su propia
+        mesa de ayuda: `recordSale` produce un diagnóstico exacto ("Stock
+        insuficiente de X. Pedido: 3, Disponible: 1") y borrarlo a los 4,5
+        segundos lo tiraba a la basura justo cuando más se necesita.
+
+        El caso real: el operador aprieta Confirmar, se da vuelta a decirle al
+        cliente que ya está, y al volver a mirar el mensaje ya no existe. No
+        sabe si se guardó. Aprieta de nuevo, falla de nuevo, y vuelve a
+        perderse la explicación.
+
+        Éxito e información sí se van solos: no hay nada que leer dos veces.
+        El error se cierra con su X, que ya existía.
+      */
+      if (t.type === 'error') return;
       setTimeout(() => {
         setItems((prev) => prev.filter((i) => i.id !== id));
       }, 4500);
