@@ -6,6 +6,7 @@ import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { etiquetaVenta } from '../lib/etiquetas';
+import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -15,7 +16,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState<{ cliente: Customer; compras: number | null } | null>(null);
 
   // P2.6: historial de compras del cliente.
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
@@ -102,32 +103,34 @@ export default function Customers() {
    *    usa el botón de historial, así que el número es exacto y no una
    *    estimación sobre las ventas que estén cargadas en memoria.
    */
-  const handleDeleteClick = async (id: string) => {
-    const cliente = customers.find((c) => c.id === id);
+  /*
+    Cuántas ventas se desvinculan se consulta al ABRIR el diálogo, no al primer
+    clic de un botón que se desarmaba a los 3 segundos. El número entra en el
+    diálogo, así que el operador lo lee mientras decide y no en un toast de la
+    esquina que se lleva el tiempo que tenía para decidir.
 
-    if (confirmingDelete !== id) {
-      setConfirmingDelete(id);
-      setTimeout(() => setConfirmingDelete(null), 3000);
-      try {
-        const compras = await fetchSalesByCustomer(id);
-        if (compras.length > 0) {
-          toast.info(
-            `«${cliente?.fullName ?? 'Este cliente'}» tiene ${compras.length} ` +
-            `${compras.length === 1 ? 'compra' : 'compras'}. Borrar la ficha no borra las ventas, ` +
-            `pero las desvincula: dejan de aparecer en su historial.`,
-          );
-        }
-      } catch {
-        // Si la consulta falla, el borrado sigue disponible: no se bloquea una
-        // acción por no haber podido mostrar un aviso.
-      }
-      return;
-    }
-
-    setConfirmingDelete(null);
+    `null` mientras la consulta viaja: el diálogo muestra que está contando en
+    vez de afirmar cero, que sería mentira.
+  */
+  const pedirBorrado = async (cliente: Customer) => {
+    setBorrando({ cliente, compras: null });
     try {
-      await deleteCustomer(id);
-      toast.success(`Ficha de «${cliente?.fullName ?? 'cliente'}» eliminada.`);
+      const compras = await fetchSalesByCustomer(cliente.id);
+      setBorrando((b) => (b && b.cliente.id === cliente.id ? { ...b, compras: compras.length } : b));
+    } catch {
+      // Si la consulta falla, el borrado sigue disponible: no se bloquea una
+      // acción por no haber podido mostrar un aviso. El diálogo lo dice.
+      setBorrando((b) => (b && b.cliente.id === cliente.id ? { ...b, compras: -1 } : b));
+    }
+  };
+
+  const confirmarBorrado = async () => {
+    const cliente = borrando?.cliente;
+    if (!cliente) return;
+    setBorrando(null);
+    try {
+      await deleteCustomer(cliente.id);
+      toast.success(`Ficha de «${cliente.fullName}» eliminada.`);
     } catch (e: any) {
       toast.error(e?.message || 'No se pudo eliminar la ficha del cliente.');
     }
@@ -268,11 +271,12 @@ export default function Customers() {
                    >
                      <Edit className="w-3 h-3" /> Editar
                    </button>
-                   <button 
-                     onClick={() => handleDeleteClick(customer.id)} 
-                     className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors flex justify-center items-center ${confirmingDelete === customer.id ? 'bg-rose-500/20 text-rose-500 border-rose-500/30' : 'bg-zinc-800 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-500 border-zinc-700 hover:border-rose-500/30'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
+                   <button
+                     onClick={() => pedirBorrado(customer)}
+                     aria-label={`Eliminar la ficha de ${customer.fullName}`}
+                     className="px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors flex justify-center items-center bg-zinc-800 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-500 border-zinc-700 hover:border-rose-500/30 focus:outline-none focus:ring-2 focus:ring-rose-500"
                    >
-                     {confirmingDelete === customer.id ? '¿Eliminar?' : <Trash2 className="w-3.5 h-3.5" />}
+                     <Trash2 className="w-3.5 h-3.5" />
                    </button>
                 </div>
              </div>
@@ -478,6 +482,33 @@ export default function Customers() {
           </div>
         </div>
       )}
+
+      {/*
+          Las compras se cuentan mientras el diálogo ya está abierto: `null` es
+          "todavía contando", `-1` es "no se pudo contar". Ninguno de los dos se
+          muestra como cero, que sería una afirmación falsa sobre lo que se pierde.
+       */}
+      <ConfirmarBorrado
+        abierto={!!borrando}
+        titulo="Eliminar ficha de cliente"
+        nombre={borrando?.cliente.fullName || ''}
+        detalle={borrando ? [borrando.cliente.phone, borrando.cliente.email].filter(Boolean).join(' · ') || 'Sin teléfono ni correo' : null}
+        consecuencias={[
+          borrando?.compras === null
+            ? { tono: 'neutro' as const, texto: 'Contando sus compras…' }
+            : borrando?.compras === -1
+              ? { tono: 'aviso' as const, texto: 'No se pudieron contar sus compras. Si tenía historial, se va a desvincular igual.' }
+              : borrando && borrando.compras > 0
+                ? {
+                    tono: 'peligro' as const,
+                    texto: `Tiene ${borrando.compras} ${borrando.compras === 1 ? 'compra' : 'compras'}. Las ventas NO se borran, pero se desvinculan: dejan de aparecer en su historial y el WhatsApp y la reimpresión pierden el teléfono.`,
+                  }
+                : { tono: 'neutro' as const, texto: 'No tiene compras registradas.' },
+        ]}
+        textoConfirmar="Eliminar la ficha"
+        onConfirmar={confirmarBorrado}
+        onCancelar={() => setBorrando(null)}
+      />
     </div>
   );
 }

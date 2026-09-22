@@ -5,6 +5,7 @@ import { Product, Movimiento } from '../types';
 import { formatCurrency, fileToBase64, compressImage } from '../lib/utils';
 import { Plus, Edit2, Trash2, Image as ImageIcon, Search, PackagePlus, AlertTriangle, ShoppingCart, Check, Layers, History, Download, X, Loader2, PackageOpen } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { toCsv, downloadCsv } from '../lib/csv';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -26,7 +27,7 @@ export default function Inventory() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState<Product | null>(null);
 
   // P2.7: kardex por producto.
   const [kardexProduct, setKardexProduct] = useState<Product | null>(null);
@@ -107,26 +108,19 @@ export default function Inventory() {
    *    producto que se deja de vender, lo correcto es marcarlo Inactivo: sigue
    *    en el historial y desaparece del POS.
    */
-  const handleDeleteClick = async (id: string) => {
-    const producto = products.find((p) => p.id === id);
-
-    if (confirmingDelete !== id) {
-      setConfirmingDelete(id);
-      if (producto && producto.stock > 0) {
-        toast.info(
-          `«${producto.name}» tiene ${producto.stock} en stock. Borrarlo saca ese ` +
-          `valor del inventario sin pasar por el kardex. Si dejaste de venderlo, ` +
-          `marcalo Inactivo desde la ficha.`,
-        );
-      }
-      setTimeout(() => setConfirmingDelete(null), 3000);
-      return;
-    }
-
-    setConfirmingDelete(null);
+  /*
+    El aviso de que el producto tiene stock salía como toast, en la esquina,
+    mientras el botón se desarmaba SOLO a los 3 segundos. Leer el aviso tarda
+    más que eso: el sistema castigaba al que leía. Ahora la consecuencia vive
+    adentro del diálogo, pegada al botón, y el diálogo espera lo que haga falta.
+  */
+  const confirmarBorrado = async () => {
+    const producto = borrando;
+    if (!producto) return;
+    setBorrando(null);
     try {
-      await deleteProduct(id);
-      toast.success(`«${producto?.name ?? 'Producto'}» eliminado del catálogo.`);
+      await deleteProduct(producto.id);
+      toast.success(`«${producto.name}» eliminado del catálogo.`);
     } catch (e: any) {
       toast.error(e?.message || 'No se pudo eliminar el producto.');
     }
@@ -612,11 +606,12 @@ export default function Inventory() {
                       <PackageOpen className="h-4 w-4 inline" />
                     </button>
                     <button
-                      onClick={() => handleDeleteClick(product.id)}
-                      className={`transition-colors ${confirmingDelete === product.id ? 'text-rose-500 font-bold' : 'text-zinc-400 hover:text-rose-400'} focus:outline-none focus:ring-1 focus:ring-rose-500 rounded`}
+                      onClick={() => setBorrando(product)}
+                      className="text-zinc-400 hover:text-rose-400 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500 rounded"
                       title="Eliminar producto"
+                      aria-label={`Eliminar «${product.name}» del catálogo`}
                     >
-                      {confirmingDelete === product.id ? '¿Eliminar?' : <Trash2 className="h-4 w-4 inline" />}
+                      <Trash2 className="h-4 w-4 inline" />
                     </button>
                   </td>
                 </tr>
@@ -932,6 +927,33 @@ export default function Inventory() {
           </div>
         </div>
       )}
+
+      {/*
+          El mismo diálogo que usan Clientes, Compras e Historial. Antes acá
+          había un botón que cambiaba a «¿Eliminar?» y se desarmaba solo a los 3
+          segundos, con el aviso del stock en un toast de la esquina.
+       */}
+      <ConfirmarBorrado
+        abierto={!!borrando}
+        titulo="Eliminar producto del catálogo"
+        nombre={borrando?.name || ''}
+        detalle={borrando ? `SKU ${borrando.sku || 'sin SKU'} · ${borrando.stock} en stock · ${formatCurrency(borrando.price)}` : null}
+        consecuencias={[
+          ...(borrando && borrando.stock > 0
+            ? [{
+                tono: 'peligro' as const,
+                texto: `Se van a perder ${borrando.stock} unidad(es) del inventario, y ese movimiento NO queda en el kardex. Si dejaste de venderlo, marcalo Inactivo desde la ficha en vez de borrarlo.`,
+              }]
+            : []),
+          {
+            tono: 'aviso' as const,
+            texto: 'Las ventas que ya lo incluyen se quedan, pero anular una de esas ventas no va a poder reponer su stock.',
+          },
+        ]}
+        textoConfirmar="Eliminar el producto"
+        onConfirmar={confirmarBorrado}
+        onCancelar={() => setBorrando(null)}
+      />
     </div>
   );
 }

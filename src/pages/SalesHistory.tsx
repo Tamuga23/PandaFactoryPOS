@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
-import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
+import { formatCurrency, formatCurrencyNIO, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Calendar, User, Phone, MapPin, Trash2, Edit, CheckCircle, RotateCcw, XCircle, Search, FileText, Truck, Printer, MessageCircle } from 'lucide-react';
 import { v5 as uuidv5 } from 'uuid';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { ESTADO_VENTA } from '../lib/etiquetas';
+import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -62,11 +63,13 @@ export default function SalesHistory() {
   const [confirmarEstado, setConfirmarEstado] = useState<{ sale: Sale; nuevo: Sale['status'] } | null>(null);
 
   // P4.7: ESC cierra el modal de más arriba.
-  useEscapeKey(isEditModalOpen || !!labelData || !!reprintData || !!deleteModalSale || !!confirmarEstado, () => {
+  // `deleteModalSale` ya no está en esta lista: su ESC y su trampa de foco los
+  // trae `ConfirmarBorrado`, que es el diálogo que ahora comparten las cuatro
+  // pantallas que borran algo.
+  useEscapeKey(isEditModalOpen || !!labelData || !!reprintData || !!confirmarEstado, () => {
     if (reprintData) setReprintData(null);
     else if (labelData) setLabelData(null);
     else if (confirmarEstado) setConfirmarEstado(null);
-    else if (deleteModalSale) setDeleteModalSale(null);
     else setIsEditModalOpen(false);
   });
 
@@ -80,10 +83,8 @@ export default function SalesHistory() {
     por el velo, y se podía disparar la acción de otra venta sin verla. Son las
     dos escrituras más destructivas de la aplicación.
   */
-  const borrarModalRef = useRef<HTMLDivElement>(null);
   const estadoModalRef = useRef<HTMLDivElement>(null);
   const editarModalRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(!!deleteModalSale, borrarModalRef);
   useFocusTrap(!!confirmarEstado, estadoModalRef);
   useFocusTrap(isEditModalOpen && !!editingSale, editarModalRef);
 
@@ -209,8 +210,10 @@ export default function SalesHistory() {
     try {
       await deleteSale(deleteModalSale.id);
       toast.success(`${deleteModalSale.documentType === 'PROFORMA' ? 'Proforma' : 'Venta'} ${deleteModalSale.invoiceNumber} eliminada.`);
-    } catch {
-      toast.error('No se pudo eliminar el registro.');
+    } catch (e: any) {
+      // Sin el `e`, `db.ts` humaniza el error de permisos, de cuota o de red y
+      // acá se tiraba a la basura para decir "no se pudo".
+      toast.error(e?.message || 'No se pudo eliminar el registro.');
     } finally {
       setDeleteModalSale(null);
     }
@@ -683,62 +686,36 @@ export default function SalesHistory() {
         );
       })()}
 
-      {deleteModalSale && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          {/* El telón es un blanco de clic para el mouse, no un control: sin
-              `aria-hidden` un lector anuncia un clicable sin nombre justo antes
-              del diálogo. El camino de teclado equivalente es ESC, que ya está. */}
-          <div
-            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
-            onClick={() => setDeleteModalSale(null)}
-            aria-hidden="true"
-          ></div>
-          {/* `autoFocus` va en el CONTENEDOR, nunca en "Eliminar
-              definitivamente": con el foco puesto ahí, un Enter de más borra
-              una venta. */}
-          <div
-            ref={borrarModalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="titulo-borrar-venta"
-            tabIndex={-1}
-            autoFocus
-            className="relative bg-zinc-900 border border-rose-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4"
-          >
-            <h3 id="titulo-borrar-venta" className="text-lg font-bold text-rose-400 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" aria-hidden="true" /> Eliminar {deleteModalSale.documentType === 'PROFORMA' ? 'proforma' : 'venta anulada'}
-            </h3>
-            <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-sm text-zinc-200">
-              <p className="font-bold">{deleteModalSale.invoiceNumber} — {deleteModalSale.customerName || 'Cliente final'}</p>
-              <p className="text-zinc-400 text-xs mt-1">
-                {new Date(deleteModalSale.date).toLocaleDateString()} · {deleteModalSale.items.length} ítem(s) · {formatCurrency(deleteModalSale.total)}
-                {' '}({formatCurrencyNIO(deleteModalSale.total * (deleteModalSale.exchangeRate || 36.6243))})
-              </p>
-            </div>
-            {/* Era zinc-500 (3.67:1). Es el texto que explica que la acción NO
-                se puede deshacer: no es información accesoria. zinc-400 da 6.91:1. */}
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              {deleteModalSale.documentType === 'PROFORMA'
-                ? 'Las proformas no afectan el stock. Esta acción no se puede deshacer.'
-                : 'El stock ya fue repuesto al anular esta venta; borrar solo elimina el registro histórico y NO se puede deshacer.'}
-            </p>
-            <div className="flex justify-end gap-3 pt-1">
-              <button
-                onClick={() => setDeleteModalSale(null)}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
-              >
-                Eliminar definitivamente
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/*
+          Este modal era el bueno de los seis que había —resumen, consecuencia
+          por escrito, foco atrapado, ESC, `autoFocus` en el contenedor— y
+          protegía la acción MENOS grave de todas: borrar una venta ya anulada,
+          que no mueve stock. Las tres que sí movían inventario tenían un botón
+          que cambiaba a «¿Eliminar?» y se desarmaba solo a los 3 segundos.
+
+          Así que se generalizó éste y las cuatro pantallas lo usan.
+       */}
+      <ConfirmarBorrado
+        abierto={!!deleteModalSale}
+        titulo={`Eliminar ${deleteModalSale?.documentType === 'PROFORMA' ? 'proforma' : 'venta anulada'}`}
+        nombre={deleteModalSale ? `${deleteModalSale.invoiceNumber} — ${deleteModalSale.customerName || 'Cliente final'}` : ''}
+        detalle={deleteModalSale ? (
+          <>
+            {new Date(deleteModalSale.date).toLocaleDateString()} · {deleteModalSale.items.length} ítem(s) ·{' '}
+            {formatCurrency(deleteModalSale.total)}{' '}
+            ({formatCurrencyNIO(deleteModalSale.total * (deleteModalSale.exchangeRate || DEFAULT_EXCHANGE_RATE))})
+          </>
+        ) : null}
+        consecuencias={[
+          deleteModalSale?.documentType === 'PROFORMA'
+            ? { tono: 'neutro' as const, texto: 'Las cotizaciones no afectan el stock: no se mueve ninguna unidad.' }
+            : { tono: 'neutro' as const, texto: 'El stock ya se repuso al anular esta venta. Borrar elimina sólo el registro histórico.' },
+          { tono: 'aviso' as const, texto: 'El movimiento que quedó en el kardex NO se borra: el kardex es inmutable.' },
+        ]}
+        textoConfirmar="Eliminar el registro"
+        onConfirmar={confirmDelete}
+        onCancelar={() => setDeleteModalSale(null)}
+      />
 
       {isEditModalOpen && editingSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

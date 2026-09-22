@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import PurchaseRegistration from '../components/PurchaseRegistration';
 import { etiquetaOrden } from '../lib/etiquetas';
+import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -25,7 +26,7 @@ export default function Purchases() {
   const { products, purchases, recordPurchase, updatePurchase, deletePurchase, cancelPurchase, revertTrackingReception, addProduct, companyInfo, loading, suppliers, addSupplier } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [trackingModalPurchase, setTrackingModalPurchase] = useState<Purchase | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState<Purchase | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'OPEN' | 'PARTIAL' | 'CLOSED' | 'CANCELLED'>('todas');
 
@@ -204,7 +205,6 @@ export default function Purchases() {
     const recibidas = (orden?.trackings || []).filter((t) => t.isReceived).length;
 
     if (recibidas > 0) {
-      setConfirmingDelete(null);
       toast.error(
         `Esta orden tiene ${recibidas} ${recibidas === 1 ? 'caja recibida' : 'cajas recibidas'}: ` +
         `borrarla dejaría ese stock sin respaldo. Revertí la recepción desde ` +
@@ -213,16 +213,18 @@ export default function Purchases() {
       return;
     }
 
-    if (confirmingDelete !== id) {
-      setConfirmingDelete(id);
-      setTimeout(() => setConfirmingDelete(null), 3000);
-      return;
-    }
+    // El bloqueo por cajas recibidas se resuelve antes de abrir nada: no tiene
+    // sentido preguntar por algo que no se va a poder hacer.
+    setBorrando(orden || null);
+  };
 
-    setConfirmingDelete(null);
+  const confirmarBorrado = async () => {
+    const orden = borrando;
+    if (!orden) return;
+    setBorrando(null);
     try {
-      await deletePurchase(id);
-      toast.success('Orden de compra eliminada.');
+      await deletePurchase(orden.id);
+      toast.success(`Orden ${orden.orderNumber || orden.id.slice(0, 8)} eliminada.`);
     } catch (e: any) {
       toast.error(e?.message || 'No se pudo eliminar la orden de compra.');
     }
@@ -588,9 +590,9 @@ export default function Purchases() {
                             ? 'No se puede borrar: tiene cajas recibidas'
                             : 'Eliminar la orden de compra'}
                           aria-label={`Eliminar la orden de compra de ${supplierName(p.supplier)}`}
-                          className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingDelete === p.id ? 'text-rose-500' : 'text-zinc-500 hover:text-rose-400 hover:bg-zinc-800'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
+                          className="p-1.5 rounded transition-colors text-xs font-bold text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
                         >
-                          {confirmingDelete === p.id ? '¿Eliminar?' : <Trash2 className="w-4 h-4" />}
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -1121,6 +1123,28 @@ export default function Purchases() {
           </div>
         </div>
       )}
+
+      <ConfirmarBorrado
+        abierto={!!borrando}
+        titulo="Eliminar orden de compra"
+        nombre={borrando ? `Orden ${borrando.orderNumber || borrando.id.slice(0, 8)} · ${supplierName(borrando.supplier)}` : ''}
+        detalle={borrando ? `${new Date(borrando.date).toLocaleDateString()} · ${(borrando.items || []).length} artículo(s) · ${formatCurrency(borrando.totalCost)}` : null}
+        consecuencias={[
+          {
+            tono: 'aviso' as const,
+            texto: 'Se pierde el registro de lo que se pidió, a quién y a qué costo. El inventario no se toca: ninguna caja de esta orden fue recibida.',
+          },
+          ...((borrando?.trackings || []).length > 0
+            ? [{
+                tono: 'neutro' as const,
+                texto: `También se pierden ${(borrando?.trackings || []).length} número(s) de tracking cargados.`,
+              }]
+            : []),
+        ]}
+        textoConfirmar="Eliminar la orden"
+        onConfirmar={confirmarBorrado}
+        onCancelar={() => setBorrando(null)}
+      />
     </div>
   );
 }
