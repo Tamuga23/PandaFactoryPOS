@@ -132,7 +132,7 @@ function AppContent() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full flex items-center justify-center gap-3 bg-cyan-700 text-white hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold py-3 px-4 rounded-xl transition-all shadow-lg shadow-cyan-500/20 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full flex items-center justify-center gap-3 bg-cyan-700 text-white hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold py-3 px-4 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {isLoggingIn ? (
                 <span className="animate-pulse">Entrando...</span>

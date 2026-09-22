@@ -149,7 +149,7 @@ export default function Customers() {
           </div>
           <button 
             onClick={handleAddNew}
-            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <Plus className="w-4 h-4" />
             Nuevo Cliente
@@ -421,7 +421,7 @@ export default function Customers() {
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3 border-t border-zinc-800">
                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">Guardar</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">Guardar</button>
                 </div>
              </form>
           </div>

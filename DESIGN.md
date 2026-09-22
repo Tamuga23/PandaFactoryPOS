@@ -445,15 +445,13 @@ La profundidad se construye con tres recursos, en este orden:
 - **Flotante** (`shadow-2xl`): lo único que está por encima de la interfaz —
   modales, el panel del carrito, el toast, el desplegable del autocompletado y
   la barra fija del POS en móvil. Todos ellos tapan contenido de verdad.
-- **Afirmación** (`shadow-lg`, en el botón primario): peso sobre el botón de
-  acción, a veces teñido de turquesa (`shadow-lg shadow-cyan-900/20`).
-  **Es la única excepción viva a la doctrina plana y está pendiente de
-  decisión**: un botón no flota, así que estrictamente la regla lo alcanza.
-  Se deja anotado en vez de cambiarlo de callada, porque toca el control más
-  visible de la aplicación.
 - **Papel** (`shadow-xl`): **sólo los documentos imprimibles.**
 
-> **Decisión (2026-09-20).** Esta lista bendecía `shadow-xl` / `shadow-sm` en
+Y nada más. **No existe un vocabulario de "Afirmación"**: ningún botón lleva
+sombra. Hay exactamente dos razones para que algo proyecte sombra en este
+sistema, y las dos significan lo mismo — *esto está por encima del resto*.
+
+> **Decisión (2026-09-20/21).** Esta lista bendecía `shadow-xl` / `shadow-sm` en
 > "los paneles de Reportes y Configuración", que es exactamente lo que la Regla
 > del Reposo Plano de abajo prohíbe. Dos secciones vecinas mandaban cosas
 > opuestas y quien maquetaba un panel nuevo podía cumplir cualquiera de las dos
@@ -462,12 +460,19 @@ La profundidad se construye con tres recursos, en este orden:
 > Financiamiento, el del Catálogo Maestro y sus dos pestañas, el ítem de
 > navegación activo, la tarjeta de producto del POS, la tarjeta de cliente y la
 > fila del Historial. Ninguna de esas superficies flota sobre nada.
+>
+> En una segunda pasada cayó también la **última excepción**: los 14 botones que
+> llevaban `shadow-lg` (a veces teñida de turquesa). Un botón no flota, así que
+> la regla lo alcanzaba igual, y mantenerlo como excepción obligaba al documento
+> a explicar por qué una regla no se cumple. La regla no tiene excepciones.
 
 ### Named Rules
 
 **La Regla del Reposo Plano.** Las superficies son planas cuando no pasa nada.
 Una sombra significa flotación sobre el resto de la interfaz, nunca jerarquía ni
-respuesta al hover. Si querés que algo destaque en reposo, subí su capa tonal o
+respuesta al hover. **Sin excepciones, tampoco para los botones**: el primario
+se distingue por su relleno turquesa sólido, que ningún otro control tiene, y no
+necesita peso encima. Si querés que algo destaque en reposo, subí su capa tonal o
 su borde — no le pongas sombra.
 
 ## Shapes

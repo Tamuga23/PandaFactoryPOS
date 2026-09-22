@@ -376,7 +376,7 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
           <button
             onClick={handleDownload}
             disabled={isGenerating}
-            className="px-8 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl shadow-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
+            className="px-8 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
           >
             {isGenerating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
             {isGenerating ? 'Generando...' : 'Descargar Etiqueta (4x6)'}

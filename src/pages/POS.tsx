@@ -1030,7 +1030,7 @@ export default function POS() {
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-900 border-t border-zinc-700 z-30 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
            <button 
              onClick={() => setShowMobileCart(true)}
-             className="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-cyan-400"
+             className="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-cyan-400"
            >
              <span className="flex items-center gap-2">
                <ShoppingCart className="w-5 h-5" /> 
@@ -1743,7 +1743,7 @@ export default function POS() {
               onClick={() => handleTryCheckout(false)}
               disabled={cart.length === 0}
               title="Facturar (F2)"
-              className="flex-1 bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3 rounded-lg shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
+              className="flex-1 bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed text-sm sm:text-base"
             >
               <Receipt className="w-4 h-4" />
               FACTURAR

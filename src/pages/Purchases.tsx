@@ -829,7 +829,7 @@ export default function Purchases() {
                       )}
                       
                       {!editingTracking?.isReceived && (
-                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-cyan-500">
                            {isSavingPhase2 ? 'Guardando...' : 'Guardar y Asociar a Orden'}
                         </button>
                       )}

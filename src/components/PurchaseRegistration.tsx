@@ -766,7 +766,7 @@ export default function PurchaseRegistration({
          <button
            onClick={handleSubmit}
            disabled={isSubmitting || items.length === 0}
-           className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+           className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
          >
            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
            {isSubmitting ? 'Procesando Múltiples Artículos...' : `Finalizar y Guardar ${items.length > 0 ? items.length : ''} Artículos`}

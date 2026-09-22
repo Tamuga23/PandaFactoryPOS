@@ -311,7 +311,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-8 py-3 rounded-xl transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {isSaving ? (
                 <>Procesando...</>
@@ -359,7 +359,7 @@ export default function Settings() {
                   type="button"
                   onClick={handleCleanDuplicates}
                   disabled={isCleaning}
-                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center justify-center flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
                   {isCleaning ? 'Limpiando...' : 'Sí, Eliminar'}
                 </button>
