@@ -1,5 +1,80 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — Cuarto critique de diseño (2026-09-20/21)
+
+Se corrieron cuatro evaluadores aislados sobre `src/pages/POS.tsx` (revisión de
+diseño, escena real de cobro, detector + medición, conformidad con DESIGN.md).
+A ninguno se le dijo qué se había cambiado antes, que es lo que hizo que
+encontraran regresiones introducidas en la propia sesión. Puntaje 22/40.
+
+### Los dos P0, los dos introducidos en esta sesión
+
+- **Ninguna venta ni proforma podía registrarse.** `SaleSchema` pide
+  `invoiceNumber: z.string().min(1)` y el POS mandaba `''` a propósito, para que
+  el preview ocultara el renglón del número en vez de mostrarle al cliente un
+  texto interno. Las dos decisiones eran correctas por separado; juntas mataban
+  toda escritura en el `safeParse` previo a la transacción. Ni `tsc` ni el build
+  podían verlo (el tipo sigue siendo `string`). **Los critiques #2 y #3
+  corrieron sobre ese build y no lo vieron**, porque revisaban diseño y ninguno
+  caminó la transacción. Arreglado validando una copia con número de relleno
+  (`.omit()` no sirve: lanza sobre schemas con `.refine`).
+- **F2 facturaba un formulario congelado.** Un arreglo de dependencias con
+  `eslint-disable` congeló la clausura del efecto de atajos: todo lo que el
+  operador tocara después era invisible para F2/F3, porque nada de eso cambia la
+  cantidad de líneas. Apretar F2 con el formulario lleno emitía una factura con
+  el cliente vacío, EFECTIVO y a precio de lista.
+
+### Aplicado (commits `0c44d5b`, `a24671f`, `24bfe9e`, `fe9c09f`, `5690518`, `c364745`)
+
+- **Reintentar una venta es idempotente.** `recordSale` lee `sales/{id}` dentro
+  de la transacción y sale sin escribir si ya existe. Antes, un reintento tras
+  un fallo ambiguo (`unavailable`/`deadline-exceeded`) descontaba stock dos
+  veces, saltaba un correlativo y dejaba dos movimientos de kardex con el mismo
+  `refId`.
+- **El mostrador cobra el precio vigente.** `precioVigente()` se extrajo a
+  `validations.ts` y la usan el POS y `buildPublicCatalogDoc`, así que el
+  mostrador y el catálogo público no pueden divergir. Antes PandaWEB mostraba
+  `precioPromo` y la caja cobraba `price`. Verificado que el catálogo público no
+  cambia (7 casos borde).
+- **No se puede facturar un envío sin dirección ni teléfono.**
+- **Un escaneo fallido ya no envenena los siguientes** (el código quedaba pegado
+  en el buscador y todo escaneo posterior concatenaba encima).
+- **El aviso de una venta financiada muestra el total a plazos**, no el de
+  contado.
+- **Semántica de diálogo en los 7 modales que no la tenían** + trampa de foco en
+  los 10 que la necesitaban. `useFocusTrap` estaba importado en tres archivos y
+  nunca se llamaba. Los tres modales de Inventario compartían `id="modal-title"`.
+- **142 de 144 controles de formulario tienen nombre accesible** (69 `htmlFor`,
+  88 `aria-label`; los 2 restantes son asociación implícita, correcta).
+- **144 de 146 botones declaran anillo de foco** (antes 47).
+- **La paleta volvió a cinco colores**: fuera indigo, fuchsia, red y el gradiente
+  decorativo de la tarjeta de cliente.
+- **Doctrina plana**: 18 sombras en reposo quitadas (decisión del usuario).
+- **Dos clases que no generaban CSS**: `aspect-w-1/aspect-h-1` (plugin no
+  instalado) y `text-md` ×6 (no existe en Tailwind), verificado contra el CSS
+  compilado.
+- **DESIGN.md se contradecía a sí mismo en diez lugares** y sus ratios estaban
+  calculados sobre los hex de Tailwind v3 cuando el proyecto compila v4 en
+  OKLCH. Corregido, con las métricas fechadas.
+
+### Pendiente
+
+- **La app no imprime.** No hay `window.print()` ni `@media print` en el repo: el
+  último paso de cada venta es salir de la aplicación a buscar el PDF. Se
+  relaciona con el P4.6 que ya estaba anotado.
+- **El `shadow-lg` del botón primario** es la única excepción viva a la doctrina
+  plana. Un botón no flota, así que estrictamente la regla lo alcanza; queda
+  anotado en DESIGN.md y sin decidir porque toca el control más visible.
+- **`text-[11px]` ×28** es un escalón real de la consola que la rampa de
+  DESIGN.md no documenta, y 22 `text-[10px]` viven dentro de los lienzos de
+  papel, donde ese paso no pertenece.
+- **El segundo sistema de avisos de Configuración** (barra fija sólida) hace el
+  mismo trabajo que el Toast global. DESIGN.md ya lo llama deuda.
+- **Recuperar un borrador** restaura precio, stock y cliente sin revalidar nada
+  contra el catálogo actual.
+
+---
+
 ## ESTADO — Fixes del smoke test de Carlos (2026-07-08)
 
 - **WhatsApp CON el PDF adjunto**: el preview de factura (POS post-venta, Historial y CRM) tiene botón "Enviar por WhatsApp" que genera el PDF y lo comparte vía `navigator.share` (Windows 10+/Android/iOS lo enrutan a WhatsApp con el archivo adjunto). Si el navegador no soporta compartir archivos, fallback: descarga el PDF y abre el chat wa.me con el texto para adjuntarlo a mano (con aviso). Los botones de WhatsApp en las filas ahora abren el preview con el envío listo (wa.me solo nunca pudo adjuntar archivos).
