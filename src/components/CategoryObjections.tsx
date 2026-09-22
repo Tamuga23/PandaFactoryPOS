@@ -225,7 +225,7 @@ export default function CategoryObjections() {
                   ID <span className="text-rose-400">*</span>
                   {editingId && <span className="ml-1 text-zinc-600">(no editable)</span>}
                 </label>
-                <input
+                <input aria-label="ID"
                   type="text"
                   value={form.id}
                   onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
@@ -239,7 +239,7 @@ export default function CategoryObjections() {
                 <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   Categoría <span className="text-rose-400">*</span>
                 </label>
-                <select
+                <select aria-label="Categoría"
                   value={isCustomSlug(form.categorySlug) ? CUSTOM_SENTINEL : form.categorySlug}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -261,6 +261,7 @@ export default function CategoryObjections() {
                 </select>
                 {isCustomSlug(form.categorySlug) && (
                   <input
+                    aria-label="Nombre de la categoría nueva"
                     type="text"
                     value={customSlug}
                     onChange={(e) => {
@@ -275,8 +276,8 @@ export default function CategoryObjections() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Orden</label>
-                <input
+                <label htmlFor="objcat-orden" className="block text-xs font-medium text-zinc-400 mb-1.5">Orden</label>
+                <input id="objcat-orden"
                   type="number"
                   value={form.orden}
                   onChange={(e) => setForm((f) => ({ ...f, orden: parseInt(e.target.value) || 1 }))}
@@ -289,7 +290,7 @@ export default function CategoryObjections() {
               <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                 Pregunta <span className="text-rose-400">*</span>
               </label>
-              <input
+              <input aria-label="Pregunta"
                 type="text"
                 value={form.pregunta}
                 onChange={(e) => setForm((f) => ({ ...f, pregunta: e.target.value }))}
@@ -302,7 +303,7 @@ export default function CategoryObjections() {
               <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                 Respuesta <span className="text-rose-400">*</span>
               </label>
-              <textarea
+              <textarea aria-label="Respuesta"
                 value={form.respuesta}
                 onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
                 required

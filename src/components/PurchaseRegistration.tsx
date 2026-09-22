@@ -346,10 +346,10 @@ export default function PurchaseRegistration({
              </h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Proveedor</label>
+                  <label htmlFor="ordencompra-proveedor" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Proveedor</label>
                   {isCustomSupplier ? (
                     <div className="flex gap-2">
-                      <input
+                      <input id="ordencompra-proveedor"
                         type="text"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={supplier}
@@ -359,7 +359,15 @@ export default function PurchaseRegistration({
                       <button type="button" onClick={() => setIsCustomSupplier(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
                     </div>
                   ) : (
+                    /*
+                      MISMO id que el <input> de la otra rama del ternario, a
+                      propósito: son excluyentes, nunca coexisten en el DOM, y
+                      comparten un solo <label>. Con ids distintos el `htmlFor`
+                      quedaría colgando en una de las dos ramas. Un grep va a
+                      ver el id "repetido": no lo está en tiempo de ejecución.
+                    */
                     <select
+                      id="ordencompra-proveedor"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={supplier}
                       onChange={handleSupplierChange}
@@ -374,10 +382,10 @@ export default function PurchaseRegistration({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Plataforma</label>
+                  <label htmlFor="ordencompra-plataforma" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Plataforma</label>
                   {isCustomPlatform ? (
                     <div className="flex gap-2">
-                      <input
+                      <input id="ordencompra-plataforma"
                         type="text"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={platform}
@@ -387,7 +395,9 @@ export default function PurchaseRegistration({
                       <button type="button" onClick={() => setIsCustomPlatform(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
                     </div>
                   ) : (
-                    <select
+                    /* Mismo id que el <input> de la otra rama del ternario: ver
+                       la nota del selector de proveedor, más arriba. */
+                    <select id="ordencompra-plataforma"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={platform}
                       onChange={handlePlatformChange}
@@ -400,7 +410,7 @@ export default function PurchaseRegistration({
 
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Fecha de Adquisición</label>
-                  <input
+                  <input aria-label="Fecha de Adquisición"
                     type="date"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
                     value={acquisitionDate}
@@ -412,7 +422,7 @@ export default function PurchaseRegistration({
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Financiación</label>
                   {isCustomFinancing ? (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="Financiación"
                         type="text"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={financing}
@@ -422,7 +432,7 @@ export default function PurchaseRegistration({
                       <button type="button" onClick={() => setIsCustomFinancing(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
                     </div>
                   ) : (
-                    <select
+                    <select aria-label="Financiación"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={financing}
                       onChange={handleFinancingChange}
@@ -441,7 +451,7 @@ export default function PurchaseRegistration({
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Canal de Envío</label>
                   {isCustomShippingChannel ? (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="Canal de Envío"
                         type="text"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={shippingChannel}
@@ -451,7 +461,7 @@ export default function PurchaseRegistration({
                       <button type="button" onClick={() => setIsCustomShippingChannel(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
                     </div>
                   ) : (
-                    <select
+                    <select aria-label="Canal de Envío"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={shippingChannel}
                       onChange={handleShippingChannelChange}
@@ -466,7 +476,7 @@ export default function PurchaseRegistration({
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Modalidad</label>
                   {isCustomShippingMode ? (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="Modalidad"
                         type="text"
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={shippingMode}
@@ -476,7 +486,7 @@ export default function PurchaseRegistration({
                       <button type="button" onClick={() => setIsCustomShippingMode(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
                     </div>
                   ) : (
-                    <select
+                    <select aria-label="Modalidad"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={shippingMode}
                       onChange={handleShippingModeChange}
@@ -489,7 +499,7 @@ export default function PurchaseRegistration({
                 
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">No. Orden Master (Opcional)</label>
-                  <input
+                  <input aria-label="No. Orden Master (Opcional)"
                     type="text"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
                     value={orderNumber}
@@ -512,7 +522,7 @@ export default function PurchaseRegistration({
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Tarifa Flete (USD/lb)</label>
-                  <input
+                  <input aria-label="Tarifa Flete (USD/lb)"
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
                     value={shippingRatePerLb}
@@ -522,7 +532,7 @@ export default function PurchaseRegistration({
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Flete Total (USD)</label>
-                  <input
+                  <input aria-label="Flete Total (USD)"
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
                     value={freightCost || ''}
@@ -531,8 +541,8 @@ export default function PurchaseRegistration({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Aduana / DGA (USD)</label>
-                  <input
+                  <label htmlFor="ordencompra-aduana-dga-usd" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Aduana / DGA (USD)</label>
+                  <input id="ordencompra-aduana-dga-usd"
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
                     value={customsTaxes || ''}
@@ -541,8 +551,8 @@ export default function PurchaseRegistration({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Seguro (USD)</label>
-                  <input
+                  <label htmlFor="ordencompra-seguro-usd" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Seguro (USD)</label>
+                  <input id="ordencompra-seguro-usd"
                     type="number" step="any" min="0"
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
                     value={insuranceCost || ''}
@@ -603,8 +613,8 @@ export default function PurchaseRegistration({
                   {!isNewProduct ? (
                     <>
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Buscar Inventario</label>
-                        <select
+                        <label htmlFor="ordencompra-buscar-inventario" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Buscar Inventario</label>
+                        <select id="ordencompra-buscar-inventario"
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 outline-none"
                           value={itemForm.itemId}
                           onChange={handleExistingItemChange}
@@ -619,8 +629,8 @@ export default function PurchaseRegistration({
                   ) : (
                     <>
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Nombre del Producto</label>
-                        <input
+                        <label htmlFor="ordencompra-nombre-del-producto" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Nombre del Producto</label>
+                        <input id="ordencompra-nombre-del-producto"
                           type="text"
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
                           value={itemForm.description}
@@ -628,10 +638,10 @@ export default function PurchaseRegistration({
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Categoría</label>
+                        <label htmlFor="ordencompra-categoria" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Categoría</label>
                         {isCustomCategory ? (
                           <div className="flex gap-2">
-                            <input
+                            <input id="ordencompra-categoria"
                               type="text"
                               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
                               value={itemForm.category}
@@ -640,7 +650,7 @@ export default function PurchaseRegistration({
                             <button type="button" onClick={() => setIsCustomCategory(false)} className="px-2 bg-zinc-700 rounded-lg text-xs text-white">Volver</button>
                           </div>
                         ) : (
-                          <select
+                          <select aria-label="Categoría"
                             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
                             value={itemForm.category}
                             onChange={handleCategoryChange}
@@ -653,7 +663,7 @@ export default function PurchaseRegistration({
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Precio Venta Catálogo (USD)</label>
-                        <input
+                        <input aria-label="Precio Venta Catálogo (USD)"
                           type="number"
                           step="any" min="0"
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -679,7 +689,7 @@ export default function PurchaseRegistration({
                             <div className="flex items-center justify-center w-full">
                                 <label className="flex flex-col items-center justify-center w-full h-20 border border-zinc-700 border-dashed rounded-xl cursor-pointer bg-zinc-800/50 hover:bg-zinc-800">
                                     <span className="text-[10px] text-zinc-400">Click para subir foto</span>
-                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                                    <input aria-label="Elegir una imagen para el artículo" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                                 </label>
                             </div>
                          )}
@@ -691,7 +701,7 @@ export default function PurchaseRegistration({
 
                   <div className="space-y-2">
                     <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider text-rose-400">Costo VNE (USD)</label>
-                    <input
+                    <input aria-label="Costo VNE (USD)"
                       type="number"
                       step="any" min="0"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -703,7 +713,7 @@ export default function PurchaseRegistration({
                   
                   <div className="space-y-2">
                     <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider text-cyan-400">Cantidad</label>
-                    <input
+                    <input aria-label="Cantidad"
                       type="number"
                       min="1"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
@@ -714,7 +724,7 @@ export default function PurchaseRegistration({
 
                   <div className="space-y-2">
                     <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Color Específico</label>
-                    <input
+                    <input aria-label="Color Específico"
                       type="text"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
                       value={itemForm.color}
@@ -724,8 +734,8 @@ export default function PurchaseRegistration({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Peso Estimado (lbs) por la cantidad entera</label>
-                    <input
+                    <label htmlFor="ordencompra-peso-estimado-lbs-por-la-cantidad-entera" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Peso Estimado (lbs) por la cantidad entera</label>
+                    <input id="ordencompra-peso-estimado-lbs-por-la-cantidad-entera"
                       type="number"
                       step="any" min="0"
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"

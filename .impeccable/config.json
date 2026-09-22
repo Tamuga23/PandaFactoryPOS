@@ -7,10 +7,11 @@
         "rule": "gradient-text",
         "value": "*",
         "files": [
-          "src/components/Layout.tsx"
+          "src/components/Layout.tsx",
+          "src/App.tsx"
         ],
         "createdAt": "2026-09-20T21:13:01.736Z",
-        "reason": "usuario confirmo la marca pandastore como intocable en /impeccable init (2026-09-19); DESIGN.md la registra como el unico gradiente permitido del sistema, sobre un logotipo y no sobre un titulo"
+        "reason": "usuario confirmo el wordmark pandastore como intocable en /impeccable init (2026-09-19); PRODUCT.md lo declara vinculante y DESIGN.md lo registra como el unico gradiente permitido del sistema, sobre un logotipo y no sobre un titulo. Vive en TRES lugares: el login (App.tsx) y la barra lateral mas el encabezado movil (Layout.tsx). El ignore original listaba solo Layout.tsx y por eso el login seguia apareciendo como hallazgo."
       }
     ]
   }

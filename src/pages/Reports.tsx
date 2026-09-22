@@ -221,7 +221,7 @@ export default function Reports() {
         <div className="flex items-center gap-3 bg-zinc-950 p-2 rounded-xl border border-zinc-800">
            <div className="flex items-center gap-2 px-2">
               <span className="text-[10px] uppercase font-bold text-zinc-400">Desde</span>
-              <input 
+              <input aria-label="Desde" 
                 type="date" 
                 value={dateRange.start}
                 onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))}
@@ -231,7 +231,7 @@ export default function Reports() {
            <div className="h-6 w-px bg-zinc-800"></div>
            <div className="flex items-center gap-2 px-2">
               <span className="text-[10px] uppercase font-bold text-zinc-400">Hasta</span>
-              <input
+              <input aria-label="Hasta"
                 type="date"
                 value={dateRange.end}
                 onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))}

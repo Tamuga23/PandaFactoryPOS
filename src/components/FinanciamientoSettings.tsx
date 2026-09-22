@@ -191,7 +191,7 @@ export default function FinanciamientoSettings({
           <label className="block text-sm font-medium text-zinc-300 mb-2">
             Monto mínimo para ofrecer cuotas (USD)
           </label>
-          <input
+          <input aria-label="Monto mínimo para ofrecer cuotas (USD)"
             type="number"
             min="0"
             step="any"
@@ -203,7 +203,7 @@ export default function FinanciamientoSettings({
         </div>
         <div>
           <label className="block text-sm font-medium text-zinc-300 mb-2">Banco</label>
-          <input
+          <input aria-label="Banco"
             type="text"
             value={config.banco}
             onChange={(e) => setConfig({ ...config, banco: e.target.value })}
@@ -240,7 +240,7 @@ export default function FinanciamientoSettings({
                 {plazos.map((m) => (
                   <td key={m} className="py-2.5 px-2">
                     <div className="relative">
-                      <input
+                      <input aria-label="Categorías sin regla propia"
                         type="number" min="0" max="100" step="any"
                         value={config.recargoPorDefecto[String(m)] ?? 0}
                         onChange={(e) => setRecargo(null, m, e.target.value)}
@@ -262,6 +262,7 @@ export default function FinanciamientoSettings({
                       <td key={m} className="py-2.5 px-2">
                         <div className="relative">
                           <input
+                            aria-label={`Recargo a ${m} meses para ${NOMBRES[slug] ?? slug}`}
                             type="number" min="0" max="100" step="any"
                             value={recargoDe(slug, m)}
                             onChange={(e) => setRecargo(slug, m, e.target.value)}
@@ -275,6 +276,7 @@ export default function FinanciamientoSettings({
                     ))}
                     <td className="py-2.5 text-center">
                       <input
+                        aria-label={`Sin interés para ${NOMBRES[slug] ?? slug}`}
                         type="checkbox"
                         checked={cero}
                         onChange={(e) => toggleSinInteres(slug, e.target.checked)}

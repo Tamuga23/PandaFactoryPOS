@@ -303,7 +303,7 @@ export default function Inventory() {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-zinc-500" />
           </div>
-          <input
+          <input aria-label="Buscar por nombre, SKU o categoría…"
             type="text"
             className="block w-full pl-10 pr-3 py-2 border border-zinc-700 bg-zinc-800 rounded-lg leading-5 text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
             placeholder="Buscar por nombre, SKU o categoría…"
@@ -377,7 +377,7 @@ export default function Inventory() {
             <thead className="bg-zinc-800/50 text-zinc-400 text-xs uppercase">
               <tr className="border-b border-zinc-800">
                 <th scope="col" className="px-4 py-3">
-                  <input 
+                  <input aria-label="Seleccionar todos los productos de la lista" 
                     type="checkbox" 
                     className="rounded bg-zinc-800 border-zinc-700 text-cyan-600 focus:ring-cyan-500/20"
                     checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length}
@@ -422,7 +422,7 @@ export default function Inventory() {
                 return (
                 <tr key={product.id} className={`hover:bg-zinc-800/30 ${isLowStock ? 'bg-rose-500/5' : ''} ${isSelected ? 'bg-cyan-500/10' : ''}`}>
                   <td className="px-4 py-2">
-                    <input 
+                    <input aria-label="Seleccionar este producto" 
                       type="checkbox" 
                       className="rounded bg-zinc-800 border-zinc-700 text-cyan-600 focus:ring-cyan-500/20"
                       checked={isSelected}
@@ -628,12 +628,12 @@ export default function Inventory() {
                       <label className="flex items-center gap-2 text-xs uppercase text-zinc-500 font-bold mb-2">
                          <AlertTriangle className="w-3 h-3 text-amber-500" /> Umbral de alerta de stock bajo
                       </label>
-                      <input required type="number" name="minStockAlert" defaultValue={editingProduct?.minStockAlert} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                      <input aria-label="minStockAlert" required type="number" name="minStockAlert" defaultValue={editingProduct?.minStockAlert} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                     </div>
                     {/* P2.7: motivo del ajuste (obligatorio si el stock cambia) */}
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Motivo del ajuste</label>
-                      <input
+                      <label htmlFor="inv-motivo-del-ajuste" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Motivo del ajuste</label>
+                      <input id="inv-motivo-del-ajuste"
                         type="text"
                         name="motivo"
                         placeholder="Ej. conteo físico, dañado, muestra…"
@@ -681,50 +681,50 @@ export default function Inventory() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">SKU</label>
-                        <input required type="text" name="sku" defaultValue={editingProduct?.sku} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-sku" className="block text-xs uppercase text-zinc-500 font-bold mb-1">SKU</label>
+                        <input id="inv-sku" required type="text" name="sku" defaultValue={editingProduct?.sku} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Categoría</label>
-                        <input required type="text" name="category" defaultValue={editingProduct?.category} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-categoria" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Categoría</label>
+                        <input id="inv-categoria" required type="text" name="category" defaultValue={editingProduct?.category} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Nombre</label>
-                      <input required type="text" name="name" defaultValue={editingProduct?.name} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                      <label htmlFor="inv-nombre" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Nombre</label>
+                      <input id="inv-nombre" required type="text" name="name" defaultValue={editingProduct?.name} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                     </div>
 
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Descripción</label>
-                      <textarea name="description" rows={2} defaultValue={editingProduct?.description} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                      <label htmlFor="inv-descripcion" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Descripción</label>
+                      <textarea id="inv-descripcion" name="description" rows={2} defaultValue={editingProduct?.description} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Precio de venta (USD)</label>
-                        <input required type="number" step="any" name="price" defaultValue={editingProduct?.price} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-precio-de-venta-usd" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Precio de venta (USD)</label>
+                        <input id="inv-precio-de-venta-usd" required type="number" step="any" name="price" defaultValue={editingProduct?.price} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Costo (USD)</label>
-                        <input required type="number" step="any" name="cost" defaultValue={editingProduct?.cost} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-costo-usd" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Costo (USD)</label>
+                        <input id="inv-costo-usd" required type="number" step="any" name="cost" defaultValue={editingProduct?.cost} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Stock actual</label>
-                        <input required type="number" name="stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-stock-actual" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Stock actual</label>
+                        <input id="inv-stock-actual" required type="number" name="stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Alerta mínima</label>
-                        <input required type="number" name="minStockAlert" defaultValue={editingProduct?.minStockAlert} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-alerta-minima" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Alerta mínima</label>
+                        <input id="inv-alerta-minima" required type="number" name="minStockAlert" defaultValue={editingProduct?.minStockAlert} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Imagen del producto</label>
-                      <input type="file" accept="image/*" className="block w-full text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-cyan-400 hover:file:bg-zinc-700" />
+                      <label htmlFor="inv-imagen-del-producto" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Imagen del producto</label>
+                      <input id="inv-imagen-del-producto" type="file" accept="image/*" className="block w-full text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-cyan-400 hover:file:bg-zinc-700" />
                       {editingProduct?.imageBase64 && (
                         <div className="mt-3">
                           <img src={editingProduct.imageBase64} alt="Preview" className="h-20 w-20 object-cover rounded-md border border-zinc-700" />
@@ -770,27 +770,27 @@ export default function Inventory() {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Nueva categoría</label>
-                      <input type="text" name="category" placeholder="Dejar vacío para no cambiar" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                      <label htmlFor="inv-nueva-categoria" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Nueva categoría</label>
+                      <input id="inv-nueva-categoria" type="text" name="category" placeholder="Dejar vacío para no cambiar" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                     </div>
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Nuevo precio (USD)</label>
-                      <input type="number" step="any" name="price" placeholder="Dejar vacío para no cambiar" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                      <label htmlFor="inv-nuevo-precio-usd" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Nuevo precio (USD)</label>
+                      <input id="inv-nuevo-precio-usd" type="number" step="any" name="price" placeholder="Dejar vacío para no cambiar" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Stock</label>
-                        <input type="number" name="stock" placeholder="Dejar vacío" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-stock" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Stock</label>
+                        <input id="inv-stock" type="number" name="stock" placeholder="Dejar vacío" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                       <div>
-                        <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Alerta mínima</label>
-                        <input type="number" name="minStockAlert" placeholder="Dejar vacío" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-alerta-minima-2" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Alerta mínima</label>
+                        <input id="inv-alerta-minima-2" type="number" name="minStockAlert" placeholder="Dejar vacío" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                     </div>
                     {/* P2.7: motivo si se ajusta stock en masa */}
                     <div>
-                      <label className="block text-xs uppercase text-zinc-500 font-bold mb-1">Motivo (si ajusta stock)</label>
-                      <input type="text" name="motivo" placeholder="Ej. conteo físico anual" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                      <label htmlFor="inv-motivo-si-ajusta-stock" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Motivo (si ajusta stock)</label>
+                      <input id="inv-motivo-si-ajusta-stock" type="text" name="motivo" placeholder="Ej. conteo físico anual" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                     </div>
                   </div>
                 </div>

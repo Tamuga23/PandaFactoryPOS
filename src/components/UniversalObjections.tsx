@@ -165,7 +165,7 @@ export default function UniversalObjections() {
                   ID <span className="text-rose-400">*</span>
                   {editingId && <span className="ml-1 text-zinc-600">(no editable)</span>}
                 </label>
-                <input
+                <input aria-label="ID"
                   type="text"
                   value={form.id}
                   onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
@@ -176,8 +176,8 @@ export default function UniversalObjections() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Clave (key)</label>
-                <input
+                <label htmlFor="objuniv-clave-key" className="block text-xs font-medium text-zinc-400 mb-1.5">Clave (key)</label>
+                <input id="objuniv-clave-key"
                   type="text"
                   value={form.key}
                   onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
@@ -186,8 +186,8 @@ export default function UniversalObjections() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Orden</label>
-                <input
+                <label htmlFor="objuniv-orden" className="block text-xs font-medium text-zinc-400 mb-1.5">Orden</label>
+                <input id="objuniv-orden"
                   type="number"
                   value={form.order}
                   onChange={(e) => setForm((f) => ({ ...f, order: parseInt(e.target.value) || 1 }))}
@@ -200,7 +200,7 @@ export default function UniversalObjections() {
               <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                 Pregunta <span className="text-rose-400">*</span>
               </label>
-              <input
+              <input aria-label="Pregunta"
                 type="text"
                 value={form.titulo}
                 onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
@@ -213,7 +213,7 @@ export default function UniversalObjections() {
               <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                 Respuesta <span className="text-rose-400">*</span>
               </label>
-              <textarea
+              <textarea aria-label="Respuesta"
                 value={form.respuesta}
                 onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
                 required

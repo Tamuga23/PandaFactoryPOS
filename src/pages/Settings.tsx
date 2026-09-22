@@ -174,7 +174,7 @@ export default function Settings() {
                 <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                   <Building2 className="w-3.5 h-3.5" /> Nombre de la Empresa
                 </label>
-                <input
+                <input aria-label="Nombre de la Empresa"
                   required
                   type="text"
                   value={formData.name}
@@ -187,7 +187,7 @@ export default function Settings() {
                 <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5" /> Teléfono de Contacto
                 </label>
-                <input
+                <input aria-label="Teléfono de Contacto"
                   required
                   type="text"
                   value={formData.phone}
@@ -201,7 +201,7 @@ export default function Settings() {
               <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5" /> Dirección Fiscal
               </label>
-              <textarea
+              <textarea aria-label="Dirección Fiscal"
                 required
                 rows={3}
                 value={formData.address}
@@ -214,7 +214,7 @@ export default function Settings() {
               <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5" /> Correo Electrónico
               </label>
-              <input
+              <input aria-label="Correo Electrónico"
                 required
                 type="email"
                 value={formData.email}
@@ -227,10 +227,10 @@ export default function Settings() {
               <label className="text-xs font-bold text-zinc-400 uppercase">Configuración Fiscal</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
+                  <label htmlFor="cfg-tasa-de-cambio-oficial-usd-a-nio" className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                     Tasa de Cambio Oficial (USD a NIO)
                   </label>
-                  <input
+                  <input id="cfg-tasa-de-cambio-oficial-usd-a-nio"
                     required
                     type="number"
                     step="0.0001"
@@ -244,11 +244,11 @@ export default function Settings() {
 
                 {/* Numeración de facturas (contador correlativo) */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
+                  <label htmlFor="cfg-proximo-numero-de-factura" className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                     Próximo número de factura
                   </label>
                   <div className="flex gap-2">
-                    <input
+                    <input id="cfg-proximo-numero-de-factura"
                       type="number"
                       min="1"
                       value={nextInvoiceNumber}
@@ -283,7 +283,7 @@ export default function Settings() {
                   )}
                   <label className="absolute inset-0 bg-zinc-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
                     <Upload className="w-6 h-6 text-white" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-2">
@@ -294,7 +294,7 @@ export default function Settings() {
                   </p>
                   <label className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer transition-all">
                     <Upload className="w-3.5 h-3.5" /> Seleccionar Archivo
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                   </label>
                 </div>
               </div>

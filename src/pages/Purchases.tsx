@@ -493,6 +493,7 @@ export default function Purchases() {
                   <div key={key} className="space-y-1">
                     <label className="text-[10px] uppercase text-zinc-400 font-bold">{label}</label>
                     <input
+                      aria-label={label}
                       type="text"
                       value={orderForm[key]}
                       onChange={(e) => setOrderForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
@@ -513,6 +514,7 @@ export default function Purchases() {
                     <div key={key} className="space-y-1">
                       <label className="text-[10px] uppercase text-zinc-400 font-bold">{label}</label>
                       <input
+                        aria-label={label}
                         type="number" step="any" min="0"
                         value={orderForm[key]}
                         onChange={(e) => setOrderForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
@@ -550,26 +552,26 @@ export default function Purchases() {
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                           <div>
-                            <label className="text-[9px] uppercase text-zinc-500 font-bold">Costo USD</label>
-                            <input type="number" step="any" min="0" value={it.costStr}
+                            <label className="text-[9px] uppercase text-zinc-400 font-bold">Costo USD</label>
+                            <input aria-label={`Costo USD de ${it.name}`} type="number" step="any" min="0" value={it.costStr}
                               onChange={(e) => setOrderItemField(it.id, 'costStr', e.target.value)}
                               className="w-full bg-zinc-900 border border-zinc-700 rounded p-1.5 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase text-zinc-500 font-bold">Cantidad</label>
-                            <input type="number" min={Math.max(1, assignedQty)} value={it.qtyStr}
+                            <label className="text-[9px] uppercase text-zinc-400 font-bold">Cantidad</label>
+                            <input aria-label={`Cantidad de ${it.name}`} type="number" min={Math.max(1, assignedQty)} value={it.qtyStr}
                               onChange={(e) => setOrderItemField(it.id, 'qtyStr', e.target.value)}
                               className="w-full bg-zinc-900 border border-zinc-700 rounded p-1.5 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase text-zinc-500 font-bold">Peso lbs (total)</label>
-                            <input type="number" step="any" min="0" value={it.weightStr}
+                            <label className="text-[9px] uppercase text-zinc-400 font-bold">Peso lbs (total)</label>
+                            <input aria-label={`Peso lbs (total) de ${it.name}`} type="number" step="any" min="0" value={it.weightStr}
                               onChange={(e) => setOrderItemField(it.id, 'weightStr', e.target.value)}
                               className="w-full bg-zinc-900 border border-zinc-700 rounded p-1.5 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase text-zinc-500 font-bold">Color</label>
-                            <input type="text" value={it.colorStr}
+                            <label className="text-[9px] uppercase text-zinc-400 font-bold">Color</label>
+                            <input aria-label={`Color de ${it.name}`} type="text" value={it.colorStr}
                               onChange={(e) => setOrderItemField(it.id, 'colorStr', e.target.value)}
                               className="w-full bg-zinc-900 border border-zinc-700 rounded p-1.5 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
                           </div>
@@ -743,12 +745,12 @@ export default function Purchases() {
                    
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                         <label className="text-[10px] uppercase text-zinc-400 font-bold">Tracking / Guía ID</label>
-                         <input type="text" disabled={editingTracking?.isReceived} value={trackNumber} onChange={e=>setTrackNumber(e.target.value)} required className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
+                         <label htmlFor="compras-tracking-guia-id" className="text-[10px] uppercase text-zinc-400 font-bold">Tracking / Guía ID</label>
+                         <input id="compras-tracking-guia-id" type="text" disabled={editingTracking?.isReceived} value={trackNumber} onChange={e=>setTrackNumber(e.target.value)} required className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
                       </div>
                       <div className="space-y-1">
-                         <label className="text-[10px] uppercase text-zinc-400 font-bold">Estado Logístico</label>
-                         <select disabled={editingTracking?.isReceived} value={trackStatus} onChange={e=>setTrackStatus(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500">
+                         <label htmlFor="compras-estado-logistico" className="text-[10px] uppercase text-zinc-400 font-bold">Estado Logístico</label>
+                         <select id="compras-estado-logistico" disabled={editingTracking?.isReceived} value={trackStatus} onChange={e=>setTrackStatus(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500">
                             <option value="">Seleccionar...</option>
                             <option value="Procesando">Procesando</option>
                             <option value="Enviado a Miami">Enviado a Miami</option>
@@ -786,7 +788,7 @@ export default function Purchases() {
                                   <span className="block text-[10px] text-zinc-400">Ordenados: {pItem.quantity} | Disponibles para Asignar en cajas: {maxAllowed}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <input 
+                                  <input aria-label={`Unidades de ${pItem.name} para esta caja`}  
                                     type="number" 
                                     min="0"
                                     max={maxAllowed}
@@ -806,15 +808,15 @@ export default function Purchases() {
                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div className="space-y-1">
                          <label className="text-[10px] uppercase text-zinc-400 font-bold">Peso Final Cobradas (lbs)</label>
-                         <input disabled={editingTracking?.isReceived} type="number" step="any" value={finalWeight} onChange={e=>setFinalWeight(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" placeholder="Ej. 5.5" />
+                         <input aria-label="Peso Final Cobradas (lbs)" disabled={editingTracking?.isReceived} type="number" step="any" value={finalWeight} onChange={e=>setFinalWeight(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" placeholder="Ej. 5.5" />
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] uppercase text-zinc-400 font-bold">Agente Recibe (Miami)</label>
-                         <input disabled={editingTracking?.isReceived} type="date" value={agentDate} onChange={e=>setAgentDate(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
+                         <input aria-label="Agente Recibe (Miami)" disabled={editingTracking?.isReceived} type="date" value={agentDate} onChange={e=>setAgentDate(e.target.value)} className="w-full bg-zinc-800 disabled:opacity-50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500" />
                       </div>
                       <div className="space-y-1 col-span-2 md:col-span-1">
                          <label className="text-[10px] uppercase text-emerald-500 font-bold">Recepción en Bodega (NIC)</label>
-                         <input disabled={editingTracking?.isReceived} type="date" value={receptionDate} onChange={e=>setReceptionDate(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-emerald-700/50 rounded-lg p-2 text-sm text-emerald-400 outline-none focus:border-emerald-500" />
+                         <input aria-label="Recepción en Bodega (NIC)" disabled={editingTracking?.isReceived} type="date" value={receptionDate} onChange={e=>setReceptionDate(e.target.value)} className="w-full bg-zinc-800 border disabled:opacity-50 border-emerald-700/50 rounded-lg p-2 text-sm text-emerald-400 outline-none focus:border-emerald-500" />
                       </div>
                    </div>
 

@@ -228,7 +228,7 @@ export default function SalesHistory() {
         </div>
         <div className="relative w-full md:w-64">
            <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
-           <input
+           <input aria-label="N° de factura o cliente…"
             type="text"
             placeholder="N° de factura o cliente…"
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200"
@@ -241,18 +241,18 @@ export default function SalesHistory() {
       {/* P4.2: filtros de fecha / estado / método (sobre las ventas cargadas) */}
       <div className="flex flex-wrap items-end gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-xl">
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-400 font-bold">Desde</label>
-          <input type="date" value={fStart} onChange={e => setFStart(e.target.value)}
+          <label htmlFor="hist-desde" className="text-[10px] uppercase text-zinc-400 font-bold">Desde</label>
+          <input id="hist-desde" type="date" value={fStart} onChange={e => setFStart(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-400 font-bold">Hasta</label>
-          <input type="date" value={fEnd} onChange={e => setFEnd(e.target.value)}
+          <label htmlFor="hist-hasta" className="text-[10px] uppercase text-zinc-400 font-bold">Hasta</label>
+          <input id="hist-hasta" type="date" value={fEnd} onChange={e => setFEnd(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-400 font-bold">Estado</label>
-          <select value={fStatus} onChange={e => setFStatus(e.target.value)}
+          <label htmlFor="hist-estado" className="text-[10px] uppercase text-zinc-400 font-bold">Estado</label>
+          <select id="hist-estado" value={fStatus} onChange={e => setFStatus(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer">
             <option value="todos">Todos</option>
             <option value="completed">Completada</option>
@@ -261,8 +261,8 @@ export default function SalesHistory() {
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] uppercase text-zinc-400 font-bold">Método de pago</label>
-          <select value={fMethod} onChange={e => setFMethod(e.target.value)}
+          <label htmlFor="hist-metodo-de-pago" className="text-[10px] uppercase text-zinc-400 font-bold">Método de pago</label>
+          <select id="hist-metodo-de-pago" value={fMethod} onChange={e => setFMethod(e.target.value)}
             className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer">
             <option value="todos">Todos</option>
             <option value="EFECTIVO">Efectivo</option>

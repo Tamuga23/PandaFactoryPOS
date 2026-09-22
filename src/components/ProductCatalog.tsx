@@ -527,8 +527,8 @@ export default function ProductCatalog({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* SKU Field (P3.5: el id del documento ahora es uuid; el SKU es un campo con unicidad) */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">SKU del Producto</label>
-            <input
+            <label htmlFor="producto-sku-del-producto" className="block text-sm font-medium text-zinc-300 mb-2">SKU del Producto</label>
+            <input id="producto-sku-del-producto"
               type="text"
               name="sku"
               value={formData.sku}
@@ -541,8 +541,8 @@ export default function ProductCatalog({
 
           {/* Description Field */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Descripción del Producto</label>
-            <input
+            <label htmlFor="producto-descripcion-del-producto" className="block text-sm font-medium text-zinc-300 mb-2">Descripción del Producto</label>
+            <input id="producto-descripcion-del-producto"
               type="text"
               name="description"
               value={formData.description}
@@ -555,10 +555,10 @@ export default function ProductCatalog({
 
           {/* Price Field */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Precio de Venta Sugerido (USD)</label>
+            <label htmlFor="producto-precio-de-venta-sugerido-usd" className="block text-sm font-medium text-zinc-300 mb-2">Precio de Venta Sugerido (USD)</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
-              <input
+              <input id="producto-precio-de-venta-sugerido-usd"
                 type="number"
                 name="priceUSD"
                 value={formData.priceUSD}
@@ -575,9 +575,9 @@ export default function ProductCatalog({
           {/* Dynamic Category Category */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Categoría</label>
+              <label htmlFor="producto-categoria" className="block text-sm font-medium text-zinc-300 mb-2">Categoría</label>
               {!isCustomCategory ? (
-                <select
+                <select id="producto-categoria"
                   value={formData.category}
                   onChange={handleCategoryChange}
                   required
@@ -595,7 +595,7 @@ export default function ProductCatalog({
                 </select>
               ) : (
                 <div className="flex gap-2">
-                  <input
+                  <input aria-label="Escriba nueva categoría"
                     type="text"
                     name="category"
                     value={formData.category}
@@ -621,8 +621,8 @@ export default function ProductCatalog({
 
           {/* Status Field */}
           <div>
-             <label className="block text-sm font-medium text-zinc-300 mb-2">Estado del Producto</label>
-             <select
+             <label htmlFor="producto-estado-del-producto" className="block text-sm font-medium text-zinc-300 mb-2">Estado del Producto</label>
+             <select id="producto-estado-del-producto"
                name="status"
                value={formData.status}
                onChange={handleInputChange}
@@ -655,7 +655,7 @@ export default function ProductCatalog({
                    }
                    return <ImageIcon className="w-5 h-5 text-zinc-400 group-hover:text-cyan-400" />;
                 })()}
-                <input
+                <input aria-label="Elegir una imagen para el producto"
                   type="file"
                   accept="image/*"
                   onChange={handleFileChange}
@@ -683,10 +683,10 @@ export default function ProductCatalog({
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Costo (USD)</label>
+              <label htmlFor="producto-costo-usd" className="block text-sm font-medium text-zinc-300 mb-2">Costo (USD)</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
-                <input
+                <input id="producto-costo-usd"
                   type="number" name="cost" min="0" step="any"
                   value={formData.cost}
                   onChange={handleInputChange}
@@ -700,7 +700,7 @@ export default function ProductCatalog({
               <label className="block text-sm font-medium text-zinc-300 mb-2">
                 {isEditing ? 'Stock actual (solo lectura)' : 'Stock inicial'}
               </label>
-              <input
+              <input aria-label="stock"
                 type="number" name="stock" min="0"
                 value={formData.stock}
                 onChange={handleInputChange}
@@ -711,8 +711,8 @@ export default function ProductCatalog({
               {isEditing && <p className="text-xs text-zinc-500 mt-1">Ajustalo desde Inventario (queda en el kardex con motivo).</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Alerta de stock mínimo</label>
-              <input
+              <label htmlFor="producto-alerta-de-stock-minimo" className="block text-sm font-medium text-zinc-300 mb-2">Alerta de stock mínimo</label>
+              <input id="producto-alerta-de-stock-minimo"
                 type="number" name="minStockAlert" min="0"
                 value={formData.minStockAlert}
                 onChange={handleInputChange}
@@ -731,7 +731,7 @@ export default function ProductCatalog({
           
           <div className="mb-6 bg-zinc-800/50 p-4 rounded-xl border border-zinc-700/50">
             <label className="flex items-center gap-3 cursor-pointer">
-              <input
+              <input aria-label="publicar"
                 type="checkbox"
                 name="publicar"
                 checked={formData.publicar}
@@ -747,10 +747,10 @@ export default function ProductCatalog({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Precio Promocional (USD) - Opcional</label>
+              <label htmlFor="producto-precio-promocional-usd-opcional" className="block text-sm font-medium text-zinc-300 mb-2">Precio Promocional (USD) - Opcional</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
-                <input
+                <input id="producto-precio-promocional-usd-opcional"
                   type="number"
                   name="precioPromo"
                   value={formData.precioPromo}
@@ -764,10 +764,10 @@ export default function ProductCatalog({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Descuento por Efectivo (%) - Opcional</label>
+              <label htmlFor="producto-descuento-por-efectivo-opcional" className="block text-sm font-medium text-zinc-300 mb-2">Descuento por Efectivo (%) - Opcional</label>
               <div className="relative">
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">%</span>
-                <input
+                <input id="producto-descuento-por-efectivo-opcional"
                   type="number"
                   name="descEfectivoPct"
                   value={formData.descEfectivoPct}
@@ -782,8 +782,8 @@ export default function ProductCatalog({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Campaña (Etiqueta promocional) - Opcional</label>
-              <input
+              <label htmlFor="producto-campana-etiqueta-promocional-opcional" className="block text-sm font-medium text-zinc-300 mb-2">Campaña (Etiqueta promocional) - Opcional</label>
+              <input id="producto-campana-etiqueta-promocional-opcional"
                 type="text"
                 name="campania"
                 value={formData.campania}
@@ -794,8 +794,8 @@ export default function ProductCatalog({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Beneficio / Gancho de Venta - Opcional</label>
-              <input
+              <label htmlFor="producto-beneficio-gancho-de-venta-opcional" className="block text-sm font-medium text-zinc-300 mb-2">Beneficio / Gancho de Venta - Opcional</label>
+              <input id="producto-beneficio-gancho-de-venta-opcional"
                 type="text"
                 name="beneficio"
                 value={formData.beneficio}
@@ -808,8 +808,8 @@ export default function ProductCatalog({
             {/* Excepción de financiamiento. Lo normal es dejarlo en la regla de
                 la categoría, que se edita en Configuración. */}
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Financiamiento a plazos</label>
-              <select
+              <label htmlFor="producto-financiamiento-a-plazos" className="block text-sm font-medium text-zinc-300 mb-2">Financiamiento a plazos</label>
+              <select id="producto-financiamiento-a-plazos"
                 name="financiamiento"
                 value={formData.financiamiento}
                 onChange={handleInputChange}
@@ -880,7 +880,7 @@ export default function ProductCatalog({
                     </label>
 
                     {campo.type === 'select' ? (
-                      <select
+                      <select aria-label={campo.label}
                         value={typeof valor === 'string' ? valor : ''}
                         onChange={(e) => handleSpecChange(campo.key, e.target.value)}
                         className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-500 outline-none text-sm"
@@ -892,6 +892,7 @@ export default function ProductCatalog({
                       </select>
                     ) : (
                       <input
+                        aria-label={campo.label}
                         type={campo.type === 'number' ? 'number' : 'text'}
                         step={campo.type === 'number' ? 'any' : undefined}
                         value={typeof valor === 'string' ? valor : ''}
@@ -960,6 +961,7 @@ export default function ProductCatalog({
                     </button>
                   </div>
                   <input
+                    aria-label={`Etiqueta del bullet ${idx + 1}`}
                     type="text"
                     value={b.etiqueta ?? ''}
                     onChange={(e) => handleBulletChange(idx, 'etiqueta', e.target.value)}
@@ -968,6 +970,7 @@ export default function ProductCatalog({
                     className="w-28 shrink-0 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                   <input
+                    aria-label={`Texto del bullet ${idx + 1}`}
                     type="text"
                     value={b.text}
                     onChange={(e) => handleBulletChange(idx, 'text', e.target.value)}
@@ -999,8 +1002,8 @@ export default function ProductCatalog({
               {formData.objecionesOverride.map((obj, idx) => (
                 <div key={idx} className="flex items-start gap-2 bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
                   <div className="flex-1 space-y-2">
-                    <input type="text" value={obj.objId} onChange={(e) => handleObjChange(idx, 'objId', e.target.value)} placeholder="ID Objeción (ej. garantia, brillo)" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
-                    <textarea value={obj.respuesta} onChange={(e) => handleObjChange(idx, 'respuesta', e.target.value)} placeholder="Respuesta específica para el cliente..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none resize-none" required />
+                    <input aria-label={`Identificador de la objeción ${idx + 1}`} type="text" value={obj.objId} onChange={(e) => handleObjChange(idx, 'objId', e.target.value)} placeholder="ID Objeción (ej. garantia, brillo)" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
+                    <textarea aria-label={`Respuesta a la objeción ${idx + 1}`} value={obj.respuesta} onChange={(e) => handleObjChange(idx, 'respuesta', e.target.value)} placeholder="Respuesta específica para el cliente..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none resize-none" required />
                   </div>
                   <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1">
                     <Trash2 className="w-4 h-4" />
@@ -1016,12 +1019,12 @@ export default function ProductCatalog({
           <h4 className="text-base font-medium text-cyan-400 mb-4">Multimedia del Catálogo Público (URLs)</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">Imagen Principal (URL Alta Calidad)</label>
-              <input type="url" value={formData.media.heroImage} onChange={(e) => handleMediaChange('heroImage', e.target.value)} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
+              <label htmlFor="producto-imagen-principal-url-alta-calidad" className="block text-sm text-zinc-400 mb-1">Imagen Principal (URL Alta Calidad)</label>
+              <input id="producto-imagen-principal-url-alta-calidad" type="url" value={formData.media.heroImage} onChange={(e) => handleMediaChange('heroImage', e.target.value)} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">Video Promocional (URL — solo YouTube)</label>
-              <input type="url" value={formData.media.videoUrl} onChange={(e) => handleMediaChange('videoUrl', e.target.value)} placeholder="https://youtube.com/..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
+              <label htmlFor="producto-video-promocional-url-solo-youtube" className="block text-sm text-zinc-400 mb-1">Video Promocional (URL — solo YouTube)</label>
+              <input id="producto-video-promocional-url-solo-youtube" type="url" value={formData.media.videoUrl} onChange={(e) => handleMediaChange('videoUrl', e.target.value)} placeholder="https://youtube.com/..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
               <p className="text-xs text-zinc-500 mt-1">La tablet solo reproduce YouTube; otras fuentes muestran la foto.</p>
             </div>
           </div>
@@ -1033,14 +1036,14 @@ export default function ProductCatalog({
             <div className="space-y-2">
               {(formData.media.gallery ?? []).map((g: { url: string; label: string }, i: number) => (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input
+                  <input aria-label="Fotos complementarias (Demo de la tablet)"
                     type="url"
                     value={g.url}
                     onChange={(e) => handleGalleryChange(i, 'url', e.target.value)}
                     placeholder={`https://... (foto ${i + 2})`}
                     className="md:col-span-2 w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
-                  <input
+                  <input aria-label="Fotos complementarias (Demo de la tablet)"
                     type="text"
                     maxLength={40}
                     value={g.label}
