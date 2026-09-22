@@ -91,13 +91,44 @@ export default function Inventory() {
     toast.success(`Inventario exportado (${rows.length} productos).`);
   };
 
-  const handleDeleteClick = (id: string) => {
-    if (confirmingDelete === id) {
-      deleteProduct(id);
-      setConfirmingDelete(null);
-    } else {
+  /**
+   * Borrado en dos pasos (el segundo clic confirma; a los 3 s vuelve atrás).
+   *
+   * Dos cosas que no estaban:
+   *
+   * 1. `deleteProduct(id)` se llamaba SIN `await` y SIN `catch`, y sí lanza:
+   *    su manejador de errores siempre relanza. Un borrado fallido —permisos,
+   *    red, cuota— era un rechazo sin manejar: la fila seguía ahí, sin una
+   *    palabra, y el operador volvía a intentar creyendo que no había hecho
+   *    bien el doble clic.
+   * 2. Nada miraba el stock. Borrar un producto con unidades encima saca ese
+   *    valor del inventario sin dejar rastro en el kardex, y las ventas que lo
+   *    referencian quedan apuntando a un documento que ya no existe. Para un
+   *    producto que se deja de vender, lo correcto es marcarlo Inactivo: sigue
+   *    en el historial y desaparece del POS.
+   */
+  const handleDeleteClick = async (id: string) => {
+    const producto = products.find((p) => p.id === id);
+
+    if (confirmingDelete !== id) {
       setConfirmingDelete(id);
-      setTimeout(() => setConfirmingDelete(null), 3000); // Reset after 3 seconds
+      if (producto && producto.stock > 0) {
+        toast.info(
+          `«${producto.name}» tiene ${producto.stock} en stock. Borrarlo saca ese ` +
+          `valor del inventario sin pasar por el kardex. Si dejaste de venderlo, ` +
+          `marcalo Inactivo desde la ficha.`,
+        );
+      }
+      setTimeout(() => setConfirmingDelete(null), 3000);
+      return;
+    }
+
+    setConfirmingDelete(null);
+    try {
+      await deleteProduct(id);
+      toast.success(`«${producto?.name ?? 'Producto'}» eliminado del catálogo.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo eliminar el producto.');
     }
   };
 
@@ -189,13 +220,41 @@ export default function Inventory() {
     if (minAlertStr) updates.minStockAlert = Number(minAlertStr);
     if (stockStr) updates.stock = Number(stockStr);
 
-    if (Object.keys(updates).length > 0) {
+    const n = selectedProducts.length;
+
+    /*
+      Esto NO tenía try/catch, y `bulkUpdateProducts` sí lanza: su `catch` llama
+      a `handleFirestoreError`, que siempre relanza. Con un fallo —permisos, red,
+      cuota de Spark— el rechazo quedaba sin manejar y las tres líneas de abajo
+      NO se ejecutaban: en particular `setIsSaving(false)`. El modal se quedaba
+      con el botón en "Guardando" para siempre, sobre una operación que acababa
+      de tocar N productos a la vez, sin una palabra de qué pasó. La única
+      salida era ESC, y el operador igual no sabía si se aplicó o no.
+
+      Tampoco avisaba en el camino bueno: cambiar el precio de quince productos
+      cerraba el modal y no decía nada.
+    */
+    try {
+      if (Object.keys(updates).length === 0) {
+        toast.info('No cambiaste ningún campo: dejá vacío sólo lo que no quieras tocar.');
+        setIsSaving(false);
+        return;
+      }
       // P2.7: si toca stock, el kardex registra el motivo.
       await bulkUpdateProducts(selectedProducts, updates, motivo || 'Ajuste masivo');
+      const campos = Object.keys(updates).filter((k) => k !== 'updatedAt').length;
+      toast.success(
+        `${n} ${n === 1 ? 'producto actualizado' : 'productos actualizados'} · ` +
+        `${campos} ${campos === 1 ? 'campo' : 'campos'}` +
+        `${typeof updates.stock === 'number' ? ' · queda en el kardex' : ''}`,
+      );
+      setSelectedProducts([]);
+      closeModal();
+    } catch (e: any) {
+      toast.error(e?.message || `No se pudo aplicar el cambio a los ${n} productos.`);
+    } finally {
+      setIsSaving(false);
     }
-    setSelectedProducts([]);
-    closeModal();
-    setIsSaving(false);
   };
 
   const handleToggleReorder = async (product: Product) => {
