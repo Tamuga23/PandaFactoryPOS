@@ -375,13 +375,30 @@ export function slugify(input: string): string {
  *  - precio.efectivo = round2(actual*(1-desc/100))
  *  - categorySlug derivado con slugify
  */
+/**
+ * El precio al que HOY se vende un producto: la promo si existe, si no la lista.
+ *
+ * Vive acá, al lado de `buildPublicCatalogDoc`, y no en cada pantalla, porque
+ * el POS y el catálogo público TIENEN que dar el mismo número. Hasta ahora esta
+ * regla existía sólo adentro del builder del espejo público: PandaWEB y
+ * PandaLink mostraban `precioPromo`, el mostrador cobraba `price`, y el cliente
+ * llegaba con el número de la web en el celular a discutir con el operador —
+ * que además es el dueño, así que no hay a quién escalarle la discusión.
+ * Con una sola función las dos superficies no pueden divergir por construcción.
+ */
+export function precioVigente(product: Pick<Product, 'price' | 'precioPromo'>): number {
+  return typeof product.precioPromo === 'number' && product.precioPromo >= 0
+    ? product.precioPromo
+    : product.price;
+}
+
 export function buildPublicCatalogDoc(product: Product): PublicCatalogProduct {
   const lista = product.price;
   const promo =
     typeof product.precioPromo === 'number' && product.precioPromo >= 0
       ? product.precioPromo
       : undefined;
-  const actual = promo ?? lista;
+  const actual = precioVigente(product);
   const descEfectivoPct =
     typeof product.descEfectivoPct === 'number' && product.descEfectivoPct > 0
       ? product.descEfectivoPct

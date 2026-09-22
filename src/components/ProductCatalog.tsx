@@ -499,8 +499,9 @@ export default function ProductCatalog({
         {/* Selector de edición condicional */}
         {isEditing && (
           <div className="bg-zinc-800/50 p-4 rounded-xl border border-zinc-700">
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Seleccionar Producto a Actualizar</label>
+            <label htmlFor="catalogo-producto-editar" className="block text-sm font-medium text-zinc-300 mb-2">Seleccionar Producto a Actualizar</label>
             <select
+              id="catalogo-producto-editar"
               value={formData.id}
               onChange={handleProductSelect}
               required

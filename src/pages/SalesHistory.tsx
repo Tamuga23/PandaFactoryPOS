@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
 import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
@@ -9,6 +9,7 @@ import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // P4.1: estados en español para los chips.
 const STATUS_LABEL: Record<string, string> = {

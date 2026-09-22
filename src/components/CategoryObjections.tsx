@@ -150,9 +150,9 @@ export default function CategoryObjections() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           Nueva objeción
         </button>
       </div>
@@ -177,11 +177,12 @@ export default function CategoryObjections() {
 
       {/* Filter bar */}
       <div className="flex items-center gap-3">
-        <Filter className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+        <Filter className="w-4 h-4 text-zinc-400 flex-shrink-0" aria-hidden="true" />
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setFilterSlug('')}
-            className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+            aria-pressed={filterSlug === ''}
+            className={`px-3 py-1 text-xs rounded-full border transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
               filterSlug === ''
                 ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 font-medium'
                 : 'border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
@@ -193,7 +194,8 @@ export default function CategoryObjections() {
             <button
               key={slug}
               onClick={() => setFilterSlug(slug)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+              aria-pressed={filterSlug === slug}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
                 filterSlug === slug
                   ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 font-medium'
                   : 'border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'

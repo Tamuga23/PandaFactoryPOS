@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from '../components/Toast';
 import { toCsv, downloadCsv } from '../lib/csv';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const TIPO_LABEL: Record<Movimiento['tipo'], string> = {
   venta: 'Venta', devolucion: 'Devolución', compra: 'Compra',

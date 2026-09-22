@@ -10,7 +10,7 @@ import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import { toast } from '../components/Toast';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { formatCurrencyNIO } from '../lib/utils';
-import { round2 } from '../lib/validations';
+import { round2, precioVigente } from '../lib/validations';
 import {
   guardarVentaEnCurso,
   leerVentaEnCurso,
@@ -18,6 +18,13 @@ import {
   hace,
   type VentaEnCurso,
 } from '../lib/ventaEnCurso';
+
+/**
+ * Los transportes que generan una etiqueta física de envío. La lista estaba
+ * escrita a mano en dos lugares de este archivo y en otros dos del proyecto;
+ * acá al menos el POS tiene una sola fuente.
+ */
+const TRANSPORTES_CON_ETIQUETA = ['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'];
 
 export default function POS() {
   const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer, configFinanciamiento } = useStore();
@@ -104,7 +111,15 @@ export default function POS() {
         toast.error('Producto sin stock.');
         return;
       }
-      setCart([...cart, { ...product, quantity: 1 }]);
+      /*
+        `{ ...product }` traía `price`, que es el precio de LISTA. El carrito
+        arrancaba entonces con un número distinto del que el cliente vio en
+        PandaWEB o en la tablet, sin que nada lo dijera. Se sobreescribe con el
+        vigente, que es el mismo que publica `buildPublicCatalogDoc`.
+        El descuento por efectivo compone sobre `item.price`, así que ahora
+        también compone sobre el vigente, igual que en el catálogo público.
+      */
+      setCart([...cart, { ...product, price: precioVigente(product), quantity: 1 }]);
     }
   };
 
@@ -171,7 +186,19 @@ export default function POS() {
       addToCart(target);
       setSearchTerm('');
     } else {
-      toast.info('Sin coincidencia exacta de SKU o nombre único.');
+      /*
+        El campo se limpia TAMBIÉN cuando no hay coincidencia. Antes sólo se
+        limpiaba en el camino de éxito, así que un código que no existía quedaba
+        pegado y el siguiente escaneo concatenaba encima: el campo pasaba a
+        `7501234567890ABC-99`, no matcheaba nada, y a partir de ahí NINGÚN
+        escaneo volvía a funcionar. Un error se convertía en todos los errores
+        siguientes, con el cliente enfrente, y la causa no se veía porque el
+        campo es angosto y el texto quedaba cortado.
+        El mensaje además dice QUÉ leyó el lector, que es lo único que le
+        permite al operador darse cuenta de que escaneó la etiqueta equivocada.
+      */
+      toast.info(`No encontré ningún producto con «${searchTerm.trim()}».`);
+      setSearchTerm('');
     }
   };
 
@@ -323,8 +350,9 @@ export default function POS() {
     setCart(prev => prev.map(item => {
       if (!item.efectivoApplied) return item;
       revertidas++;
+      const prod = products.find(p => p.id === item.id);
       const previo = item.precioAntesEfectivo
-        ?? products.find(p => p.id === item.id)?.price
+        ?? (prod ? precioVigente(prod) : undefined)
         ?? item.price;
       const { precioAntesEfectivo: _omitido, ...resto } = item;
       return { ...resto, price: previo, efectivoApplied: false };
@@ -517,6 +545,30 @@ export default function POS() {
       return;
     }
 
+    /*
+      El transporte es el único campo del formulario con una consecuencia
+      FÍSICA —una caja que sale de la tienda— y era el que menos validación
+      tenía: se podía facturar un envío a Matagalpa con la dirección vacía. La
+      venta se registraba, descontaba stock y consumía el correlativo, y recién
+      al cerrar el preview aparecía la etiqueta 4x6 con el destino en blanco.
+      Para entonces ya no se puede rehacer.
+      Se corta ANTES del preview, y el mensaje nombra el transporte elegido
+      porque el operador acaba de cambiarlo y puede no darse cuenta de que ese
+      cambio volvió obligatorios dos campos que están en otro bloque, más
+      arriba y fuera de la vista.
+    */
+    if (TRANSPORTES_CON_ETIQUETA.includes(transport)) {
+      const faltan: string[] = [];
+      if (!customerAddress.trim()) faltan.push('la dirección');
+      if (!customerPhone.trim()) faltan.push('el teléfono');
+      if (faltan.length > 0) {
+        toast.error(
+          `${transport} necesita ${faltan.join(' y ')} para poder imprimir la etiqueta.`,
+        );
+        return;
+      }
+    }
+
     // Venta financiada sin plazo elegido: se corta acá. Registrar el plazo es
     // el único motivo por el que existe esta forma de pago — sin él la venta no
     // aporta nada al costo real de financiamiento.
@@ -657,9 +709,20 @@ export default function POS() {
     // indicio era que cambiaba la botonera del modal. En una conexión lenta no
     // había forma de distinguir "se guardó" de "se colgó", y el instinto es
     // volver a apretar.
+    /*
+      En una venta financiada el aviso mostraba `sale.total`, que es el total de
+      CONTADO: el panel decía "Total a plazos C$12.204" y dos segundos después
+      el aviso decía "C$11.512". Dos cifras distintas para la misma venta, y la
+      segunda es la que queda en pantalla como constancia. Con 6% de recargo la
+      diferencia son cientos de córdobas — justo los que el operador acaba de
+      decirle al cliente en voz alta.
+    */
+    const fin = confirmedSale.financiamiento;
     toast.success(
       `${isProforma ? 'Proforma' : 'Venta'} ${assignedNumber} registrada · ` +
-      `${formatCurrencyNIO(confirmedSale.total * currentExchangeRate)}` +
+      (fin
+        ? `${formatCurrencyNIO(fin.totalNio)} en ${fin.plazoMeses} cuotas de ${formatCurrencyNIO(fin.cuotaNio)}`
+        : `${formatCurrencyNIO(confirmedSale.total * currentExchangeRate)}`) +
       `${isProforma ? '' : ' · stock actualizado'}`,
     );
     // Habilitar "Enviar por WhatsApp" (comparte el PDF) si hay teléfono.
@@ -692,7 +755,7 @@ export default function POS() {
 
     // Prepare label if transport requires it. Queda en espera: se monta recién
     // cuando el operador cierra el preview, no debajo de él.
-    if (['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(confirmedSale.transport || '')) {
+    if (TRANSPORTES_CON_ETIQUETA.includes(confirmedSale.transport || '')) {
         setPendingLabelSale(confirmedSale);
     }
 
@@ -858,7 +921,16 @@ export default function POS() {
                 <span className="block text-sm font-medium text-zinc-200 line-clamp-2 leading-tight">{product.name}</span>
                 <p className="mt-1 text-[10px] text-zinc-400 uppercase">{product.sku}</p>
                 <div className="mt-3 flex justify-between items-center">
-                  <span className="text-sm font-bold text-cyan-400">{formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}</span>
+                  <span className="flex items-baseline gap-1.5 min-w-0">
+                    <span className="text-sm font-bold text-cyan-400 tabular-nums">
+                      {formatCurrency(precioVigente(product) * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}
+                    </span>
+                    {precioVigente(product) < product.price && (
+                      <span className="text-[10px] text-zinc-400 line-through tabular-nums">
+                        {formatCurrency(product.price * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE), 'NIO')}
+                      </span>
+                    )}
+                  </span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                     Stock: {product.stock}
                   </span>
