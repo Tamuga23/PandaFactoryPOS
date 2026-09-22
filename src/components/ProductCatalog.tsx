@@ -462,7 +462,7 @@ export default function ProductCatalog({
             onClick={() => handleModeToggle(false)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
               !isEditing ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-400 hover:text-white'
-            }`}
+            } focus:outline-none focus:ring-1 focus:ring-cyan-500`}
           >
             <PackagePlus className="w-4 h-4" />
             Nuevo Articulo
@@ -472,7 +472,7 @@ export default function ProductCatalog({
             onClick={() => handleModeToggle(true)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
               isEditing ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-400 hover:text-white'
-            }`}
+            } focus:outline-none focus:ring-1 focus:ring-cyan-500`}
           >
             <Edit className="w-4 h-4" />
             Modificar Existente
@@ -610,7 +610,7 @@ export default function ProductCatalog({
                       setIsCustomCategory(false);
                       setFormData({ ...formData, category: '' });
                     }}
-                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors text-sm"
+                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
                     Volver
                   </button>
@@ -923,7 +923,7 @@ export default function ProductCatalog({
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-base font-medium text-cyan-400">Guiones de Venta (Bullets)</h4>
-            <button type="button" onClick={handleBulletAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
+            <button type="button" onClick={handleBulletAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
               <Plus className="w-3 h-3" /> Agregar Bullet
             </button>
           </div>
@@ -946,7 +946,7 @@ export default function ProductCatalog({
                       onClick={() => handleBulletMove(idx, -1)}
                       disabled={idx === 0}
                       title="Subir"
-                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors"
+                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
                     >
                       <ChevronUp className="w-3.5 h-3.5" />
                     </button>
@@ -955,7 +955,7 @@ export default function ProductCatalog({
                       onClick={() => handleBulletMove(idx, 1)}
                       disabled={idx === formData.bullets.length - 1}
                       title="Bajar"
-                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors"
+                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
                     >
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>
@@ -978,7 +978,7 @@ export default function ProductCatalog({
                     className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
                     required
                   />
-                  <button type="button" onClick={() => handleBulletRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors">
+                  <button type="button" onClick={() => handleBulletRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -991,7 +991,7 @@ export default function ProductCatalog({
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-base font-medium text-cyan-400">Respuestas a Objeciones (Override)</h4>
-            <button type="button" onClick={handleObjAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors">
+            <button type="button" onClick={handleObjAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
               <Plus className="w-3 h-3" /> Agregar Objeción
             </button>
           </div>
@@ -1005,7 +1005,7 @@ export default function ProductCatalog({
                     <input aria-label={`Identificador de la objeción ${idx + 1}`} type="text" value={obj.objId} onChange={(e) => handleObjChange(idx, 'objId', e.target.value)} placeholder="ID Objeción (ej. garantia, brillo)" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
                     <textarea aria-label={`Respuesta a la objeción ${idx + 1}`} value={obj.respuesta} onChange={(e) => handleObjChange(idx, 'respuesta', e.target.value)} placeholder="Respuesta específica para el cliente..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none resize-none" required />
                   </div>
-                  <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1">
+                  <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1 focus:outline-none focus:ring-2 focus:ring-rose-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -1063,7 +1063,7 @@ export default function ProductCatalog({
             type="button"
             onClick={() => handleModeToggle(isEditing)}
             disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50 font-medium"
+            className="px-6 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             Cancelar / Limpiar
           </button>
@@ -1071,7 +1071,7 @@ export default function ProductCatalog({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-lg font-bold text-white bg-cyan-700 hover:bg-cyan-800 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2.5 rounded-lg font-bold text-white bg-cyan-700 hover:bg-cyan-800 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             {isSubmitting ? (
               <>

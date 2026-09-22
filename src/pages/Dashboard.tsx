@@ -69,7 +69,7 @@ export default function Dashboard() {
                   onClick={() => setPeriod(p)}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
                     period === p ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
+                  } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                 >
                   {PERIOD_LABEL[p]}
                 </button>

@@ -315,7 +315,7 @@ export default function Inventory() {
           {/* P2.7: export CSV para el contador */}
           <button
             onClick={exportInventoryCsv}
-            className="inline-flex items-center justify-center px-4 py-2 border border-zinc-700 text-sm font-medium rounded-lg text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors"
+            className="inline-flex items-center justify-center px-4 py-2 border border-zinc-700 text-sm font-medium rounded-lg text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <Download className="h-4 w-4 mr-2" />
             Exportar CSV
@@ -338,7 +338,7 @@ export default function Inventory() {
             onClick={() => setCategoryFilter('')}
             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
               !categoryFilter ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
-            }`}
+            } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
           >
             Todas ({products.length})
           </button>
@@ -348,7 +348,7 @@ export default function Inventory() {
               onClick={() => setCategoryFilter(categoryFilter === cat ? '' : cat)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
                 categoryFilter === cat ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
-              }`}
+              } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
             >
               {cat} ({products.filter(p => p.category === cat).length})
             </button>
@@ -363,7 +363,7 @@ export default function Inventory() {
             <button
               onClick={() => setIsBulkEditModalOpen(true)}
               /* Era índigo, que no existe en la paleta declarada, y encima
-                 aclaraba en el hover. cyan-700 -> cyan-800. */
+                 aclaraba en el hover. Pasa a cyan-700 con hover al 800. */
               className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-cyan-700 hover:bg-cyan-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
             >
               <Layers className="h-4 w-4 mr-2" />
@@ -469,7 +469,7 @@ export default function Inventory() {
                             product.isReordering
                               ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 font-bold border border-amber-500/30'
                               : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 border border-zinc-700'
-                          }`}
+                          } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                           title={product.isReordering ? 'Quitar marca de re-pedido' : 'Marcar para re-pedir'}
                         >
                           {product.isReordering ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
@@ -482,24 +482,24 @@ export default function Inventory() {
                     {/* P2.7: kardex del producto */}
                     <button
                       onClick={() => openKardex(product)}
-                      className="text-zinc-400 hover:text-amber-400 mr-4 transition-colors"
+                      className="text-zinc-400 hover:text-amber-400 mr-4 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
                       title="Ver kardex (movimientos)"
                     >
                       <History className="h-4 w-4 inline" />
                     </button>
                     <button
                       onClick={() => openStockModal(product)}
-                      className="text-cyan-600 hover:text-cyan-400 mr-4 transition-colors p-1.5 bg-cyan-500/10 rounded"
+                      className="text-cyan-600 hover:text-cyan-400 mr-4 transition-colors p-1.5 bg-cyan-500/10 rounded focus:outline-none focus:ring-1 focus:ring-cyan-500"
                       title="Ajustar stock (con motivo, queda en kardex)"
                     >
                       <PackagePlus className="h-4 w-4 inline" />
                     </button>
-                    <button onClick={() => openModal(product)} className="text-zinc-400 hover:text-cyan-400 mr-4 transition-colors" title="Editar producto">
+                    <button onClick={() => openModal(product)} className="text-zinc-400 hover:text-cyan-400 mr-4 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded" title="Editar producto">
                       <Edit2 className="h-4 w-4 inline" />
                     </button>
                     <button
                       onClick={() => handleDeleteClick(product.id)}
-                      className={`transition-colors ${confirmingDelete === product.id ? 'text-rose-500 font-bold' : 'text-zinc-400 hover:text-rose-400'}`}
+                      className={`transition-colors ${confirmingDelete === product.id ? 'text-rose-500 font-bold' : 'text-zinc-400 hover:text-rose-400'} focus:outline-none focus:ring-1 focus:ring-rose-500 rounded`}
                       title="Eliminar producto"
                     >
                       {confirmingDelete === product.id ? '¿Eliminar?' : <Trash2 className="h-4 w-4 inline" />}
@@ -529,7 +529,7 @@ export default function Inventory() {
                 </h3>
                 <p className="text-xs text-zinc-500 mt-0.5">SKU {kardexProduct.sku} · Stock actual: <span className="text-cyan-400 font-bold">{kardexProduct.stock}</span></p>
               </div>
-              <button onClick={() => setKardexProduct(null)} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">
+              <button onClick={() => setKardexProduct(null)} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -616,12 +616,12 @@ export default function Inventory() {
                         <button type="button" onClick={() => {
                           const input = document.getElementById('quick-stock-input') as HTMLInputElement;
                           if(input) input.value = String(Math.max(0, Number(input.value) - 1));
-                        }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white">-</button>
+                        }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">-</button>
                         <input id="quick-stock-input" required type="number" name="stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-center text-lg font-bold text-cyan-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                         <button type="button" onClick={() => {
                           const input = document.getElementById('quick-stock-input') as HTMLInputElement;
                           if(input) input.value = String(Number(input.value) + 1);
-                        }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white">+</button>
+                        }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">+</button>
                       </div>
                     </div>
                     <div className="bg-zinc-950 p-3 rounded border border-zinc-800">

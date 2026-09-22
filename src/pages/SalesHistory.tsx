@@ -215,13 +215,13 @@ export default function SalesHistory() {
         <div className="flex bg-zinc-800 rounded-lg p-1 text-xs font-bold">
           <button
             onClick={() => setDocFilter('FACTURAS')}
-            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'FACTURAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'FACTURAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
           >
             Facturas
           </button>
           <button
             onClick={() => setDocFilter('PROFORMAS')}
-            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'PROFORMAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'PROFORMAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
           >
             Proformas
           </button>
@@ -275,7 +275,7 @@ export default function SalesHistory() {
         {(fStart || fEnd || fStatus !== 'todos' || fMethod !== 'todos') && (
           <button
             onClick={() => { setFStart(''); setFEnd(''); setFStatus('todos'); setFMethod('todos'); }}
-            className="h-9 px-3 text-xs font-bold text-zinc-400 hover:text-rose-400 transition-colors"
+            className="h-9 px-3 text-xs font-bold text-zinc-400 hover:text-rose-400 transition-colors focus:outline-none focus:ring-1 focus:ring-rose-500 rounded"
           >
             Limpiar filtros
           </button>
@@ -347,7 +347,7 @@ export default function SalesHistory() {
                         onClick={() => handleInvoiceProforma(sale)}
                         disabled={!!invoicingProformaId}
                         title="Convierte esta proforma en factura (verifica y descuenta stock)"
-                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
                         {invoicingProformaId === sale.id ? 'Facturando…' : 'FACTURAR'}
                       </button>
@@ -361,21 +361,21 @@ export default function SalesHistory() {
                     <button
                       onClick={() => handleStatusChange(sale, 'completed')}
                       title="Marcar Completada (descuenta stock si venía anulada)"
-                      className={`p-1.5 rounded ${sale.status === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'}`}
+                      className={`p-1.5 rounded ${sale.status === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <CheckCircle className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleStatusChange(sale, 'returned')}
                       title="Marcar Devuelta (repone stock)"
-                      className={`p-1.5 rounded ${sale.status === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'}`}
+                      className={`p-1.5 rounded ${sale.status === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-1 focus:ring-cyan-500`}
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleStatusChange(sale, 'cancelled')}
                       title="Marcar Cancelada (repone stock)"
-                      className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-500 hover:text-rose-400'}`}
+                      className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-500 hover:text-rose-400'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
@@ -386,7 +386,7 @@ export default function SalesHistory() {
                   <button
                     onClick={() => handleReprint(sale)}
                     title="Reimprimir / descargar PDF"
-                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-400 rounded-lg transition-colors"
+                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <Printer className="w-4 h-4" />
                   </button>
@@ -395,7 +395,7 @@ export default function SalesHistory() {
                     <button
                       onClick={() => handleWhatsApp(sale)}
                       title="Enviar resumen por WhatsApp"
-                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-500 rounded-lg transition-colors"
+                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-500 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       <MessageCircle className="w-4 h-4" />
                     </button>
@@ -408,7 +408,7 @@ export default function SalesHistory() {
                     onClick={() => handleEdit(sale)}
                     title="Editar venta"
                     aria-label={`Editar la venta ${sale.invoiceNumber}`}
-                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors"
+                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
                     <Edit className="w-4 h-4" aria-hidden="true" />
                   </button>
@@ -419,7 +419,7 @@ export default function SalesHistory() {
                       onClick={() => setLabelData(sale)}
                       title="Etiqueta de envío"
                       aria-label={`Ver la etiqueta de envío de la venta ${sale.invoiceNumber}`}
-                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors"
+                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     >
                       <Truck className="w-4 h-4" aria-hidden="true" />
                     </button>
@@ -427,7 +427,7 @@ export default function SalesHistory() {
                   <button
                     onClick={() => handleDeleteClick(sale)}
                     title="Eliminar registro"
-                    className="p-2 transition-colors rounded-lg text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500"
+                    className="p-2 transition-colors rounded-lg text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -455,7 +455,7 @@ export default function SalesHistory() {
           <button
             onClick={loadMoreSales}
             disabled={loadingOlderSales}
-            className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+            className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             {loadingOlderSales ? 'Cargando…' : 'Cargar ventas anteriores'}
           </button>

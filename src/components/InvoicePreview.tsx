@@ -324,7 +324,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                 {isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                 {isConfirming ? 'Procesando...' : 'Confirmar Venta'}
               </button>
-              <button onClick={onClose} disabled={isConfirming} className="bg-zinc-800 text-zinc-300 hover:text-white px-4 py-2.5 rounded-lg hover:bg-zinc-700 transition-all font-semibold">
+              <button onClick={onClose} disabled={isConfirming} className="bg-zinc-800 text-zinc-300 hover:text-white px-4 py-2.5 rounded-lg hover:bg-zinc-700 transition-all font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500">
                 Editar Datos
               </button>
             </>
@@ -335,7 +335,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   onClick={handleShareWhatsApp}
                   disabled={isSharing || isGenerating}
                   title="Comparte el PDF por WhatsApp (o lo descarga y abre el chat)"
-                  className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
                   {isSharing ? 'Preparando…' : 'Enviar por WhatsApp'}
@@ -344,7 +344,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
               <button
                 onClick={handleDownloadPDF}
                 disabled={isGenerating || isSharing}
-                className="flex items-center gap-2 bg-[#1a6ba0] hover:bg-[#1a6ba0]/90 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50"
+                className="flex items-center gap-2 bg-[#1a6ba0] hover:bg-[#1a6ba0]/90 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               >
                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                 {isGenerating ? 'Generando PDF...' : 'Descargar PDF'}

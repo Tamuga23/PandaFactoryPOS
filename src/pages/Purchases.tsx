@@ -325,7 +325,7 @@ export default function Purchases() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-cyan-700 hover:bg-cyan-800 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+          className="bg-cyan-700 hover:bg-cyan-800 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
         >
           <Plus className="w-4 h-4" />
           REGISTRAR ORDEN (FASE 1)
@@ -401,7 +401,7 @@ export default function Purchases() {
                        ) : (
                        <button
                          onClick={() => openTrackingModal(p)}
-                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isClosed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20'}`}
+                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isClosed ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20'} focus:outline-none focus:ring-1 focus:ring-emerald-500`}
                        >
                          {trackings.length > 0 ? `${receivedTrackings} / ${trackings.length} cajas recibidas` : 'Gestionar cajas'}
                        </button>
@@ -414,7 +414,7 @@ export default function Purchases() {
                           <button
                             onClick={() => openOrderEdit(p)}
                             title="Editar orden (ítems, costos, landed cost)"
-                            className="p-1.5 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-800 rounded transition-colors"
+                            className="p-1.5 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-800 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -424,14 +424,14 @@ export default function Purchases() {
                           <button
                             onClick={() => handleCancelOrder(p)}
                             title="Cancelar orden (no elimina el registro)"
-                            className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingCancel === p.id ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-zinc-800'}`}
+                            className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingCancel === p.id ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-zinc-800'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                           >
                             {confirmingCancel === p.id ? '¿Cancelar?' : <Ban className="w-4 h-4" />}
                           </button>
                         )}
                         <button
                           onClick={() => handleDeleteClick(p.id)}
-                          className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingDelete === p.id ? 'text-rose-500' : 'text-zinc-500 hover:text-rose-400 hover:bg-zinc-800'}`}
+                          className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingDelete === p.id ? 'text-rose-500' : 'text-zinc-500 hover:text-rose-400 hover:bg-zinc-800'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                         >
                           {confirmingDelete === p.id ? '¿Eliminar?' : <Trash2 className="w-4 h-4" />}
                         </button>
@@ -544,7 +544,7 @@ export default function Purchases() {
                               if (orderForm.items.length <= 1) { toast.error('La orden debe tener al menos un artículo.'); return; }
                               setOrderForm((prev: any) => ({ ...prev, items: prev.items.filter((x: any) => x.id !== it.id) }));
                             }}
-                            className="p-1 text-zinc-500 hover:text-rose-400"
+                            className="p-1 text-zinc-500 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded"
                             title="Quitar artículo de la orden"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -592,14 +592,14 @@ export default function Purchases() {
               <button
                 onClick={() => { setEditingOrder(null); setOrderForm(null); }}
                 disabled={isSavingOrder}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold"
+                className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
               >
                 Cancelar
               </button>
               <button
                 onClick={saveOrderEdit}
                 disabled={isSavingOrder}
-                className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg text-sm disabled:opacity-50"
+                className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 {isSavingOrder ? 'Guardando…' : 'Guardar Cambios'}
               </button>
@@ -634,7 +634,7 @@ export default function Purchases() {
                   </h3>
                   <p className="text-xs text-zinc-400">Orden original a: {supplierName(trackingModalPurchase.supplier)}</p>
                </div>
-               <button onClick={() => { setTrackingModalPurchase(null); closeTrackingForm(); }} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">✕</button>
+               <button onClick={() => { setTrackingModalPurchase(null); closeTrackingForm(); }} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">✕</button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-zinc-950/50">
@@ -644,7 +644,7 @@ export default function Purchases() {
                      <h4 className="text-sm font-bold text-zinc-300 uppercase">Trackings de esta Orden</h4>
                      <button
                        onClick={() => setIsAddingTracking(true)}
-                       className="text-xs bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors"
+                       className="text-xs bg-cyan-700 hover:bg-cyan-800 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
                      >
                        <Plus className="w-3 h-3" /> Agregar Tracking
                      </button>
@@ -704,7 +704,7 @@ export default function Purchases() {
                            {!t.isReceived && (
                              <button
                                onClick={() => initEditTracking(t)}
-                               className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-bold"
+                               className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500"
                              >
                                <Edit className="w-3 h-3" /> Actualizar o Marcar como Recibido
                              </button>
@@ -718,7 +718,7 @@ export default function Purchases() {
                                  confirmingRevert === t.id
                                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
                                    : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-amber-400 hover:border-amber-500/30'
-                               }`}
+                               } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                              >
                                {isReverting ? 'Revirtiendo…' : confirmingRevert === t.id ? '¿Confirmar reversión? (resta stock)' : 'Revertir recepción'}
                              </button>
@@ -740,7 +740,7 @@ export default function Purchases() {
                      <h4 className="text-sm font-bold text-cyan-400 flex items-center gap-2">
                        {editingTracking ? 'Actualizar Status de Caja' : 'Nuevo Envío/Tracking'}
                      </h4>
-                     <button type="button" onClick={closeTrackingForm} className="text-xs text-zinc-500 hover:text-white bg-zinc-800 px-3 py-1 rounded">Cancelar</button>
+                     <button type="button" onClick={closeTrackingForm} className="text-xs text-zinc-500 hover:text-white bg-zinc-800 px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500">Cancelar</button>
                    </div>
                    
                    <div className="grid grid-cols-2 gap-4">
@@ -829,7 +829,7 @@ export default function Purchases() {
                       )}
                       
                       {!editingTracking?.isReceived && (
-                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center">
+                        <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-cyan-500">
                            {isSavingPhase2 ? 'Guardando...' : 'Guardar y Asociar a Orden'}
                         </button>
                       )}

@@ -149,7 +149,7 @@ export default function Customers() {
           </div>
           <button 
             onClick={handleAddNew}
-            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20"
+            className="h-10 px-4 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap text-sm shadow-lg shadow-cyan-900/20 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <Plus className="w-4 h-4" />
             Nuevo Cliente
@@ -207,19 +207,19 @@ export default function Customers() {
                    {/* P2.6: historial de compras */}
                    <button
                      onClick={() => openHistory(customer)}
-                     className="flex-1 py-1.5 bg-cyan-600/10 hover:bg-cyan-800/20 text-cyan-400 text-xs font-semibold rounded-md border border-cyan-500/30 transition-colors flex justify-center items-center gap-1.5"
+                     className="flex-1 py-1.5 bg-cyan-600/10 hover:bg-cyan-800/20 text-cyan-400 text-xs font-semibold rounded-md border border-cyan-500/30 transition-colors flex justify-center items-center gap-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                    >
                      <History className="w-3 h-3" /> Historial
                    </button>
                    <button
                      onClick={() => handleEdit(customer)}
-                     className="flex-1 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-md border border-zinc-700 hover:border-zinc-600 transition-colors flex justify-center items-center gap-1.5"
+                     className="flex-1 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-md border border-zinc-700 hover:border-zinc-600 transition-colors flex justify-center items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                    >
                      <Edit className="w-3 h-3" /> Editar
                    </button>
                    <button 
                      onClick={() => handleDeleteClick(customer.id)} 
-                     className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors flex justify-center items-center ${confirmingDelete === customer.id ? 'bg-rose-500/20 text-rose-500 border-rose-500/30' : 'bg-zinc-800 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-500 border-zinc-700 hover:border-rose-500/30'}`}
+                     className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors flex justify-center items-center ${confirmingDelete === customer.id ? 'bg-rose-500/20 text-rose-500 border-rose-500/30' : 'bg-zinc-800 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-500 border-zinc-700 hover:border-rose-500/30'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                    >
                      {confirmingDelete === customer.id ? '¿Eliminar?' : <Trash2 className="w-3.5 h-3.5" />}
                    </button>
@@ -321,7 +321,7 @@ export default function Customers() {
                       <button
                         onClick={() => openSalePreview(sale)}
                         title="Reimprimir PDF"
-                        className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded"
+                        className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
                         <Printer className="w-4 h-4" />
                       </button>
@@ -329,7 +329,7 @@ export default function Customers() {
                         <button
                           onClick={() => handleWhatsAppSale(sale)}
                           title="Enviar resumen por WhatsApp"
-                          className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-zinc-800 rounded"
+                          className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-zinc-800 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           <MessageCircle className="w-4 h-4" />
                         </button>
@@ -420,8 +420,8 @@ export default function Customers() {
                    </div>
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3 border-t border-zinc-800">
-                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm">Guardar</button>
+                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded">Cancelar</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">Guardar</button>
                 </div>
              </form>
           </div>

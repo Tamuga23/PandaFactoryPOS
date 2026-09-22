@@ -260,7 +260,7 @@ export default function Settings() {
                       type="button"
                       onClick={handleSaveCounter}
                       disabled={savingCounter}
-                      className="px-5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm font-bold text-cyan-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 shrink-0"
+                      className="px-5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm font-bold text-cyan-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     >
                       {savingCounter ? 'Fijando…' : 'Fijar'}
                     </button>
@@ -305,7 +305,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50"
+              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {isSaving ? (
                 <>Procesando...</>
@@ -341,7 +341,7 @@ export default function Settings() {
             <button
               type="button"
               onClick={() => setIsConfirmingClean(true)}
-              className="flex items-center gap-2 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/30 text-rose-400 font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 text-sm"
+              className="flex items-center gap-2 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/30 text-rose-400 font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500"
             >
               Limpiar Productos Duplicados
             </button>
@@ -353,7 +353,7 @@ export default function Settings() {
                   type="button"
                   onClick={handleCleanDuplicates}
                   disabled={isCleaning}
-                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center justify-center flex-1"
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center justify-center flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
                   {isCleaning ? 'Limpiando...' : 'Sí, Eliminar'}
                 </button>
@@ -361,7 +361,7 @@ export default function Settings() {
                   type="button"
                   onClick={() => setIsConfirmingClean(false)}
                   disabled={isCleaning}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg font-bold text-sm transition-all flex-1 border border-zinc-700"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg font-bold text-sm transition-all flex-1 border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   Cancelar
                 </button>

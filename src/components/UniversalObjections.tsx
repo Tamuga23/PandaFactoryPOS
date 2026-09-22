@@ -122,7 +122,7 @@ export default function UniversalObjections() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
         >
           <Plus className="w-4 h-4" />
           Nueva objeción
@@ -154,7 +154,7 @@ export default function UniversalObjections() {
             <h2 className="text-base font-semibold text-white">
               {editingId ? 'Editar objeción' : 'Nueva objeción general'}
             </h2>
-            <button onClick={closeForm} className="text-zinc-400 hover:text-white transition-colors">
+            <button onClick={closeForm} className="text-zinc-400 hover:text-white transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -226,14 +226,14 @@ export default function UniversalObjections() {
               <button
                 type="button"
                 onClick={closeForm}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white border border-zinc-700 rounded-lg hover:bg-zinc-800 transition-colors"
+                className="px-4 py-2 text-sm text-zinc-400 hover:text-white border border-zinc-700 rounded-lg hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 text-sm bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 text-sm bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 {saving ? 'Guardando…' : editingId ? 'Actualizar' : 'Crear'}
               </button>
@@ -254,13 +254,13 @@ export default function UniversalObjections() {
             <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={() => setDeleteId(null)}
-                className="px-3 py-1.5 text-xs border border-zinc-700 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="px-3 py-1.5 text-xs border border-zinc-700 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDelete}
-                className="px-3 py-1.5 text-xs bg-rose-600 text-white rounded-lg hover:bg-rose-500 transition-colors font-medium"
+                className="px-3 py-1.5 text-xs bg-rose-600 text-white rounded-lg hover:bg-rose-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 Eliminar
               </button>
@@ -306,14 +306,14 @@ export default function UniversalObjections() {
                       <div className="flex items-center gap-1 justify-end">
                         <button
                           onClick={() => openEdit(obj)}
-                          className="p-1.5 text-zinc-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-md transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-md transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
                           title="Editar"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleteId(obj.id)}
-                          className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors focus:outline-none focus:ring-1 focus:ring-rose-500"
                           title="Eliminar"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

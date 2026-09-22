@@ -203,7 +203,7 @@ export default function Reports() {
         {/* P2.7: export CSV del período */}
         <button
           onClick={exportSalesCsv}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-600 text-zinc-300 hover:text-white text-xs font-bold rounded-xl transition-colors"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-600 text-zinc-300 hover:text-white text-xs font-bold rounded-xl transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
         >
           <Download className="w-3.5 h-3.5" /> Exportar CSV
         </button>
@@ -212,7 +212,7 @@ export default function Reports() {
             <button
               key={key}
               onClick={() => setPreset(key)}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {label}
             </button>

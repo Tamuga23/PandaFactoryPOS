@@ -356,7 +356,7 @@ export default function PurchaseRegistration({
                         onChange={(e) => setSupplier(e.target.value)}
                         placeholder="Nombre del proveedor"
                       />
-                      <button type="button" onClick={() => setIsCustomSupplier(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomSupplier(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
                     /*
@@ -392,7 +392,7 @@ export default function PurchaseRegistration({
                         onChange={(e) => setPlatform(e.target.value)}
                         placeholder="Nombre de la plataforma"
                       />
-                      <button type="button" onClick={() => setIsCustomPlatform(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomPlatform(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
                     /* Mismo id que el <input> de la otra rama del ternario: ver
@@ -429,7 +429,7 @@ export default function PurchaseRegistration({
                         onChange={(e) => setFinancing(e.target.value)}
                         placeholder="Tipo de financiación"
                       />
-                      <button type="button" onClick={() => setIsCustomFinancing(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomFinancing(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
                     <select aria-label="Financiación"
@@ -458,7 +458,7 @@ export default function PurchaseRegistration({
                         onChange={(e) => setShippingChannel(e.target.value)}
                         placeholder="Canal de envío"
                       />
-                      <button type="button" onClick={() => setIsCustomShippingChannel(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomShippingChannel(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
                     <select aria-label="Canal de Envío"
@@ -483,7 +483,7 @@ export default function PurchaseRegistration({
                         onChange={(e) => setShippingMode(e.target.value)}
                         placeholder="Modalidad de envío"
                       />
-                      <button type="button" onClick={() => setIsCustomShippingMode(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomShippingMode(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
                     <select aria-label="Modalidad"
@@ -584,7 +584,7 @@ export default function PurchaseRegistration({
                             <div className="text-[10px] text-zinc-400">Cant: {item.quantity} × ${item.unitCost.toFixed(2)} = <span className="text-zinc-200 font-bold">${(item.quantity * item.unitCost).toFixed(2)}</span> {item.color && ` • Color: ${item.color}`} {item.estimatedWeight && ` • Peso: ${item.estimatedWeight}lbs`}</div>
                          </div>
                       </div>
-                      <button onClick={() => handleRemoveItem(item.draftId)} className="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg">
+                      <button onClick={() => handleRemoveItem(item.draftId)} className="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
                    </div>
@@ -597,13 +597,13 @@ export default function PurchaseRegistration({
                <div className="flex gap-2 mb-4">
                  <button
                    onClick={() => handleToggleProductMode(false)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                  >
                    Seleccionar Existente
                  </button>
                  <button
                    onClick={() => handleToggleProductMode(true)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                  >
                    Definir Nuevo Producto
                  </button>
@@ -647,7 +647,7 @@ export default function PurchaseRegistration({
                               value={itemForm.category}
                               onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
                             />
-                            <button type="button" onClick={() => setIsCustomCategory(false)} className="px-2 bg-zinc-700 rounded-lg text-xs text-white">Volver</button>
+                            <button type="button" onClick={() => setIsCustomCategory(false)} className="px-2 bg-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                           </div>
                         ) : (
                           <select aria-label="Categoría"
@@ -749,7 +749,7 @@ export default function PurchaseRegistration({
                      <button
                        type="button"
                        onClick={handleAddItem}
-                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-cyan-400 border border-zinc-700 font-bold py-2.5 px-4 rounded-lg transition-all flex justify-center items-center gap-2 text-sm"
+                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-cyan-400 border border-zinc-700 font-bold py-2.5 px-4 rounded-lg transition-all flex justify-center items-center gap-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                      >
                        <Plus className="w-4 h-4" /> Agregar Item a la Orden
                      </button>
@@ -766,7 +766,7 @@ export default function PurchaseRegistration({
          <button
            onClick={handleSubmit}
            disabled={isSubmitting || items.length === 0}
-           className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"
+           className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
          >
            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
            {isSubmitting ? 'Procesando Múltiples Artículos...' : `Finalizar y Guardar ${items.length > 0 ? items.length : ''} Artículos`}

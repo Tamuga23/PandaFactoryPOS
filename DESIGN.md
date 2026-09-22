@@ -291,7 +291,8 @@ reprueba.
 existe el dialecto "ninguno": un botón sin `focus:` hereda el anillo del
 navegador sobre una superficie casi negra, que es impredecible. Para campos,
 `focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500`; para botones,
-`focus:ring-2` del color de su acción.
+`focus:ring-2` del color de su acción si tienen relleno sólido, `focus:ring-1`
+si son terciarios o de ícono. **El sistema la cumple**: 144 de 146 botones.
 
 **La Regla del Tinte sin Borde.** El badge canónico es tinte al 10% + texto al
 500, *sin* borde (56 casos contra 24). El borde `/20` se agrega solo cuando el
@@ -495,24 +496,37 @@ notable es que, aun así, **el color es consistente y la geometría no**.
 Receta única en 117 apariciones: Carbón Control de fondo, Carbón Borde de 1px,
 radio Control.
 
-**El foco sigue siendo el punto más frágil del sistema, pero ya no es un
-desierto.** Hay **cinco dialectos** conviviendo, todos hacia el mismo turquesa,
-ninguno unificado. La receta recomendada — `focus:border-cyan-500 focus:ring-1
-focus:ring-cyan-500` con anillo — **ya es mayoría en campos**. `focus-visible`
-no existe en ninguna parte del proyecto.
+**El foco dejó de ser el punto frágil del sistema.** Al 2026-09-21, **144 de
+146 botones** declaran su anillo (los 2 restantes son menciones de `<button>`
+dentro de comentarios, no controles). `focus-visible` sigue sin existir en
+ninguna parte del proyecto: el sistema usa `focus:` a secas.
 
-El agujero real no está en los campos: está en los **botones**, y está muy
-concentrado. `POS.tsx`, `ShippingLabelPreview.tsx` y `Toast.tsx` declaran foco
-en el 100% de los suyos; `SalesHistory.tsx` (17 botones), `Purchases.tsx` (15),
-`Customers.tsx` (9) y las dos pantallas de Objeciones casi no declaran ninguno.
-Son, además, las pantallas de las acciones irreversibles.
+El anillo es **del color de la acción del botón**, deducido de su relleno:
 
-> Las cifras de esta sección se habían quedado viejas y **daban vuelta el
-> diagnóstico**: decían que el dialecto dominante era el campo sin anillo
-> (ya no lo es) y que los botones con foco eran 5 de 135 (son más, y el hueco
-> está concentrado en cuatro archivos, no repartido). Un documento que mide mal
+- Relleno sólido o `type="submit"` → `focus:outline-none focus:ring-2` del color
+  de su acción (turquesa, esmeralda o rosa).
+- Terciario, de ícono o pestaña → `focus:outline-none focus:ring-1`, mismo criterio.
+- Campo → `focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500`.
+
+Así el anillo nunca inventa un color que el botón no tenga.
+
+**Los nombres accesibles también están puestos:** 142 de 144 controles de
+formulario tienen `htmlFor`+`id` (69) o `aria-label` (88). Los 2 restantes son
+asociación *implícita* —el `<input>` vive dentro de su propio `<label>`— y se
+dejan así a propósito: ya tienen nombre, y un `aria-label` pisaría el texto
+visible y rompería "Label in Name" (WCAG 2.5.3).
+
+> **Sobre medir.** Las cifras de esta sección se habían quedado viejas y
+> **daban vuelta el diagnóstico**: decían que el dialecto dominante era el campo
+> sin anillo y que los botones con foco eran 5 de 135. Un documento que mide mal
 > manda a trabajar sobre el problema equivocado. Las métricas absolutas de aquí
 > en más se leen como una foto con fecha, no como una constante.
+>
+> Y una trampa al contar: un `<button>` de JSX **no termina en el primer `>`**.
+> `onClick={() => …}` trae uno adentro, y también lo trae un comentario que
+> diga `700 -> 800`. Cualquier medición hecha con una expresión ingenua
+> subcuenta — la primera pasada de esta misma sección dio 17% donde el número
+> real era 32%.
 
 ### Cards / Containers
 
@@ -560,9 +574,15 @@ Carbón Superficie al 95% + `backdrop-blur` + borde del color semántico al 40% 
   al confirmar.
 - **Do** alinear a la derecha y usar `tabular-nums` en cualquier columna de
   cifras nueva. El sistema todavía no lo hace; empezá a cumplirlo.
-- **Do** declarar un anillo de foco visible en cada control nuevo. Ya hay cinco
-  dialectos: elegí `focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500` y no
-  inventes un sexto.
+- **Do** declarar un anillo de foco visible en cada control nuevo, del color de
+  la acción de ese control: `focus:ring-2` sobre relleno sólido, `focus:ring-1`
+  en terciarios y botones de ícono, y `focus:border-cyan-500 focus:ring-1
+  focus:ring-cyan-500` en campos.
+
+  > Esta línea decía antes que se usara la receta de CAMPO en todo control, y
+  > llamaba "inventar un sexto dialecto" a lo que la Regla del Foco Declarado
+  > prescribe tres secciones más arriba. Las dos no se podían cumplir a la vez:
+  > `focus:border-cyan-500` sobre un relleno turquesa sólido es invisible.
 
 ### Don't:
 
