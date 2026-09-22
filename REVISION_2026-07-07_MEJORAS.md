@@ -57,21 +57,53 @@ encontraran regresiones introducidas en la propia sesión. Puntaje 22/40.
   calculados sobre los hex de Tailwind v3 cuando el proyecto compila v4 en
   OKLCH. Corregido, con las métricas fechadas.
 
+### Segunda tanda (2026-09-21, commits `a7a5bf2` … `b6927de`)
+
+- **El error de una venta fallida ya no desaparece solo.** El Toast borraba
+  TODO aviso a los 4,5 s; los errores ahora se quedan hasta que se cierran. Y
+  el diálogo marca la falla junto al botón, que pasa a decir "Reintentar" —
+  seguro ahora que `recordSale` es idempotente.
+- **El botón decía "Confirmar Venta" en una cotización.** Dice "Guardar
+  Cotización".
+- **Facturar una proforma es idempotente.** El id de la factura se deriva de la
+  proforma (`uuidv5`) en vez de sortearse, y las dos escrituras tienen su propio
+  try/catch: después de un `recordSale` exitoso nada puede volver a decir que no
+  se pudo facturar. Antes un fallo de `updateSale` se comía el éxito, y el único
+  botón disponible creaba una segunda factura.
+- **La app imprime.** Botón "Imprimir" con `window.print()` sobre una hoja
+  `@media print` nueva, que reusa la paginación que el preview ya calculó.
+  *Falta verlo con la app corriendo: las reglas compilan y están en `dist/`,
+  pero no hubo navegador en la sesión.*
+- **Recuperar un borrador reconcilia contra el catálogo:** descarta productos
+  borrados, refresca el stock, acota la cantidad, limpia el `customerId` muerto
+  y el aviso dice qué cambió. El precio negociado se respeta.
+- **Los dos campos casi homónimos del bloque de pago** ("Referencia de Pago" /
+  "Nota / Referencia", con el placeholder del segundo describiendo al primero)
+  ahora dicen qué son y adónde van.
+- **El descuento manual se acota al tipear:** antes el total se pintaba en
+  negativo, en turquesa, y el error llegaba recién al facturar.
+- **El precio de efectivo subió al cierre fijo**, junto al total. Era el último
+  elemento del área con scroll y quedaba fuera de pantalla siempre.
+- **Un solo sistema de avisos:** Configuración tenía el suyo, con su estado y su
+  temporizador. Migrado al Toast.
+- **La rampa tipográfica está medida y documentada**, con su deuda al lado.
+- **144 de 146 botones y 142 de 144 controles** con foco y nombre accesible.
+
 ### Pendiente
 
-- **La app no imprime.** No hay `window.print()` ni `@media print` en el repo: el
-  último paso de cada venta es salir de la aplicación a buscar el PDF. Se
-  relaciona con el P4.6 que ya estaba anotado.
+- **Ver la impresión con la app corriendo.** El botón "Imprimir" ya existe y sus
+  reglas compilan, pero nadie vio todavía una vista previa real. Conviene abrir
+  una factura de dos páginas y hacer Ctrl+P una vez. Si algo sale mal, el camino
+  del PDF quedó intacto. (El ticket de 80mm del P4.6 sigue siendo trabajo aparte.)
 - **El `shadow-lg` del botón primario** es la única excepción viva a la doctrina
   plana. Un botón no flota, así que estrictamente la regla lo alcanza; queda
   anotado en DESIGN.md y sin decidir porque toca el control más visible.
 - **`text-[11px]` ×28** es un escalón real de la consola que la rampa de
   DESIGN.md no documenta, y 22 `text-[10px]` viven dentro de los lienzos de
   papel, donde ese paso no pertenece.
-- **El segundo sistema de avisos de Configuración** (barra fija sólida) hace el
-  mismo trabajo que el Toast global. DESIGN.md ya lo llama deuda.
-- **Recuperar un borrador** restaura precio, stock y cliente sin revalidar nada
-  contra el catálogo actual.
+- **Colapsar los 27 usos de 9px y 11px de la consola a 10px.** Viven en cajas
+  angostas donde agrandar puede hacer saltar el texto a dos líneas: hay que
+  verlo con la app corriendo.
 
 ---
 
