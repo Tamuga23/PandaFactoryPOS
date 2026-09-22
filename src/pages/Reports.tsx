@@ -182,7 +182,7 @@ export default function Reports() {
     }).sort((a, b) => b.revenue - a.revenue);
   }, [filteredSales, products]);
 
-  if (loading) return <div className="text-zinc-500 p-6 font-mono">Loading data model...</div>;
+  if (loading) return <div className="text-zinc-400 p-6">Cargando reportes…</div>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -193,7 +193,7 @@ export default function Reports() {
           <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-tight italic flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-cyan-400" /> Panel Financiero
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-sm text-zinc-400 mt-1">
             Ganancia bruta y márgenes por período. Solo ventas completadas (excluye proformas, canceladas y devueltas).
             {loadingSales && <span className="text-cyan-400 ml-2 animate-pulse">Cargando ventas…</span>}
           </p>
@@ -245,22 +245,22 @@ export default function Reports() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4"/> Total Ventas</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4" aria-hidden="true"/> Total Ventas (USD)</div>
             <div className="text-3xl font-bold text-emerald-400 tabular-nums relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
          </div>
          
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4"/> Costo de Ventas</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4" aria-hidden="true"/> Costo de Ventas (USD)</div>
             <div className="text-3xl font-bold text-rose-400 tabular-nums relative z-10">{formatCurrency(metrics.totalCost)}</div>
          </div>
 
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4"/> Utilidad Bruta</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4" aria-hidden="true"/> Utilidad Bruta (USD)</div>
             <div className="text-3xl font-bold text-cyan-400 tabular-nums relative z-10">{formatCurrency(metrics.grossProfit)}</div>
          </div>
 
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Percent className="w-4 h-4"/> Margen %</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Percent className="w-4 h-4" aria-hidden="true"/> Margen %</div>
             {/* Era fucsia, un sexto color que la paleta no tiene. La Regla de
                 la Luz Única reserva el turquesa para el dinero, y el margen es
                 dinero. Y `font-mono` cambia la familia tipográfica: el sistema
@@ -379,7 +379,7 @@ export default function Reports() {
                  })}
                  {productPerf.length === 0 && (
                    <tr>
-                     <td colSpan={6} className="px-6 py-10 text-center text-zinc-500 italic">No hay ventas registradas en este periodo.</td>
+                     <td colSpan={6} className="px-6 py-10 text-center text-zinc-400 italic">No hay ventas registradas en este periodo.</td>
                    </tr>
                  )}
               </tbody>

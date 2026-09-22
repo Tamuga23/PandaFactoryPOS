@@ -154,9 +154,6 @@ export default function Catalog() {
         catalog={catalogForComponent}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
-        onSuccess={() => {
-           console.log("Catálogo actualizado");
-        }}
       />
     </div>
   );

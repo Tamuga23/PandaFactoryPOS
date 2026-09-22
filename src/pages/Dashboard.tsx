@@ -17,6 +17,14 @@ export default function Dashboard() {
   // período anterior de igual longitud, consultado por rango (sin tope de 100).
   const [period, setPeriod] = useState<Period>('hoy');
   const [periodData, setPeriodData] = useState<{ current: number; previous: number } | null>(null);
+  /*
+    Si la consulta por rango falla —permisos, red, cuota de Spark— antes se
+    ponía `periodData` en null y la tarjeta caía silenciosamente a
+    `stats.todaySalesValue`: el operador elegía "30 días" y leía el número de
+    HOY, con el botón de 30 días encendido. Un número equivocado bajo un rótulo
+    seguro es peor que no mostrar número.
+  */
+  const [fallaPeriodo, setFallaPeriodo] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -28,18 +36,23 @@ export default function Dashboard() {
     const sum = (arr: Sale[]) =>
       arr.filter(s => s.documentType !== 'PROFORMA' && (s.status || 'completed') === 'completed')
         .reduce((a, s) => a + s.total, 0);
+    setFallaPeriodo(false);
     Promise.all([
       fetchSalesInRange(startCur, Date.now()),
       fetchSalesInRange(startPrev, startCur - 1),
     ]).then(([cur, prev]) => {
       if (!cancelled) setPeriodData({ current: sum(cur), previous: sum(prev) });
-    }).catch(() => { if (!cancelled) setPeriodData(null); });
+    }).catch(() => {
+      if (cancelled) return;
+      setPeriodData(null);
+      setFallaPeriodo(true);
+    });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, user]);
 
   if (loading) {
-    return <div className="text-zinc-500">Cargando panel…</div>;
+    return <div className="text-zinc-400">Cargando panel…</div>;
   }
 
   const delta = periodData && periodData.previous > 0
@@ -47,7 +60,7 @@ export default function Dashboard() {
     : null;
 
   const kpis = [
-    { title: 'Valor Inventario (a costo)', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-cyan-400', border: '' },
+    { title: 'Valor Inventario a costo (USD)', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-cyan-400', border: '' },
     { title: 'Productos', value: stats.totalProducts.toString(), icon: Package, color: 'text-white', border: '' },
     { title: 'Inventario Crítico', value: stats.lowStockItems.length.toString(), icon: AlertTriangle, color: 'text-rose-400', border: 'border-l-rose-500 border-l-2' },
   ];
@@ -59,8 +72,8 @@ export default function Dashboard() {
         {/* P4.4: card de ventas con selector de período y comparación */}
         <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-xl">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-zinc-500 text-xs font-medium uppercase flex items-center gap-2">
-              <DollarSign className="h-4 w-4" /> Ventas
+            <p className="text-zinc-400 text-xs font-medium uppercase flex items-center gap-2">
+              <DollarSign className="h-4 w-4" aria-hidden="true" /> Ventas (USD)
             </p>
             <div className="flex bg-zinc-800 rounded-md p-0.5">
               {(Object.keys(PERIOD_LEN) as Period[]).map(p => (
@@ -68,7 +81,7 @@ export default function Dashboard() {
                   key={p}
                   onClick={() => setPeriod(p)}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                    period === p ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                    period === p ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-zinc-200'
                   } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                 >
                   {PERIOD_LABEL[p]}
@@ -76,23 +89,29 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          <p className="text-2xl font-bold mt-2 text-cyan-400">
-            {periodData ? formatCurrency(periodData.current) : formatCurrency(stats.todaySalesValue)}
-          </p>
+          {fallaPeriodo ? (
+            <p className="text-sm font-bold mt-2 text-rose-400">
+              No se pudieron leer las ventas del período.
+            </p>
+          ) : (
+            <p className="text-2xl font-bold mt-2 text-cyan-400 tabular-nums">
+              {periodData ? formatCurrency(periodData.current) : formatCurrency(stats.todaySalesValue)}
+            </p>
+          )}
           {delta !== null && (
             <p className={`text-[11px] font-bold mt-1 flex items-center gap-1 ${delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               {delta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               {delta >= 0 ? '+' : ''}{delta.toFixed(0)}% vs período anterior
-              <span className="text-zinc-600 font-normal">({formatCurrency(periodData!.previous)})</span>
+              <span className="text-zinc-400 font-normal tabular-nums">({formatCurrency(periodData!.previous)})</span>
             </p>
           )}
           {delta === null && periodData && (
-            <p className="text-[11px] text-zinc-600 mt-1">Sin ventas en el período anterior para comparar.</p>
+            <p className="text-[11px] text-zinc-400 mt-1">Sin ventas en el período anterior para comparar.</p>
           )}
         </div>
         {kpis.map((kpi, idx) => (
           <div key={idx} className={`bg-zinc-900/50 p-4 border border-zinc-800 rounded-xl ${kpi.border}`}>
-            <p className="text-zinc-500 text-xs font-medium uppercase flex items-center gap-2">
+            <p className="text-zinc-400 text-xs font-medium uppercase flex items-center gap-2">
                <kpi.icon className="h-4 w-4" /> {kpi.title}
             </p>
             <p className={`text-2xl font-bold mt-2 ${kpi.color}`}>{kpi.value}</p>
@@ -124,7 +143,7 @@ export default function Dashboard() {
                   {stats.lowStockItems.map(item => (
                     <tr key={item.id} className="hover:bg-zinc-800/30 bg-rose-500/5">
                       <td className="px-4 py-3 font-medium text-zinc-200">{item.name}</td>
-                      <td className="px-4 py-3 text-zinc-500">{item.sku}</td>
+                      <td className="px-4 py-3 text-zinc-400">{item.sku}</td>
                       <td className="px-4 py-3 text-right text-rose-400">{item.stock} / {item.minStockAlert}</td>
                       <td className="px-4 py-3 text-right">
                         <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[10px]">Bajo Stock</span>
@@ -134,7 +153,7 @@ export default function Dashboard() {
                 </tbody>
               </table>
             ) : (
-              <div className="p-5 text-sm text-zinc-500">Todos los productos tienen existencias adecuadas.</div>
+              <div className="p-5 text-sm text-zinc-400">Todos los productos tienen existencias adecuadas.</div>
             )}
           </div>
         </div>
@@ -159,7 +178,7 @@ export default function Dashboard() {
                   {stats.recentSales.map(sale => (
                     <tr key={sale.id} className="hover:bg-zinc-800/30">
                       <td className="px-4 py-3 font-medium text-cyan-400">{sale.invoiceNumber}</td>
-                      <td className="px-4 py-3 text-zinc-500">{format(sale.date, 'MMM dd, yyyy h:mm a')}</td>
+                      <td className="px-4 py-3 text-zinc-400 tabular-nums">{format(sale.date, 'MMM dd, yyyy h:mm a')}</td>
                       <td className="px-4 py-3 text-right text-zinc-300">{sale.items.length}</td>
                       <td className="px-4 py-3 text-right font-medium text-zinc-200">{formatCurrency(sale.total)}</td>
                     </tr>
@@ -167,7 +186,7 @@ export default function Dashboard() {
                 </tbody>
               </table>
             ) : (
-              <div className="p-5 text-sm text-zinc-500">No hay ventas recientes.</div>
+              <div className="p-5 text-sm text-zinc-400">No hay ventas recientes.</div>
             )}
           </div>
         </div>
