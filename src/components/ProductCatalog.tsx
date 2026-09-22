@@ -123,6 +123,9 @@ export interface ProductCatalogProps {
   /** Abre la ficha directamente en modo edición sobre este producto. Lo usa el
    *  botón "Ficha completa" de Inventario, que es donde de verdad se busca. */
   productoInicialId?: string | null;
+  /** Las objeciones generales que existen, para elegir cuál se sobreescribe en
+   *  vez de tipear su identificador de memoria. */
+  objecionesDisponibles?: { id: string; titulo: string }[];
 }
 
 interface FormData {
@@ -187,6 +190,7 @@ export default function ProductCatalog({
   onUpdateProduct,
   onSuccess,
   productoInicialId,
+  objecionesDisponibles = [],
 }: ProductCatalogProps) {
   // 2. ESTADOS REQUERIDOS
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -1155,7 +1159,35 @@ export default function ProductCatalog({
               {formData.objecionesOverride.map((obj, idx) => (
                 <div key={idx} className="flex items-start gap-2 bg-zinc-800/30 p-3 rounded-lg border border-zinc-800">
                   <div className="flex-1 space-y-2">
-                    <input aria-label={`Identificador de la objeción ${idx + 1}`} type="text" value={obj.objId} onChange={(e) => handleObjChange(idx, 'objId', e.target.value)} placeholder="ID Objeción (ej. garantia, brillo)" className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" required />
+                    {/*
+                      Era un campo de TEXTO LIBRE: había que saberse de memoria
+                      el identificador de una objeción definida en otra pantalla
+                      y tipearlo sin equivocarse. Un typo creaba un override que
+                      no sobreescribía nada, y nadie avisaba — el sistema conoce
+                      esa lista, no tiene por qué hacérsela recordar al operador.
+
+                      Si el valor guardado ya no está en la lista (la objeción se
+                      borró, o el dato es viejo), se conserva como opción propia
+                      y se marca: perder el dato en silencio sería peor que
+                      mostrar que quedó huérfano.
+                    */}
+                    <select
+                      aria-label={`Objeción general que sobreescribe la respuesta ${idx + 1}`}
+                      value={obj.objId}
+                      onChange={(e) => handleObjChange(idx, 'objId', e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                      required
+                    >
+                      <option value="">— Elegí la objeción a sobreescribir —</option>
+                      {objecionesDisponibles.map((o) => (
+                        <option key={o.id} value={o.id}>{o.titulo}</option>
+                      ))}
+                      {obj.objId && !objecionesDisponibles.some((o) => o.id === obj.objId) && (
+                        <option value={obj.objId}>
+                          {obj.objId} — ya no existe en Objeciones Generales
+                        </option>
+                      )}
+                    </select>
                     <textarea aria-label={`Respuesta a la objeción ${idx + 1}`} value={obj.respuesta} onChange={(e) => handleObjChange(idx, 'respuesta', e.target.value)} placeholder="Respuesta específica para el cliente..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none resize-none" required />
                   </div>
                   <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1 focus:outline-none focus:ring-2 focus:ring-rose-500">

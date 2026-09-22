@@ -249,7 +249,7 @@ export default function UniversalObjections() {
               </button>
               <button
                 onClick={handleDelete}
-                className="px-3 py-1.5 text-xs bg-rose-600 text-white rounded-lg hover:bg-rose-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="px-3 py-1.5 text-xs bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 Eliminar
               </button>

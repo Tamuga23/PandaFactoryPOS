@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 export default function Catalog() {
-  const { products, addProduct, updateProduct, loading, companyInfo } = useStore();
+  const { products, addProduct, updateProduct, loading, companyInfo, universalObjections } = useStore();
   /*
     Entrada directa desde Inventario. El Catálogo es donde vive la ficha
     completa, pero el Inventario es donde se BUSCA: tiene buscador, filtro por
@@ -151,6 +151,7 @@ export default function Catalog() {
     <div className="space-y-6">
       <ProductCatalog
         productoInicialId={editarId}
+        objecionesDisponibles={universalObjections.map((o) => ({ id: o.id, titulo: o.titulo }))}
         catalog={catalogForComponent}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
