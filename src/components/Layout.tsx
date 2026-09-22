@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -37,6 +37,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const tituloPagina =
     navigation.find(n => n.href === location.pathname)?.name ?? 'Panel Principal';
 
+  /*
+    El título del documento era FIJO: "pandastore — Sistema de Gestión" en las
+    once pantallas. Eso se ve en la pestaña del navegador, en el historial y al
+    cambiar de ventana con Alt+Tab. Con varias pestañas abiertas —el POS y el
+    Inventario, por ejemplo— las dos se llaman igual y hay que adivinar cuál es
+    cuál. El nombre de la pantalla va primero porque es lo único que se lee
+    cuando la pestaña se angosta.
+  */
+  useEffect(() => {
+    document.title = `${tituloPagina} — pandastore`;
+  }, [tituloPagina]);
+
   return (
     <div className="min-h-screen bg-zinc-950 flex text-zinc-200 overflow-hidden relative">
       {/* Notificaciones globales (reemplazo de alert()) */}
@@ -55,14 +67,21 @@ export default function Layout({ children }: { children: ReactNode }) {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900 z-10 w-full relative">
-          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+          {/*
+            Era un <h1>: el encabezado de nivel más alto del documento decía
+            "pandastore" en las once pantallas. Un logotipo que se repite
+            idéntico en todos lados no identifica NADA — y dejaba sin h1 al dato
+            que sí identifica la página, que es su nombre. El header móvil ya lo
+            trataba como <span>; ahora los dos coinciden.
+          */}
+          <div className="text-xl font-bold tracking-tight flex items-center gap-2">
             {companyInfo?.logoBase64 ? (
               <img src={companyInfo.logoBase64} alt="pandastore" className="w-8 h-8 rounded-full object-cover border border-zinc-800 bg-white" />
             ) : (
               <Store className="w-6 h-6 text-cyan-400" />
             )}
             <span className="text-white">panda</span><span className="-ml-1 bg-gradient-to-r from-cyan-400 to-[#0a85a8] bg-clip-text text-transparent">store</span>
-          </h1>
+          </div>
           {/* Era de solo icono y sin nombre: un lector lo anunciaba como
               "boton" a secas. Y sin anillo de foco, que sobre una superficie
               casi negra deja el default del navegador, que es impredecible. */}
@@ -145,13 +164,13 @@ export default function Layout({ children }: { children: ReactNode }) {
             en móvil), así que bajo 768px el árbol de accesibilidad saltaba de
             h1 directo a h3. Este lo lee el lector y no lo ve nadie.
           */}
-          <h2 className="sr-only">{tituloPagina}</h2>
+          <h1 className="sr-only">{tituloPagina}</h1>
         </div>
         
         {/* Top Header */}
         <header className="hidden md:flex h-16 border-b border-zinc-800 items-center justify-between px-8 bg-zinc-900/20">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-medium text-zinc-200">{tituloPagina}</h2>
+            <h1 className="text-lg font-medium text-zinc-200">{tituloPagina}</h1>
             <span className="px-2 py-1 bg-cyan-500/10 text-cyan-400 text-[10px] uppercase font-bold rounded border border-cyan-500/20">Conectado a la Nube</span>
           </div>
           <div className="flex items-center gap-6">

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { HelpCircle, Plus, Pencil, Trash2, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import type { UniversalObjection } from '../types';
+import { toast } from './Toast';
 
 const EMPTY_FORM = {
   id: '',
@@ -25,12 +26,16 @@ export default function UniversalObjections() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /*
+    Este componente tenía su propio banner de avisos, con su estado y su
+    temporizador de 3,5 s. Era uno de CINCO sistemas paralelos que hacían el
+    mismo trabajo que el Toast global. `flash` se conserva como nombre para no
+    tocar sus llamadas; lo que cambia es adónde va el mensaje.
+  */
   const flash = (type: 'success' | 'error', message: string) => {
-    setFeedback({ type, message });
-    setTimeout(() => setFeedback(null), 3500);
+    toast[type](message);
   };
 
   const openCreate = () => {
@@ -130,22 +135,6 @@ export default function UniversalObjections() {
       </div>
 
       {/* Feedback */}
-      {feedback && (
-        <div
-          className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border ${
-            feedback.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-          }`}
-        >
-          {feedback.type === 'success' ? (
-            <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          ) : (
-            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          )}
-          {feedback.message}
-        </div>
-      )}
 
       {/* Form */}
       {showForm && (

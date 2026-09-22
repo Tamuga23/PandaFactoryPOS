@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Trash2, ShoppingBag, Search, Tag, Image as ImageIcon, Loader2, Package } from 'lucide-react';
 import { formatCurrency } from '../lib/utils';
 import { Product, Supplier } from '../types';
+import { toast } from './Toast';
 
 interface PurchaseRegistrationProps {
   inventory: Product[];
@@ -42,7 +43,6 @@ export default function PurchaseRegistration({
   onCancel
 }: PurchaseRegistrationProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Order Level State
   const [supplier, setSupplier] = useState('');
@@ -100,7 +100,6 @@ export default function PurchaseRegistration({
       imageFile: null,
       imagePreview: ''
     });
-    setFeedback(null);
   };
 
   const handleExistingItemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -194,15 +193,15 @@ export default function PurchaseRegistration({
 
   const handleAddItem = () => {
     if (isNewProduct && (!itemForm.description || !itemForm.category)) {
-      setFeedback({ message: 'Description and Category are required for new products.', type: 'error' });
+      toast.error('Un producto nuevo necesita descripción y categoría.');
       return;
     }
     if (!isNewProduct && !itemForm.itemId) {
-      setFeedback({ message: 'Select an existing item.', type: 'error' });
+      toast.error('Elegí un producto del catálogo.');
       return;
     }
     if (itemForm.unitCost < 0 || itemForm.quantity <= 0) {
-      setFeedback({ message: 'Valid cost and quantity are required.', type: 'error' });
+      toast.error('El costo y la cantidad tienen que ser números válidos.');
       return;
     }
 
@@ -227,7 +226,6 @@ export default function PurchaseRegistration({
       imageFile: null,
       imagePreview: ''
     });
-    setFeedback(null);
   };
 
   const handleRemoveItem = (draftId: string) => {
@@ -237,17 +235,16 @@ export default function PurchaseRegistration({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) {
-      setFeedback({ message: 'Añade al menos un artículo a la orden.', type: 'error' });
+      toast.error('Agregá al menos un artículo a la orden.');
       return;
     }
 
     if (!supplier) {
-      setFeedback({ message: 'El proveedor es requerido.', type: 'error' });
+      toast.error('Falta el proveedor.');
       return;
     }
 
     setIsSubmitting(true);
-    setFeedback(null);
 
     try {
       const finalItems = [];
@@ -313,7 +310,7 @@ export default function PurchaseRegistration({
 
       await onAddPurchase(purchaseData);
 
-      setFeedback({ message: 'Orden de compra registrada exitosamente!', type: 'success' });
+      toast.success('Orden de compra registrada.');
       
       setItems([]);
       
@@ -322,7 +319,7 @@ export default function PurchaseRegistration({
       }
     } catch (error: any) {
       console.error("Submission error:", error);
-      setFeedback({ message: error.message || 'An error occurred during submission.', type: 'error' });
+      toast.error(error.message || 'No se pudo registrar la orden de compra.');
     } finally {
       setIsSubmitting(false);
     }
@@ -332,11 +329,6 @@ export default function PurchaseRegistration({
     <div className="flex flex-col w-full h-full bg-zinc-900 overflow-hidden">
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-        {feedback && (
-          <div className={`p-4 mb-6 rounded-xl border ${feedback.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
-            {feedback.message}
-          </div>
-        )}
 
         <div className="space-y-8">
           {/* Order Details Section */}

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, ChangeEvent, FormEvent } from 'react';
-import { PackagePlus, Edit, Save, AlertCircle, CheckCircle2, Image as ImageIcon, Loader2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { PackagePlus, Edit, Save, Image as ImageIcon, Loader2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { toast } from './Toast';
 import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
 import type { FinanciamientoOverride } from '../lib/financiamiento';
 import {
@@ -187,7 +188,18 @@ export default function ProductCatalog({
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  /*
+    Este componente tenía su PROPIO sistema de avisos —un banner con estado,
+    con su tipografía y su paleta— que era el TERCERO del proyecto, después del
+    Toast global y del que tenía Configuración. Y pintaba el ÉXITO en CYAN: el
+    color que el sistema reserva para el dinero y la próxima acción, no para
+    confirmar. Confirmar es esmeralda.
+
+    Migrado al Toast global. Se gana además que los errores no se autodestruyen
+    y que se anuncian a un lector de pantalla, que es lo que le interesa a
+    alguien que acaba de guardar una ficha de veinte campos y necesita saber si
+    quedó.
+  */
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
 
   // Extraer categorías únicas para el dropdown
@@ -226,7 +238,6 @@ export default function ProductCatalog({
     setIsEditing(editing);
     setFormData(INITIAL_FORM_DATA);
     setIsCustomCategory(false);
-    setFeedback(null);
   };
 
   // Selección para Editar
@@ -299,7 +310,6 @@ export default function ProductCatalog({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setFeedback(null);
 
     try {
       // Crear objeto estandarizado
@@ -363,12 +373,12 @@ export default function ProductCatalog({
         if (!formData.id) throw new Error('Debe seleccionar un producto para actualizar.');
         // Update product
         await onUpdateProduct(formData.id, productDataToSave);
-        setFeedback({ message: 'Producto actualizado exitosamente.', type: 'success' });
+        toast.success(`«${formData.description}» actualizado en el catálogo.`);
       } else {
         if (!formData.sku.trim()) throw new Error('El SKU es obligatorio para nuevos productos.');
         // P3.5: el id del documento lo genera el caller (uuid); acá viaja solo el SKU.
         await onAddProduct(productDataToSave);
-        setFeedback({ message: 'Producto registrado exitosamente en el catálogo.', type: 'success' });
+        toast.success(`«${formData.description}» registrado en el catálogo.`);
       }
 
       // Limpiar y resetear estados
@@ -380,10 +390,7 @@ export default function ProductCatalog({
         onSuccess();
       }
     } catch (error: any) {
-      setFeedback({ 
-        message: error.message || 'Ocurrió un error al guardar el producto.', 
-        type: 'error' 
-      });
+      toast.error(error.message || 'No se pudo guardar el producto.');
     } finally {
       setIsSubmitting(false);
     }
@@ -479,21 +486,6 @@ export default function ProductCatalog({
           </button>
         </div>
       </div>
-
-      {feedback && (
-        <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
-          feedback.type === 'success' ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-rose-500/10 border border-rose-500/20'
-        }`}>
-          {feedback.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-          )}
-          <p className={`text-sm ${feedback.type === 'success' ? 'text-cyan-400' : 'text-rose-400'}`}>
-            {feedback.message}
-          </p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Selector de edición condicional */}
