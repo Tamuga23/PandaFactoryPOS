@@ -85,13 +85,50 @@ export default function Customers() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteClick = (id: string) => {
-    if (confirmingDelete === id) {
-      deleteCustomer(id);
-      setConfirmingDelete(null);
-    } else {
+  /**
+   * Borrado de la ficha, en dos pasos.
+   *
+   * Dos cosas que faltaban:
+   *
+   * 1. `deleteCustomer(id)` se llamaba SIN `await` y SIN `catch`, y sí lanza:
+   *    su manejador de errores siempre relanza. Un borrado fallido era un
+   *    rechazo sin manejar: la tarjeta seguía ahí y nadie decía por qué.
+   * 2. Nada miraba si el cliente TIENE COMPRAS. Las ventas guardan el
+   *    `customerId`, así que borrar la ficha deja esas ventas apuntando a un
+   *    documento que ya no existe: dejan de aparecer en el historial de nadie,
+   *    y el WhatsApp y la reimpresión pierden el teléfono. El primer clic ahora
+   *    consulta y avisa cuántas compras se desvinculan — la misma consulta que
+   *    usa el botón de historial, así que el número es exacto y no una
+   *    estimación sobre las ventas que estén cargadas en memoria.
+   */
+  const handleDeleteClick = async (id: string) => {
+    const cliente = customers.find((c) => c.id === id);
+
+    if (confirmingDelete !== id) {
       setConfirmingDelete(id);
       setTimeout(() => setConfirmingDelete(null), 3000);
+      try {
+        const compras = await fetchSalesByCustomer(id);
+        if (compras.length > 0) {
+          toast.info(
+            `«${cliente?.fullName ?? 'Este cliente'}» tiene ${compras.length} ` +
+            `${compras.length === 1 ? 'compra' : 'compras'}. Borrar la ficha no borra las ventas, ` +
+            `pero las desvincula: dejan de aparecer en su historial.`,
+          );
+        }
+      } catch {
+        // Si la consulta falla, el borrado sigue disponible: no se bloquea una
+        // acción por no haber podido mostrar un aviso.
+      }
+      return;
+    }
+
+    setConfirmingDelete(null);
+    try {
+      await deleteCustomer(id);
+      toast.success(`Ficha de «${cliente?.fullName ?? 'cliente'}» eliminada.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo eliminar la ficha del cliente.');
     }
   };
 

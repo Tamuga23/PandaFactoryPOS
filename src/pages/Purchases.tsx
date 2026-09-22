@@ -177,13 +177,51 @@ export default function Purchases() {
   const [boxItems, setBoxItems] = useState<{itemId: string, quantity: number}[]>([]);
   const [isSavingPhase2, setIsSavingPhase2] = useState(false);
 
-  const handleDeleteClick = (id: string) => {
-    if (confirmingDelete === id) {
-      deletePurchase(id);
+  /**
+   * Borrado de la orden, en dos pasos.
+   *
+   * Dos cosas que faltaban:
+   *
+   * 1. Una GUARDA. Editar y Cancelar están bloqueados cuando la orden tiene
+   *    cajas recibidas (`canModifyOrder`), pero Eliminar no lo estaba: una
+   *    orden totalmente recibida se borraba con dos clics. Eso deja el stock
+   *    en el inventario SIN el documento que explica de dónde salió, el costo
+   *    prorrateado —flete, aduana, seguro, tarifa por libra— sin respaldo, y
+   *    los movimientos del kardex apuntando a un `refId` que ya no existe. El
+   *    kardex existe justamente para ser la verdad inmutable del inventario.
+   *    El camino correcto ya está construido: revertir la recepción de cada
+   *    caja desde el modal de Tracking (resta el stock y reabre el tracking) y
+   *    recién entonces borrar.
+   * 2. `deletePurchase(id)` se llamaba SIN `await` y SIN `catch`, y sí lanza:
+   *    su manejador de errores siempre relanza. Un borrado fallido era un
+   *    rechazo sin manejar, la fila seguía ahí y nadie decía por qué.
+   */
+  const handleDeleteClick = async (id: string) => {
+    const orden = purchases.find((p) => p.id === id);
+    const recibidas = (orden?.trackings || []).filter((t) => t.isReceived).length;
+
+    if (recibidas > 0) {
       setConfirmingDelete(null);
-    } else {
+      toast.error(
+        `Esta orden tiene ${recibidas} ${recibidas === 1 ? 'caja recibida' : 'cajas recibidas'}: ` +
+        `borrarla dejaría ese stock sin respaldo. Revertí la recepción desde ` +
+        `"Tracking y Recepción" y después borrala.`,
+      );
+      return;
+    }
+
+    if (confirmingDelete !== id) {
       setConfirmingDelete(id);
       setTimeout(() => setConfirmingDelete(null), 3000);
+      return;
+    }
+
+    setConfirmingDelete(null);
+    try {
+      await deletePurchase(id);
+      toast.success('Orden de compra eliminada.');
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo eliminar la orden de compra.');
     }
   };
 
@@ -431,6 +469,10 @@ export default function Purchases() {
                         )}
                         <button
                           onClick={() => handleDeleteClick(p.id)}
+                          title={receivedTrackings > 0
+                            ? 'No se puede borrar: tiene cajas recibidas'
+                            : 'Eliminar la orden de compra'}
+                          aria-label={`Eliminar la orden de compra de ${supplierName(p.supplier)}`}
                           className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingDelete === p.id ? 'text-rose-500' : 'text-zinc-500 hover:text-rose-400 hover:bg-zinc-800'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                         >
                           {confirmingDelete === p.id ? '¿Eliminar?' : <Trash2 className="w-4 h-4" />}
