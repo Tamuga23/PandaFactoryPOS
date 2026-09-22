@@ -117,7 +117,16 @@ service cloud.firestore {
     function isValidPurchaseTrackingItem(item) {
       return item.keys().hasAll(['itemId', 'quantity'])
         && item.itemId is string
-        && item.quantity is number;
+        && item.quantity is number
+        // Costo unitario real con el que la unidad entro al inventario. Se usa
+        // para deshacer el promedio ponderado al revertir una recepcion.
+        // Esta funcion nunca tuvo `hasOnly`, asi que el campo ya pasaba: esta
+        // linea le pone tipo, y el deploy se puede hacer cuando se quiera sin
+        // romper nada.
+        && (!('costoUnitarioReal' in item) || (item.costoUnitarioReal is number && item.costoUnitarioReal >= 0))
+        && (!('costoPrevio' in item) || (item.costoPrevio is number && item.costoPrevio >= 0))
+        && (!('costoDespues' in item) || (item.costoDespues is number && item.costoDespues >= 0))
+        && (!('stockDespues' in item) || (item.stockDespues is number));
     }
 
     function isValidPurchaseTracking(tracking) {

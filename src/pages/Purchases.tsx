@@ -284,7 +284,8 @@ export default function Purchases() {
     setConfirmingRevert(null);
     setIsReverting(true);
     try {
-      await revertTrackingReception(trackingModalPurchase.id, tracking.id);
+      const { borrados, topeados, costoSinRevertir, costoAproximado } =
+        await revertTrackingReception(trackingModalPurchase.id, tracking.id);
       // Reflejar la reversión en el estado local del modal.
       setTrackingModalPurchase(prev => {
         if (!prev) return prev;
@@ -301,9 +302,43 @@ export default function Purchases() {
           ),
         };
       });
-      toast.success('Recepción revertida: el stock de esa caja se descontó del inventario. (El costo promedio no se recalcula.)');
-    } catch {
-      toast.error('No se pudo revertir la recepción.');
+      toast.success(
+        'Recepción revertida: el stock de esa caja se descontó del inventario y el ' +
+        'costo promedio volvió al que tenía antes de recibirla.',
+      );
+
+      /*
+        La reversión puede aplicarse a medias, y antes no lo decía: el aviso
+        afirmaba que el stock se había descontado y agregaba entre paréntesis
+        que el costo no se recalculaba, como si fuera un detalle.
+      */
+      if (borrados.length > 0) {
+        toast.error(
+          `${borrados.length === 1 ? 'Este producto ya no existe' : 'Estos productos ya no existen'} ` +
+          `y su stock NO se descontó: ${borrados.join(', ')}.`,
+        );
+      }
+      if (topeados.length > 0) {
+        toast.error(
+          `No había stock suficiente para descontar del todo: ${topeados.join(', ')}. ` +
+          `Quedaron en 0 — revisá el inventario.`,
+        );
+      }
+      if (costoSinRevertir.length > 0) {
+        toast.info(
+          `El costo promedio de ${costoSinRevertir.join(', ')} se quedó como estaba: ` +
+          `o la caja se recibió antes de que el sistema guardara su costo, o no quedan ` +
+          `unidades contra las cuales promediar. Revisalo si vas a poner precio con ese dato.`,
+        );
+      }
+      if (costoAproximado.length > 0) {
+        toast.info(
+          `El costo promedio de ${costoAproximado.join(', ')} se recalculó, pero es aproximado: ` +
+          `desde que se recibió esta caja entró otra mercadería. Confirmalo antes de fijar precio.`,
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo revertir la recepción.');
     } finally {
       setIsReverting(false);
     }

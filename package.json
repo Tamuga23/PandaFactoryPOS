@@ -18,7 +18,8 @@
     "fichas": "node scripts/seed_fichas_tecnicas.mjs --apply",
     "financiamiento": "node scripts/reporte_financiamiento.mjs",
     "financiamiento:test": "node scripts/lib/analisisFinanciamiento.test.mjs",
-    "financiamiento:cuotas": "node --experimental-strip-types scripts/lib/financiamiento.test.mjs"
+    "financiamiento:cuotas": "node --experimental-strip-types scripts/lib/financiamiento.test.mjs",
+    "costo:test": "node --experimental-strip-types scripts/lib/costoPromedio.test.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

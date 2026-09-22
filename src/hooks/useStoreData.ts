@@ -11,6 +11,7 @@ import {
   type ConfigFinanciamiento,
 } from '../lib/financiamiento';
 import { maximoFacturaEmitido } from '../lib/correlativos';
+import { costoAlRecibir, costoAlRevertir } from '../lib/costoPromedio';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
 // isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
@@ -1064,12 +1065,42 @@ export function useStoreData() {
 
                   const realUnitCost = pItem.cost + ((itemFreightExpense + itemExtraExpense) / boxItem.quantity);
 
-                  // Weighted Average Cost Formula (sobre datos del servidor)
-                  const currentTotalValue = baseStock * baseCost;
-                  const newTotalValue = boxItem.quantity * realUnitCost;
+                  /*
+                    (sigue abajo, después de calcular newCost)
+                  */
+
+                  // El promedio ponderado vive en `src/lib/costoPromedio.ts`,
+                  // junto con su inversa, y las dos tienen test: `npm run costo:test`.
                   const newStock = baseStock + boxItem.quantity;
-                  
-                  newCost = newStock > 0 ? (currentTotalValue + newTotalValue) / newStock : realUnitCost;
+                  newCost = costoAlRecibir(baseStock, baseCost, boxItem.quantity, realUnitCost);
+
+                  /*
+                    Se guarda EN LA CAJA con qué costo entraron estas unidades y
+                    cuál era el promedio antes y después. Sin estos números,
+                    revertir una recepción no puede deshacer el promedio: la
+                    reversión devolvía el stock y dejaba el costo inflado, y como
+                    también reabre el tracking, volver a recibir la caja
+                    promediaba OTRA VEZ contra el costo ya inflado.
+
+                    Cada ciclo revertir → re-recibir empujaba el costo hacia el
+                    de la última caja y no volvía nunca. Con 5 unidades a $10 y
+                    una caja de 10 a $16: $14, después $15.33, después $15.78.
+                    Sin que entrara un centavo más de mercadería.
+
+                    Ese costo alimenta el valor de inventario del Dashboard y el
+                    margen de Reportes: un producto con el costo inflado se ve
+                    menos rentable de lo que es, y el precio que sale de esa
+                    lectura es plata.
+
+                    Se guardan los tres porque la reversión tiene dos caminos:
+                    restaurar `costoPrevio` cuando nadie más tocó el costo desde
+                    entonces —el caso normal, y es exacto—, y la inversa
+                    algebraica con `costoUnitarioReal` cuando sí lo tocaron.
+                  */
+                  (boxItem as any).costoUnitarioReal = realUnitCost;
+                  (boxItem as any).costoPrevio = baseCost;
+                  (boxItem as any).costoDespues = newCost;
+                  (boxItem as any).stockDespues = newStock;
                 }
 
                 productChanges.set(boxItem.itemId, {
@@ -1166,10 +1197,45 @@ export function useStoreData() {
    * unidades de esa caja (piso en 0), descuenta receivedQuantity, reabre el
    * tracking (isReceived=false y BORRA receptionDate para que no se
    * re-procese solo) y recalcula el estado de la orden.
-   * NOTA: el costo promedio (WAC) NO se recalcula hacia atrás.
+   *
+   * Y AHORA TAMBIÉN DESHACE EL COSTO PROMEDIO, que antes se quedaba inflado.
+   *
+   * El promedio ponderado es un cociente de valores totales, así que su inversa
+   * es exacta y no depende de lo que haya pasado en el medio:
+   *
+   *     valor    = stock × costo
+   *     costoAnterior = (valor − unidades × costoUnitarioReal) / (stock − unidades)
+   *
+   * Las ventas sacan unidades AL promedio, así que no lo mueven; otra recepción
+   * posterior suma su propio valor, y restar el de esta caja sigue dando el
+   * promedio correcto de lo que queda. Por eso alcanza con haber guardado
+   * `costoUnitarioReal` en la caja al recibirla.
+   *
+   * No se toca el costo en tres casos, y los tres se informan en vez de
+   * disimularse: cuando la caja se recibió antes de que ese dato se guardara,
+   * cuando al sacar estas unidades no queda stock contra el cual promediar, y
+   * cuando la cuenta daría un costo negativo (señal de que el inventario ya se
+   * movió por otro lado).
+   *
+   * Devuelve lo que NO se pudo ajustar. Las decisiones de piso en 0 y de saltar
+   * productos borrados son deliberadas y siguen igual; lo que cambia es que
+   * dejan de ser invisibles.
    */
-  const revertTrackingReception = async (purchaseId: string, trackingId: string) => {
-    if (!user) return;
+  const revertTrackingReception = async (
+    purchaseId: string,
+    trackingId: string,
+  ): Promise<{
+    borrados: string[];
+    topeados: string[];
+    costoSinRevertir: string[];
+    costoAproximado: string[];
+  }> => {
+    if (!user) return { borrados: [], topeados: [], costoSinRevertir: [], costoAproximado: [] };
+    // Se reinician dentro del callback: la transacción puede reintentarse.
+    let borrados: string[] = [];
+    let topeados: string[] = [];
+    let costoSinRevertir: string[] = [];
+    let costoAproximado: string[] = [];
     const purchaseRef = doc(db, 'purchases', purchaseId);
     try {
       await runTransaction(db, async (transaction) => {
@@ -1182,9 +1248,37 @@ export function useStoreData() {
           throw new Error('Este tracking no está marcado como recibido.');
         }
 
+        borrados = [];
+        topeados = [];
+        costoSinRevertir = [];
+        costoAproximado = [];
+
         const boxItems = tracking.itemsInBox || [];
         const removeByProduct = new Map<string, number>();
-        boxItems.forEach(b => removeByProduct.set(b.itemId, (removeByProduct.get(b.itemId) || 0) + b.quantity));
+        /*
+          Lo que esta caja le hizo al costo de cada producto, para poder
+          deshacerlo. `lineas` cuenta cuántas entradas de la caja tocan al mismo
+          producto: si es más de una, los promedios intermedios no sirven y hay
+          que ir por la inversa algebraica.
+        */
+        const efecto = new Map<string, {
+          lineas: number;
+          unitario?: number;
+          previo?: number;
+          despues?: number;
+          stockDespues?: number;
+        }>();
+        boxItems.forEach(b => {
+          removeByProduct.set(b.itemId, (removeByProduct.get(b.itemId) || 0) + b.quantity);
+          const prev = efecto.get(b.itemId);
+          efecto.set(b.itemId, {
+            lineas: (prev?.lineas || 0) + 1,
+            unitario: prev?.unitario ?? (b as any).costoUnitarioReal,
+            previo: prev ? prev.previo : (b as any).costoPrevio,
+            despues: (b as any).costoDespues ?? prev?.despues,
+            stockDespues: (b as any).stockDespues ?? prev?.stockDespues,
+          });
+        });
 
         const productIds = Array.from(removeByProduct.keys());
         const productSnaps = await Promise.all(
@@ -1220,24 +1314,71 @@ export function useStoreData() {
         // 3. ESCRITURAS
         removeByProduct.forEach((qty, pid) => {
           const p = serverProducts.get(pid);
-          if (!p) return; // producto borrado: no hay stock que ajustar
-          const newStock = Math.max(0, (p.stock || 0) - qty);
-          transaction.update(doc(db, 'products', pid), {
-            stock: newStock,
-            updatedAt: Date.now(),
+          if (!p) {
+            // Producto borrado: no hay stock que ajustar. Se anota para avisar.
+            const enCaja = boxItems.find(b => b.itemId === pid);
+            borrados.push((serverPurchase.items || []).find(i => i.id === pid)?.name || enCaja?.itemId || pid);
+            return;
+          }
+
+          const stockAntes = p.stock || 0;
+          const bruto = stockAntes - qty;
+          const newStock = Math.max(0, bruto);
+          // El piso en 0 es deliberado, pero significa que se descontó MENOS de
+          // lo que decía la caja. Hay que decirlo, igual que en changeSaleStatus.
+          if (bruto < 0) topeados.push(p.name);
+
+          const cambios: any = { stock: newStock, updatedAt: Date.now() };
+
+          /*
+            Deshacer el costo promedio. Los dos caminos, sus supuestos y el caso
+            que no se puede resolver están en `src/lib/costoPromedio.ts`, con
+            trece pruebas en `npm run costo:test` — incluido el ciclo de cinco
+            reversiones que antes empujaba el costo hasta el de la última caja.
+          */
+          const efectoP = efecto.get(pid);
+          const reversion = costoAlRevertir(stockAntes, p.cost || 0, {
+            unidades: qty,
+            costoUnitarioReal: efectoP?.unitario,
+            costoPrevio: efectoP?.previo,
+            costoDespues: efectoP?.despues,
+            stockDespues: efectoP?.stockDespues,
+            lineas: efectoP?.lineas,
           });
-          // P2.7: kardex
+          if (reversion.costo === null) {
+            costoSinRevertir.push(p.name);
+          } else {
+            cambios.cost = reversion.costo;
+            // `exacto` es el caso normal y no necesita aviso. Los otros dos sí:
+            // el operador puede estar por poner precio con ese número.
+            if (reversion.via !== 'exacto') costoAproximado.push(p.name);
+          }
+
+          transaction.update(doc(db, 'products', pid), cambios);
+
+          /*
+            P2.7: kardex. `delta` es el cambio REAL de stock, no el nominal de la
+            caja: con el piso en 0, escribir `-qty` dejaba una fila donde
+            `stockDespues − delta` no daba el stock anterior, y `movimientos` es
+            inmutable por reglas, así que esa fila quedaba mal para siempre. La
+            cantidad que decía la caja se conserva en el motivo.
+          */
+          const deltaReal = newStock - stockAntes;
           transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
             productId: pid, productName: p.name, sku: p.sku,
-            tipo: 'reversion', delta: -qty, stockDespues: newStock,
+            tipo: 'reversion', delta: deltaReal, stockDespues: newStock,
             refId: purchaseId, fecha: Date.now(),
-            motivo: 'Recepción revertida',
+            motivo: deltaReal === -qty
+              ? 'Recepción revertida'
+              : `Recepción revertida (la caja traía ${qty}; sólo había ${stockAntes})`,
           }));
         });
         transaction.update(purchaseRef, { items, trackings, status });
       });
+      return { borrados, topeados, costoSinRevertir, costoAproximado };
     } catch (e) {
       handleFirestoreError(e, 'update', `purchases/${purchaseId}`);
+      return { borrados: [], topeados: [], costoSinRevertir: [], costoAproximado: [] };
     }
   };
 

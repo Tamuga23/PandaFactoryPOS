@@ -266,6 +266,13 @@ export const PurchaseTrackingSchema = z.object({
     z.object({
       itemId: z.string().min(1),
       quantity: z.number().int().min(1),
+      // Ver `PurchaseTracking` en types.ts: el costo con el que entraron estas
+      // unidades y el promedio de antes y de después, para poder revertir el
+      // promedio ponderado sin adivinar.
+      costoUnitarioReal: z.number().min(0).optional(),
+      costoPrevio: z.number().min(0).optional(),
+      costoDespues: z.number().min(0).optional(),
+      stockDespues: z.number().optional(),
     })
   ),
 });

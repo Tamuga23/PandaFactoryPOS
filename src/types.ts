@@ -171,7 +171,22 @@ export interface PurchaseTracking {
   receptionDate?: number;
   finalWeight?: number;
   isReceived: boolean;
-  itemsInBox: { itemId: string; quantity: number }[];
+  itemsInBox: {
+    itemId: string;
+    quantity: number;
+    /**
+     * Costo unitario REAL con el que estas unidades entraron al inventario:
+     * costo de la línea más su parte del flete, la aduana y el seguro.
+     */
+    costoUnitarioReal?: number;
+    /** Costo promedio del producto ANTES de aplicar esta caja. */
+    costoPrevio?: number;
+    /** Costo promedio que quedó DESPUÉS de aplicar esta caja. */
+    costoDespues?: number;
+    /** Stock que quedó DESPUÉS de aplicar esta caja. Sirve para saber si entró
+     *  más mercadería desde entonces: una recepción siempre sube el stock. */
+    stockDespues?: number;
+  }[];
 }
 
 export interface Purchase {
