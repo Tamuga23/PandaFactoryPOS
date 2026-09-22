@@ -120,10 +120,12 @@ function AppContent() {
               />
             </div>
 
+            {/* `red-*` no existe en la paleta declarada: el peligro es
+                `rose-*`. Eran los únicos tres usos del proyecto. */}
             {errorVisible && (
-              <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2.5 text-left">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <p className="text-red-300 text-xs leading-relaxed">{errorVisible}</p>
+              <div className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2.5 text-left">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-rose-300 text-xs leading-relaxed">{errorVisible}</p>
               </div>
             )}
 

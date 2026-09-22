@@ -50,6 +50,21 @@ export default function SalesHistory() {
     else setIsEditModalOpen(false);
   });
 
+  /*
+    Los dos diálogos de esta pantalla dejaban escapar el Tab. `useFocusTrap`
+    estaba importado desde P4.6 y nunca se llamaba, así que el import era
+    decorativo.
+
+    Importa más acá que en ningún otro lado: tabulando desde "Eliminar
+    definitivamente" se llegaba a los botones de las filas que están TAPADAS
+    por el velo, y se podía disparar la acción de otra venta sin verla. Son las
+    dos escrituras más destructivas de la aplicación.
+  */
+  const borrarModalRef = useRef<HTMLDivElement>(null);
+  const editarModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(!!deleteModalSale, borrarModalRef);
+  useFocusTrap(isEditModalOpen && !!editingSale, editarModalRef);
+
   // P1.4: ventana en vivo (100) + páginas viejas cargadas bajo demanda.
   const allSales = React.useMemo(() => {
     const seen = new Set(sales.map(s => s.id));
@@ -470,10 +485,28 @@ export default function SalesHistory() {
       {/* P4.5: confirmación de borrado con resumen y consecuencias */}
       {deleteModalSale && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => setDeleteModalSale(null)}></div>
-          <div className="relative bg-zinc-900 border border-rose-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-rose-400 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" /> Eliminar {deleteModalSale.documentType === 'PROFORMA' ? 'proforma' : 'venta anulada'}
+          {/* El telón es un blanco de clic para el mouse, no un control: sin
+              `aria-hidden` un lector anuncia un clicable sin nombre justo antes
+              del diálogo. El camino de teclado equivalente es ESC, que ya está. */}
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => setDeleteModalSale(null)}
+            aria-hidden="true"
+          ></div>
+          {/* `autoFocus` va en el CONTENEDOR, nunca en "Eliminar
+              definitivamente": con el foco puesto ahí, un Enter de más borra
+              una venta. */}
+          <div
+            ref={borrarModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-borrar-venta"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-rose-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4"
+          >
+            <h3 id="titulo-borrar-venta" className="text-lg font-bold text-rose-400 flex items-center gap-2">
+              <Trash2 className="w-5 h-5" aria-hidden="true" /> Eliminar {deleteModalSale.documentType === 'PROFORMA' ? 'proforma' : 'venta anulada'}
             </h3>
             <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-sm text-zinc-200">
               <p className="font-bold">{deleteModalSale.invoiceNumber} — {deleteModalSale.customerName || 'Cliente final'}</p>
@@ -482,7 +515,9 @@ export default function SalesHistory() {
                 {' '}({formatCurrencyNIO(deleteModalSale.total * (deleteModalSale.exchangeRate || 36.6243))})
               </p>
             </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">
+            {/* Era zinc-500 (3.67:1). Es el texto que explica que la acción NO
+                se puede deshacer: no es información accesoria. zinc-400 da 6.91:1. */}
+            <p className="text-xs text-zinc-400 leading-relaxed">
               {deleteModalSale.documentType === 'PROFORMA'
                 ? 'Las proformas no afectan el stock. Esta acción no se puede deshacer.'
                 : 'El stock ya fue repuesto al anular esta venta; borrar solo elimina el registro histórico y NO se puede deshacer.'}
@@ -490,13 +525,13 @@ export default function SalesHistory() {
             <div className="flex justify-end gap-3 pt-1">
               <button
                 onClick={() => setDeleteModalSale(null)}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors"
+                className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-lg transition-colors"
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
               >
                 Eliminar definitivamente
               </button>
@@ -507,33 +542,48 @@ export default function SalesHistory() {
 
       {isEditModalOpen && editingSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => setIsEditModalOpen(false)}
+            aria-hidden="true"
+          ></div>
+          <div
+            ref={editarModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-editar-venta"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+          >
              <form onSubmit={saveEditedSale}>
                 <div className="p-6 border-b border-zinc-800">
-                   <h3 className="text-xl font-bold text-zinc-100 italic">Editar Factura {editingSale.invoiceNumber}</h3>
+                   <h3 id="titulo-editar-venta" className="text-xl font-bold text-zinc-100 italic">Editar Factura {editingSale.invoiceNumber}</h3>
                 </div>
                 <div className="p-6 space-y-4">
+                   {/* Los cuatro rótulos eran `<label>` hermanos que no apuntaban
+                       a nada: un lector anunciaba "cuadro de edición" cuatro
+                       veces seguidas sin decir de qué. */}
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del cliente</label>
-                      <input name="customerName" defaultValue={editingSale.customerName} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
+                      <label htmlFor="editar-venta-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del cliente</label>
+                      <input id="editar-venta-nombre" name="customerName" defaultValue={editingSale.customerName} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
-                      <input name="customerPhone" defaultValue={editingSale.customerPhone} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
+                      <label htmlFor="editar-venta-telefono" className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
+                      <input id="editar-venta-telefono" name="customerPhone" defaultValue={editingSale.customerPhone} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Dirección</label>
-                      <textarea name="customerAddress" defaultValue={editingSale.customerAddress} rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200"></textarea>
+                      <label htmlFor="editar-venta-direccion" className="text-[10px] uppercase text-zinc-400 font-bold">Dirección</label>
+                      <textarea id="editar-venta-direccion" name="customerAddress" defaultValue={editingSale.customerAddress} rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"></textarea>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
-                      <input name="transport" defaultValue={editingSale.transport} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
+                      <label htmlFor="editar-venta-transporte" className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
+                      <input id="editar-venta-transporte" name="transport" defaultValue={editingSale.transport} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                    </div>
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3">
-                   <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200">Cancelar</button>
-                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all">GUARDAR CAMBIOS</button>
+                   <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded">Cancelar</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900">GUARDAR CAMBIOS</button>
                 </div>
              </form>
           </div>

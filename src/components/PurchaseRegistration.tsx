@@ -567,7 +567,7 @@ export default function PurchaseRegistration({
                    <div key={item.draftId} className="flex items-center justify-between bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
                       <div className="flex items-center gap-3">
                          <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                           {item.imagePreview ? <img src={item.imagePreview} className="w-full h-full object-cover rounded" /> : <Package className="w-4 h-4 text-zinc-500" />}
+                           {item.imagePreview ? <img src={item.imagePreview} alt="" className="w-full h-full object-cover rounded" /> : <Package className="w-4 h-4 text-zinc-500" aria-hidden="true" />}
                          </div>
                          <div>
                             <div className="text-sm font-bold text-zinc-200">{item.description} {item.isNewProduct && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full ml-1">NUEVO</span>}</div>
@@ -666,7 +666,14 @@ export default function PurchaseRegistration({
                          {itemForm.imagePreview ? (
                             <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-600">
                               <img src={itemForm.imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                              <button type="button" onClick={removeImage} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-600 text-white p-1 rounded-full"><Trash2 className="w-3 h-3"/></button>
+                              <button
+                                type="button"
+                                onClick={removeImage}
+                                aria-label="Quitar la imagen"
+                                className="absolute top-1 right-1 bg-rose-600/20 border border-rose-500/30 text-rose-400 hover:bg-rose-600/30 p-1 rounded-full focus:outline-none focus:ring-1 focus:ring-rose-500"
+                              >
+                                <Trash2 className="w-3 h-3" aria-hidden="true" />
+                              </button>
                             </div>
                          ) : (
                             <div className="flex items-center justify-center w-full">

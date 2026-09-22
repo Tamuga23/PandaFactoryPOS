@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Purchase, PurchaseItem, Product, PurchaseTracking } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import PurchaseRegistration from '../components/PurchaseRegistration';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // P2.8: parseo LOCAL de fechas yyyy-MM-dd (elimina el hack +86400000 de timezone).
 // Se ancla a mediodía local para ser inmune a cambios de hora.
@@ -43,6 +44,19 @@ export default function Purchases() {
     p.status !== 'CANCELLED' && (p.trackings || []).every(t => !t.isReceived);
 
   // P4.7: ESC cierra el modal de más arriba.
+  /*
+    Los tres diálogos de esta pantalla no declaraban ni rol ni modalidad ni
+    nombre, y dejaban escapar el Tab. Dos de ellos —Tracking y Recepción, y el
+    alta de orden— MUEVEN INVENTARIO: tabulando desde adentro se llegaba a los
+    botones de las órdenes que están tapadas por el velo.
+  */
+  const editarOrdenRef = useRef<HTMLDivElement>(null);
+  const trackingRef = useRef<HTMLDivElement>(null);
+  const nuevaOrdenRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(!!editingOrder, editarOrdenRef);
+  useFocusTrap(!!trackingModalPurchase, trackingRef);
+  useFocusTrap(isModalOpen, nuevaOrdenRef);
+
   useEscapeKey(!!editingOrder || !!trackingModalPurchase || isModalOpen, () => {
     if (editingOrder) { setEditingOrder(null); setOrderForm(null); }
     else if (trackingModalPurchase) { setTrackingModalPurchase(null); closeTrackingForm(); }
@@ -439,17 +453,33 @@ export default function Purchases() {
       {/* P2.8: modal de edición de orden (solo sin cajas recibidas) */}
       {editingOrder && orderForm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => { setEditingOrder(null); setOrderForm(null); }}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => { setEditingOrder(null); setOrderForm(null); }}
+            aria-hidden="true"
+          ></div>
+          <div
+            ref={editarOrdenRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-editar-orden"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
             <div className="p-4 border-b border-zinc-700 flex justify-between items-center bg-zinc-800/50 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                  <Edit className="w-5 h-5 text-cyan-400" /> Editar Orden
+                <h3 id="titulo-editar-orden" className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+                  <Edit className="w-5 h-5 text-cyan-400" aria-hidden="true" /> Editar Orden
                 </h3>
                 <p className="text-xs text-zinc-400">Proveedor: {supplierName(editingOrder.supplier)} · {new Date(editingOrder.date).toLocaleDateString()}</p>
               </div>
-              <button onClick={() => { setEditingOrder(null); setOrderForm(null); }} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">
-                <X className="w-4 h-4" />
+              <button
+                onClick={() => { setEditingOrder(null); setOrderForm(null); }}
+                aria-label="Cerrar la edición de la orden"
+                className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -578,15 +608,27 @@ export default function Purchases() {
 
       {trackingModalPurchase && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => { setTrackingModalPurchase(null); closeTrackingForm(); }}></div>
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => { setTrackingModalPurchase(null); closeTrackingForm(); }}
+            aria-hidden="true"
+          ></div>
           {/* Sin `animate-in`/`fade-in`/`zoom-in-95`: `tailwindcss-animate` no
               esta instalado y esas clases no generan CSS. Era animacion que
               nunca ocurrio. */}
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <div
+            ref={trackingRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-tracking-recepcion"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+          >
             <div className="p-4 border-b border-zinc-700 flex justify-between items-center bg-zinc-800/50 shrink-0">
                <div>
-                  <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                     <Package className="w-5 h-5 text-cyan-400" /> Tracking y Recepción (Fase 2)
+                  <h3 id="titulo-tracking-recepcion" className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+                     <Package className="w-5 h-5 text-cyan-400" aria-hidden="true" /> Tracking y Recepción (Fase 2)
                   </h3>
                   <p className="text-xs text-zinc-400">Orden original a: {supplierName(trackingModalPurchase.supplier)}</p>
                </div>
@@ -799,8 +841,22 @@ export default function Purchases() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => setIsModalOpen(false)}
+            aria-hidden="true"
+          ></div>
+          {/* Este no tiene un <h2>/<h3> propio: el título vive adentro de
+              <PurchaseRegistration>. Se nombra con `aria-label`. */}
+          <div
+            ref={nuevaOrdenRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Registrar una orden de compra"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+          >
             <div className="flex-1 overflow-hidden">
                <PurchaseRegistration 
                  inventory={products}

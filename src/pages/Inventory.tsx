@@ -48,6 +48,19 @@ export default function Inventory() {
     }
   );
 
+  /*
+    Los tres diálogos SÍ declaraban `role="dialog"` y `aria-modal`, pero
+    ninguno atrapaba el foco: `useFocusTrap` estaba importado desde P4.6 y
+    nunca se llamaba. Tabulando desde adentro se llegaba a la tabla de
+    productos que queda tapada por el velo.
+  */
+  const stockModalRef = useRef<HTMLDivElement>(null);
+  const productoModalRef = useRef<HTMLDivElement>(null);
+  const masivaModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isStockModalOpen, stockModalRef);
+  useFocusTrap(isModalOpen, productoModalRef);
+  useFocusTrap(isBulkEditModalOpen, masivaModalRef);
+
   const openKardex = async (product: Product) => {
     setKardexProduct(product);
     setLoadingKardex(true);
@@ -349,7 +362,9 @@ export default function Inventory() {
           {selectedProducts.length > 0 && (
             <button
               onClick={() => setIsBulkEditModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
+              /* Era índigo, que no existe en la paleta declarada, y encima
+                 aclaraba en el hover. cyan-700 -> cyan-800. */
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-cyan-700 hover:bg-cyan-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
             >
               <Layers className="h-4 w-4 mr-2" />
               Edición Masiva ({selectedProducts.length})
@@ -405,7 +420,7 @@ export default function Inventory() {
                 const isLowStock = product.stock <= product.minStockAlert;
                 const isSelected = selectedProducts.includes(product.id);
                 return (
-                <tr key={product.id} className={`hover:bg-zinc-800/30 ${isLowStock ? 'bg-rose-500/5' : ''} ${isSelected ? 'bg-indigo-500/10' : ''}`}>
+                <tr key={product.id} className={`hover:bg-zinc-800/30 ${isLowStock ? 'bg-rose-500/5' : ''} ${isSelected ? 'bg-cyan-500/10' : ''}`}>
                   <td className="px-4 py-2">
                     <input 
                       type="checkbox" 
@@ -428,7 +443,10 @@ export default function Inventory() {
                     <div className="text-xs text-zinc-500 font-normal">{product.category}</div>
                   </td>
                   <td className="px-4 py-2 text-zinc-500">{product.sku}</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(product.price)}</td>
+                  {/* Regla del Dinero Alineado: sin `tabular-nums` los dígitos
+                      tienen anchos distintos y las comas de una columna no
+                      alinean, que es un error de lectura esperando ocurrir. */}
+                  <td className="px-4 py-2 text-right tabular-nums">{formatCurrency(product.price)}</td>
                   <td className={`px-4 py-2 text-right ${isLowStock ? 'text-rose-400 font-medium' : 'text-zinc-300'}`}>
                     {product.stock}
                   </td>
@@ -566,7 +584,14 @@ export default function Inventory() {
 
       {/* Quick Stock Modal */}
       {isStockModalOpen && (
-        <div className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        /*
+          Los tres diálogos de este archivo usaban el MISMO `id="modal-title"`.
+          Un id repetido hace que `aria-labelledby` sea ambiguo: el lector
+          resuelve al primero que encuentra en el documento, así que los tres
+          podían anunciarse con el nombre del que no era. Ahora cada uno tiene
+          el suyo.
+        */
+        <div ref={stockModalRef} tabIndex={-1} className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="titulo-ajustar-stock" role="dialog" aria-modal="true">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
             <div className="fixed inset-0 bg-zinc-950/75 transition-opacity backdrop-blur-sm" aria-hidden="true" onClick={closeModal}></div>
             <div className="relative inline-block align-bottom bg-zinc-900 border border-zinc-700 rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm w-full">
@@ -577,7 +602,7 @@ export default function Inventory() {
                       <PackagePlus className="h-6 w-6 text-cyan-500" />
                     </div>
                     <div>
-                      <h3 className="text-lg leading-6 font-medium text-zinc-100" id="modal-title">
+                      <h3 className="text-lg leading-6 font-medium text-zinc-100" id="titulo-ajustar-stock">
                         Ajustar Stock
                       </h3>
                       <p className="text-xs text-zinc-400 truncate">{editingProduct?.name}</p>
@@ -643,13 +668,13 @@ export default function Inventory() {
 
       {/* Modal Overlay & Content */}
       {isModalOpen && (
-        <div className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div ref={productoModalRef} tabIndex={-1} className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="titulo-ficha-producto" role="dialog" aria-modal="true">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
             <div className="fixed inset-0 bg-zinc-950/75 transition-opacity backdrop-blur-sm" aria-hidden="true" onClick={closeModal}></div>
             <div className="relative inline-block align-bottom bg-zinc-900 border border-zinc-700 rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
               <form onSubmit={handleSave}>
                 <div className="bg-zinc-900 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <h3 className="text-lg leading-6 font-medium text-zinc-100 mb-4" id="modal-title">
+                  <h3 className="text-lg leading-6 font-medium text-zinc-100 mb-4" id="titulo-ficha-producto">
                     {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
                   </h3>
                   
@@ -732,13 +757,13 @@ export default function Inventory() {
       )}
 
       {isBulkEditModalOpen && (
-        <div className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div ref={masivaModalRef} tabIndex={-1} className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="titulo-edicion-masiva" role="dialog" aria-modal="true">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 bg-zinc-950/75 transition-opacity backdrop-blur-sm" aria-hidden="true" onClick={closeModal}></div>
             <div className="relative inline-block align-bottom bg-zinc-900 border border-zinc-700 rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md w-full">
               <form onSubmit={handleBulkEditSubmit}>
                 <div className="bg-zinc-900 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <h3 className="text-lg leading-6 font-medium text-zinc-100 mb-2" id="modal-title">
+                  <h3 className="text-lg leading-6 font-medium text-zinc-100 mb-2" id="titulo-edicion-masiva">
                     Edición Masiva ({selectedProducts.length} productos)
                   </h3>
                   <p className="text-xs text-zinc-400 mb-4">Dejá vacío lo que no quieras cambiar.</p>
@@ -773,7 +798,7 @@ export default function Inventory() {
                   <button 
                     type="submit" 
                     disabled={isSaving}
-                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-700 text-base font-medium text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-cyan-400 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? 'Procesando…' : 'Aplicar Cambios'}
                   </button>

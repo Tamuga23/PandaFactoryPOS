@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Customer, Sale } from '../types';
 import { Search, Plus, Trash2, Edit, User, Phone, MapPin, Mail, Calendar, History, Printer, MessageCircle, X, FileText, Loader2 } from 'lucide-react';
@@ -7,6 +7,7 @@ import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export default function Customers() {
   const { customers, addCustomer, updateCustomer, deleteCustomer, loading, fetchSalesByCustomer, companyInfo } = useStore();
@@ -27,6 +28,17 @@ export default function Customers() {
     else if (isModalOpen) setIsModalOpen(false);
     else setHistoryCustomer(null);
   });
+
+  /*
+    Los dos diálogos no declaraban NADA: ni rol, ni modalidad, ni nombre, ni
+    trampa de foco. Para un lector de pantalla la grilla de clientes de atrás
+    seguía existiendo en el mismo plano, y tabulando desde adentro del diálogo
+    se llegaba a los botones de las tarjetas tapadas por el velo.
+  */
+  const historialRef = useRef<HTMLDivElement>(null);
+  const fichaRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(!!historyCustomer, historialRef);
+  useFocusTrap(isModalOpen, fichaRef);
 
   const openHistory = async (customer: Customer) => {
     setHistoryCustomer(customer);
@@ -125,11 +137,12 @@ export default function Customers() {
         </div>
         <div className="flex flex-col md:flex-row w-full md:w-auto gap-3">
           <div className="relative w-full md:w-64">
-             <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
-             <input 
-              type="text" 
+             <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" aria-hidden="true" />
+             <input
+              type="text"
+              aria-label="Buscar un cliente por nombre o teléfono"
               placeholder="Buscar por nombre o teléfono…"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
              />
@@ -146,11 +159,17 @@ export default function Customers() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCustomers.map(customer => (
-          <div key={customer.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between relative group overflow-hidden">
+          /*
+            Tenía un gradiente turquesa de fondo que se encendía al hover.
+            DESIGN.md dice que el wordmark `pandastore` es el ÚNICO gradiente
+            permitido del sistema, y que es identidad, no decoración. El hover
+            de una superficie clickeable que no es botón se resuelve subiendo el
+            borde, que es lo que el sistema prescribe y lo que ya hacen la
+            tarjeta de producto, el chip de categoría y las pestañas.
+          */
+          <div key={customer.id} className="bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-colors rounded-xl p-4 flex flex-col justify-between relative group overflow-hidden">
              
-             {/* Background glow hover */}
-             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 via-cyan-500/0 to-cyan-500/5 group-hover:to-cyan-500/10 transition-colors pointer-events-none" />
-             
+                          
              <div className="relative z-10 flex flex-col h-full gap-4">
                 {/* Header Profile */}
                 <div className="flex items-start justify-between">
@@ -219,17 +238,33 @@ export default function Customers() {
       {/* P2.6: drawer de historial del cliente */}
       {historyCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => setHistoryCustomer(null)}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => setHistoryCustomer(null)}
+            aria-hidden="true"
+          ></div>
+          <div
+            ref={historialRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-historial-cliente"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+          >
             <div className="p-5 border-b border-zinc-800 flex justify-between items-start shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                  <History className="w-5 h-5 text-cyan-400" /> Historial de {historyCustomer.fullName}
+                <h3 id="titulo-historial-cliente" className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+                  <History className="w-5 h-5 text-cyan-400" aria-hidden="true" /> Historial de {historyCustomer.fullName}
                 </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">{historyCustomer.phone || 'Sin teléfono'} {historyCustomer.email ? `· ${historyCustomer.email}` : ''}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{historyCustomer.phone || 'Sin teléfono'} {historyCustomer.email ? `· ${historyCustomer.email}` : ''}</p>
               </div>
-              <button onClick={() => setHistoryCustomer(null)} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">
-                <X className="w-4 h-4" />
+              <button
+                onClick={() => setHistoryCustomer(null)}
+                aria-label="Cerrar el historial"
+                className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -320,19 +355,31 @@ export default function Customers() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => setIsModalOpen(false)}
+            aria-hidden="true"
+          ></div>
+          <div
+            ref={fichaRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-ficha-cliente"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+          >
              <form onSubmit={saveCustomer}>
                 <div className="p-6 border-b border-zinc-800">
-                   <h3 className="text-xl font-bold text-zinc-100 italic flex items-center gap-2">
-                      <User className="w-5 h-5 text-cyan-400" />
+                   <h3 id="titulo-ficha-cliente" className="text-xl font-bold text-zinc-100 italic flex items-center gap-2">
+                      <User className="w-5 h-5 text-cyan-400" aria-hidden="true" />
                       {editingCustomer ? 'Editar Cliente' : 'Nuevo Cliente'}
                    </h3>
                 </div>
                 <div className="p-6 space-y-4">
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Nombre completo (requerido)</label>
-                      <input
+                      <label htmlFor="ficha-cliente-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">Nombre completo (requerido)</label>
+                      <input id="ficha-cliente-nombre"
                          name="fullName"
                          required
                          defaultValue={editingCustomer?.fullName}
@@ -342,8 +389,8 @@ export default function Customers() {
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
-                        <input 
+                        <label htmlFor="ficha-cliente-telefono" className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
+                        <input id="ficha-cliente-telefono" 
                            name="phone" 
                            defaultValue={editingCustomer?.phone} 
                            placeholder="8765 9876"
@@ -351,8 +398,8 @@ export default function Customers() {
                         />
                      </div>
                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase text-zinc-400 font-bold">Correo electrónico</label>
-                        <input 
+                        <label htmlFor="ficha-cliente-correo" className="text-[10px] uppercase text-zinc-400 font-bold">Correo electrónico</label>
+                        <input id="ficha-cliente-correo" 
                            name="email" 
                            type="email"
                            defaultValue={editingCustomer?.email} 
@@ -362,8 +409,8 @@ export default function Customers() {
                      </div>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-400 font-bold">Dirección / datos de envío</label>
-                      <textarea 
+                      <label htmlFor="ficha-cliente-direccion" className="text-[10px] uppercase text-zinc-400 font-bold">Dirección / datos de envío</label>
+                      <textarea id="ficha-cliente-direccion" 
                          name="address" 
                          defaultValue={editingCustomer?.address} 
                          rows={3} 

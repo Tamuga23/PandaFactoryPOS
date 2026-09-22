@@ -171,7 +171,10 @@ export default function FinanciamientoSettings({
           type="button"
           onClick={guardar}
           disabled={guardando}
-          className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-zinc-950 font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shrink-0"
+          /* Era el único botón del sistema con base 500 y hover que ACLARA,
+             además con texto zinc-950 en vez de blanco. La Regla del Relleno
+             Oscuro pide base 700 y hover que oscurece al 800, con texto blanco. */
+          className="bg-cyan-700 hover:bg-cyan-800 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900 flex items-center gap-2 transition-colors shrink-0"
         >
           {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Guardar reglas

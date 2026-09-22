@@ -245,27 +245,28 @@ export default function Reports() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4"/> Total Ventas</div>
-            <div className="text-3xl font-bold text-emerald-400 font-mono relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
+            <div className="text-3xl font-bold text-emerald-400 tabular-nums relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
          </div>
          
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-rose-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4"/> Costo de Ventas</div>
-            <div className="text-3xl font-bold text-rose-400 font-mono relative z-10">{formatCurrency(metrics.totalCost)}</div>
+            <div className="text-3xl font-bold text-rose-400 tabular-nums relative z-10">{formatCurrency(metrics.totalCost)}</div>
          </div>
 
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4"/> Utilidad Bruta</div>
-            <div className="text-3xl font-bold text-cyan-400 font-mono relative z-10">{formatCurrency(metrics.grossProfit)}</div>
+            <div className="text-3xl font-bold text-cyan-400 tabular-nums relative z-10">{formatCurrency(metrics.grossProfit)}</div>
          </div>
 
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-fuchsia-500/10 rounded-full blur-2xl"></div>
             <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Percent className="w-4 h-4"/> Margen %</div>
-            <div className="text-3xl font-bold text-fuchsia-400 font-mono relative z-10">{metrics.margin.toFixed(1)}%</div>
+            {/* Era fucsia, un sexto color que la paleta no tiene. La Regla de
+                la Luz Única reserva el turquesa para el dinero, y el margen es
+                dinero. Y `font-mono` cambia la familia tipográfica: el sistema
+                prescribe `tabular-nums`, que alinea los dígitos conservando
+                Inter. */}
+            <div className="text-3xl font-bold text-cyan-400 tabular-nums relative z-10">{metrics.margin.toFixed(1)}%</div>
          </div>
       </div>
 
@@ -354,22 +355,22 @@ export default function Reports() {
                                <span className="font-medium text-zinc-200 line-clamp-1 max-w-[200px]" title={product.name}>{product.name}</span>
                             </div>
                          </td>
-                         <td className="px-6 py-3 text-center font-mono text-zinc-400">
+                         <td className="px-6 py-3 text-center tabular-nums text-zinc-400">
                             {product.quantity}
                          </td>
-                         <td className="px-6 py-3 text-right font-mono text-zinc-300">
+                         <td className="px-6 py-3 text-right tabular-nums text-zinc-300">
                             {formatCurrency(product.revenue)}
                          </td>
-                         <td className="px-6 py-3 text-right font-mono text-rose-400">
+                         <td className="px-6 py-3 text-right tabular-nums text-rose-400">
                             {formatCurrency(product.cost)}
                          </td>
-                         <td className="px-6 py-3 text-right font-mono font-bold text-cyan-400">
+                         <td className="px-6 py-3 text-right tabular-nums font-bold text-cyan-400">
                             {formatCurrency(product.grossProfit)}
                          </td>
                          <td className="p-0 border-l border-zinc-800 relative group h-full align-middle">
                             {/* Data Bar Effect */}
                             <div className="absolute inset-y-0 left-0 bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors pointer-events-none" style={{ width: `${Math.max(0, Math.min(100, product.margin))}%` }}></div>
-                            <div className="relative z-10 px-6 py-3 font-mono font-bold text-emerald-400">
+                            <div className="relative z-10 px-6 py-3 tabular-nums font-bold text-emerald-400">
                                {product.margin.toFixed(1)}%
                             </div>
                          </td>
