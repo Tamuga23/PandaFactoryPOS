@@ -4,7 +4,7 @@ import { CompanyInfo, Product } from '../types';
 import { fileToBase64, compressImage } from '../lib/utils';
 import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin, Eraser } from 'lucide-react';
 import { db } from '../lib/db';
-import { writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
+import { writeBatch, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import FinanciamientoSettings from '../components/FinanciamientoSettings';
 import { toast } from '../components/Toast';
 
@@ -55,6 +55,24 @@ export default function Settings() {
       .catch(() => setNextInvoiceNumber(''));
   }, []);
 
+  /** El correlativo más alto que YA se usó en una factura. */
+  const maximoFacturado = async (): Promise<number> => {
+    // Mismo barrido que usa la siembra del contador en `recordSale`: como
+    // `invoiceNumber` va con ceros a la izquierda, el orden lexicográfico
+    // descendente coincide con el numérico.
+    const snap = await getDocs(query(
+      collection(db, 'sales'), orderBy('invoiceNumber', 'desc'), limit(30),
+    ));
+    let max = 0;
+    snap.docs.forEach((d) => {
+      const inv = String((d.data() as any).invoiceNumber || '');
+      if (!inv.toUpperCase().startsWith('A')) return;
+      const m = inv.match(/(\d+)\s*$/);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    });
+    return max;
+  };
+
   const handleSaveCounter = async () => {
     const next = parseInt(nextInvoiceNumber, 10);
     if (!next || next < 1) {
@@ -63,10 +81,34 @@ export default function Settings() {
     }
     setSavingCounter(true);
     try {
+      /*
+        No se puede fijar el contador HACIA ATRÁS.
+
+        `recordSale` asigna el número haciendo `contador + 1` y no verifica si
+        ese número ya se usó: el documento de la venta se guarda bajo su uuid,
+        así que Firestore acepta sin chistar dos ventas con el mismo
+        `invoiceNumber`. Poner el contador por debajo del máximo ya facturado
+        producía correlativos REPETIDOS, en silencio, en un documento que se le
+        entrega al cliente y cuyo estatus fiscal todavía no está confirmado.
+
+        Este campo existe para SALTAR hacia adelante —arrancar desde el máximo
+        histórico de un negocio en marcha, que es para lo que se usó— así que
+        bloquear el retroceso no le quita nada.
+      */
+      const max = await maximoFacturado();
+      if (next <= max) {
+        showNotification(
+          `La factura A-${String(max).padStart(6, '0')} ya existe. El próximo número ` +
+          `tiene que ser mayor que ${max}, o se repetirían correlativos.`,
+          'error',
+        );
+        setSavingCounter(false);
+        return;
+      }
       await setDoc(doc(db, 'counters', 'invoices'), { value: next - 1, updatedAt: Date.now() });
       showNotification(`Listo: la próxima factura será A-${String(next).padStart(6, '0')}.`, 'success');
-    } catch {
-      showNotification('No se pudo guardar la numeración (¿reglas desplegadas?).', 'error');
+    } catch (e: any) {
+      showNotification(e?.message || 'No se pudo guardar la numeración (¿reglas desplegadas?).', 'error');
     } finally {
       setSavingCounter(false);
     }
@@ -114,44 +156,65 @@ export default function Settings() {
     }
   };
 
+  /**
+   * Análisis de duplicados por nombre, PREVIO a borrar nada.
+   *
+   * Esto vivía adentro del handler, así que la confirmación era un "¿Estás
+   * seguro? Esta acción no se puede deshacer" a ciegas: el operador no sabía
+   * cuántos productos, ni cuáles, ni si tenían stock. Apretaba y desaparecían.
+   *
+   * Dos criterios nuevos, los dos por la misma razón —un borrado en lote no
+   * puede destruir inventario en silencio:
+   *
+   * - De cada grupo se conserva el de MÁS stock (y ante empate, el más nuevo),
+   *   que es lo que ya hacía.
+   * - Los candidatos a borrar que TIENEN stock se excluyen del lote. Borrarlos
+   *   sacaría esas unidades del inventario sin pasar por el kardex. Se listan
+   *   aparte para que el operador los resuelva de a uno desde Inventario, que
+   *   es donde el borrado avisa cuántas unidades se pierden.
+   *
+   * Nota sobre el criterio en sí: "duplicado" acá significa MISMO NOMBRE. Desde
+   * P3.5 el SKU es único y el id es uuid, así que dos productos legítimamente
+   * distintos pueden compartir nombre (el mismo modelo en dos colores). Por eso
+   * la lista muestra el SKU: es lo único que los distingue a simple vista.
+   */
+  const duplicados = React.useMemo(() => {
+    const porNombre = new Map<string, Product[]>();
+    products.forEach((p) => {
+      const clave = p.name.trim().toLowerCase();
+      if (!porNombre.has(clave)) porNombre.set(clave, []);
+      porNombre.get(clave)!.push(p);
+    });
+
+    const borrables: Product[] = [];
+    const conStock: Product[] = [];
+    porNombre.forEach((grupo) => {
+      if (grupo.length < 2) return;
+      const orden = [...grupo].sort((a, b) => (b.stock - a.stock) || (b.createdAt - a.createdAt));
+      orden.slice(1).forEach((p) => (p.stock > 0 ? conStock : borrables).push(p));
+    });
+    return { borrables, conStock };
+  }, [products]);
+
   const handleCleanDuplicates = async () => {
+    const ids = duplicados.borrables.map((p) => p.id);
+    if (ids.length === 0) {
+      showNotification('No hay duplicados que se puedan borrar sin perder stock.', 'info');
+      setIsConfirmingClean(false);
+      return;
+    }
     setIsCleaning(true);
     try {
-      const nameMap = new Map<string, Product[]>();
-      products.forEach(p => {
-        const normName = p.name.trim().toLowerCase();
-        if (!nameMap.has(normName)) nameMap.set(normName, []);
-        nameMap.get(normName)!.push(p);
-      });
-
-      const toDeleteIds: string[] = [];
-      nameMap.forEach(dupes => {
-        if (dupes.length > 1) {
-          // Sort by stock descending, then by creation date descending
-          dupes.sort((a, b) => (b.stock - a.stock) || (b.createdAt - a.createdAt));
-          // Keep the first one, mark rest for deletion
-          const rest = dupes.slice(1);
-          rest.forEach(r => toDeleteIds.push(r.id));
-        }
-      });
-
-      if (toDeleteIds.length === 0) {
-        showNotification('No se encontraron productos duplicados basados en el nombre exacto.', 'info');
-        setIsCleaning(false);
-        setIsConfirmingClean(false);
-        return;
-      }
-
       const batch = writeBatch(db);
-      toDeleteIds.forEach(id => {
-        batch.delete(doc(db, 'products', id));
-      });
+      ids.forEach((id) => batch.delete(doc(db, 'products', id)));
       await batch.commit();
-
-      showNotification(`Se eliminaron ${toDeleteIds.length} productos duplicados exitosamente.`, 'success');
-    } catch (error) {
+      showNotification(
+        `${ids.length} ${ids.length === 1 ? 'producto duplicado eliminado' : 'productos duplicados eliminados'}.`,
+        'success',
+      );
+    } catch (error: any) {
       console.error('Error eliminando duplicados:', error);
-      showNotification('Ocurrió un error al limpiar los duplicados.', 'error');
+      showNotification(error?.message || 'No se pudieron eliminar los duplicados.', 'error');
     } finally {
       setIsCleaning(false);
       setIsConfirmingClean(false);
@@ -341,19 +404,55 @@ export default function Settings() {
             <Eraser className="w-4 h-4" /> Zona de Peligro - Limpieza de Datos
           </h3>
           <p className="text-xs text-zinc-400">
-            Si notas que tienes productos duplicados en tu catálogo maestro (mismo nombre exacto), puedes utilizar esta herramienta para consolidarlos. El sistema mantendrá la versión con mayor stock o más reciente y eliminará las copias. Los historiales de compra y venta se mantendrán intactos.
+            Busca productos con el <strong className="text-zinc-200">mismo nombre exacto</strong> y
+            conserva el de mayor stock. Los duplicados que tengan stock NO se borran acá:
+            se listan para que los revises de a uno desde Inventario.
           </p>
+
+          {duplicados.borrables.length === 0 && duplicados.conStock.length === 0 && (
+            <p className="text-xs text-emerald-400">No hay productos con el nombre repetido.</p>
+          )}
+
+          {duplicados.conStock.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1.5">
+              <p className="text-[11px] uppercase tracking-wider font-bold text-amber-400">
+                {duplicados.conStock.length} con stock · no se borran acá
+              </p>
+              <ul className="text-xs text-zinc-300 space-y-0.5 list-none">
+                {duplicados.conStock.map((p) => (
+                  <li key={p.id} className="flex justify-between gap-3">
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-zinc-400 shrink-0 tabular-nums">{p.sku} · {p.stock} en stock</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {!isConfirmingClean ? (
             <button
               type="button"
+              disabled={duplicados.borrables.length === 0}
               onClick={() => setIsConfirmingClean(true)}
               className="flex items-center gap-2 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/30 text-rose-400 font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500"
             >
               Limpiar Productos Duplicados
             </button>
           ) : (
-            <div className="bg-rose-950/30 border border-rose-500/30 p-4 rounded-lg space-y-4 max-w-sm mt-4">
-              <p className="text-sm text-rose-200">¿Estás seguro? Esta acción no se puede deshacer.</p>
+            <div className="bg-rose-950/30 border border-rose-500/30 p-4 rounded-lg space-y-4 max-w-lg mt-4">
+              <p className="text-sm text-rose-200">
+                Se van a eliminar {duplicados.borrables.length}{' '}
+                {duplicados.borrables.length === 1 ? 'producto' : 'productos'}. No se puede deshacer.
+              </p>
+              {/* La lista exacta. Antes esto era un "¿Estás seguro?" a ciegas. */}
+              <ul className="text-xs text-zinc-300 space-y-0.5 max-h-48 overflow-y-auto list-none">
+                {duplicados.borrables.map((p) => (
+                  <li key={p.id} className="flex justify-between gap-3">
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-zinc-400 shrink-0 tabular-nums">{p.sku}</span>
+                  </li>
+                ))}
+              </ul>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -361,7 +460,7 @@ export default function Settings() {
                   disabled={isCleaning}
                   className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
-                  {isCleaning ? 'Limpiando...' : 'Sí, Eliminar'}
+                  {isCleaning ? 'Limpiando...' : `Eliminar ${duplicados.borrables.length}`}
                 </button>
                 <button
                   type="button"
