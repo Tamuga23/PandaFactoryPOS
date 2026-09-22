@@ -354,7 +354,7 @@
       },
       "label": {
         "displayName": "Etiqueta",
-        "purpose": "El rótulo de campo del sistema: 10px, mayúsculas, negrita. 136 usos en 13 archivos. 22 de ellos viven dentro de los lienzos de papel, donde 10px no pertenece a la rampa."
+        "purpose": "El rótulo de campo del sistema: 10px, mayúsculas, negrita. 112 usos en la consola, en 11 archivos. La rampa real tiene además 11px (16 usos) y 9px (11), que son la misma etiqueta apretada un escalón y estan anotados como deuda en DESIGN.md. El papel tiene su propio escalón de 10px, con 24 usos, que no es el mismo tier."
       },
       "dato": {
         "displayName": "Dato numérico",

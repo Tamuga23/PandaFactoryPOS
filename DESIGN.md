@@ -250,7 +250,17 @@ ya se imprime:
   Documento; en la etiqueta, 30px / 900 con interletraje negativo.
 - **Destinatario** (24px / 900): el nombre grande de la etiqueta de envío.
 - **Cuerpo de documento** (11px / 600): datos de cliente, filas de la tabla.
+- **Rótulo de documento** (10px): los títulos de campo de la factura
+  ("Facturar a", "Cantidad", "Precio") y de las tres variantes de etiqueta
+  ("Destinatario", "Teléfono", "Dirección Exacta"). **24 usos.**
 - **Micro de documento** (9px y 8px): pies, condiciones, referencias.
+
+> El escalón de 10px del papel no estaba declarado acá, y el detector tampoco
+> lo ve porque valida contra una sola rampa. Se documenta en vez de cambiarlo:
+> son documentos que se imprimen y se entregan, y mover 24 tamaños sin poder
+> mirar una hoja impresa es exactamente lo que esta sección dice que no se
+> haga. Que el papel use 10px NO lo vuelve el mismo escalón que la Label de la
+> consola: coinciden en el número y no comparten nada más.
 
 Los pesos 800 y 900 **solo existen acá**. No están en el `@import` de Inter, así
 que el navegador los sintetiza: se tolera en un documento que se rasteriza a PDF
@@ -319,14 +329,30 @@ veces contra 95 de `font-medium`: el sistema es afirmativo por defecto.
   tarjeta o diálogo. Convive con el anterior sin una regla que los separe.
 - **Body** (400, 14px): cuerpo base, valor de campo, celda de tabla.
 - **Micro** (400, 12px): ayuda, metadato de tarjeta, chip.
-- **Label** (700, 10px, `0.05em`, mayúsculas): **la etiqueta del sistema**. 136
-  apariciones en 13 archivos. Es el ladrillo tipográfico más reconocible de la
-  interfaz — cuando la escala de Tailwind no alcanzó para densificar, se bajó
-  a 10px arbitrarios antes que agrandar el formulario.
-  **Ojo:** 22 de esas apariciones viven **dentro de los lienzos de papel**
-  (13 en la factura, 9 en la etiqueta), y 10px no está en la rampa del papel.
-  Es la mezcla de los dos mundos filtrándose por el lado que nadie audita: el
-  detector no la ve porque valida contra una sola rampa.
+- **Label** (700, 10px, `0.05em`, mayúsculas): **la etiqueta del sistema**. 112
+  apariciones en la consola, en 11 archivos. Es el ladrillo tipográfico más
+  reconocible de la interfaz — cuando la escala de Tailwind no alcanzó para
+  densificar, se bajó a 10px arbitrarios antes que agrandar el formulario.
+
+> **La rampa real de la consola tiene más escalones de los que esta sección
+> declaraba** (medido el 2026-09-21, sobre `text-[Npx]` literales):
+>
+> | Tamaño | Usos | Dónde |
+> |---|---|---|
+> | 10px | 112 | la Label canónica, en 11 archivos |
+> | 11px | 16 | POS (9), Reportes (5), Dashboard (2) |
+> | 9px | 11 | Compras (5), POS (2), Inventario (2), Clientes (1), Registro de compra (1) |
+>
+> Los 11px y los 9px **no son un tier declarado**: son la misma Label apretada
+> un escalón más cuando el espacio no daba. A esta escala la diferencia con
+> 12px y con 10px es imperceptible, así que lo correcto es colapsarlos —
+> 27 lugares— y quedarse con 10px. **No se hizo todavía**: son cajas angostas
+> (las tarjetas de plazo del POS, las celdas de Reportes) donde agrandar puede
+> hacer saltar el texto a dos líneas, y eso hay que verlo con la app corriendo.
+> Queda anotado como deuda con su tamaño exacto, no como descubrimiento.
+>
+> El `text-[8px]` que había en la consola era vestigial: envolvía una imagen,
+> no texto. Se quitó.
 - **Dato** (monoespaciada, 700, 14px): KPIs, tabla de Reportes, delta del kardex.
 
 ### Named Rules

@@ -430,7 +430,10 @@ export default function Inventory() {
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-[8px] text-zinc-500 overflow-hidden">
+                    {/* Sin `text-[8px] text-zinc-500`: este div no envuelve
+                        texto, sólo una imagen o un ícono. Era el único 8px de
+                        toda la consola y no hacía nada. */}
+                    <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center overflow-hidden">
                       {product.imageBase64 ? (
                         <img className="h-10 w-10 object-cover" src={product.imageBase64} alt="" />
                       ) : (
