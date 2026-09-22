@@ -252,9 +252,37 @@ export function useStoreData() {
         throw new Error(`Ya existe otro producto con el SKU "${product.sku}".`);
       }
       const pData: any = { ...product, updatedAt: Date.now() };
-      // Campos opcionales que el usuario puede borrar explícitamente:
-      // si son undefined usamos deleteField() para que Firestore los elimine.
-      const CLEARABLE = ['precioPromo', 'descEfectivoPct', 'campania'];
+      /*
+        Campos opcionales que el usuario puede BORRAR desde la ficha: si llegan
+        `undefined` se escriben con `deleteField()` para que Firestore los
+        elimine de verdad.
+
+        La lista tenía sólo tres y le faltaban seis, así que en esos seis
+        "vaciar el campo" no vaciaba nada: el `undefined` se omitía, Firestore
+        conservaba el valor viejo, el aviso decía "actualizado" y al recargar la
+        ficha el dato seguía ahí. Un guardado que informa éxito y no aplica el
+        cambio es peor que uno que falla.
+
+        El más caro de los seis era `financiamientoOverride`: un producto puesto
+        en "sin cuotas" o en "0% de interés" no se podía devolver a la regla de
+        su categoría desde la interfaz. Eso mueve plata — decide si la venta
+        califica para cuotas y con qué recargo.
+
+        Los otros cinco son el contenido que alimenta la tablet y la web:
+        borrar todos los bullets, todas las objeciones, toda la ficha técnica o
+        el gancho de venta no los borraba.
+
+        Ojo al agregar acá: sólo van campos DECLARADOS OPCIONALES en
+        `firestore.rules` (los seis lo están, con `!('X' in data) || ...`), y
+        sólo si quien llama distingue "vaciar" de "no tocar". `Inventory` pasa
+        objetos donde estas claves están AUSENTES, no en `undefined`, así que
+        no las toca.
+      */
+      const CLEARABLE = [
+        'precioPromo', 'descEfectivoPct', 'campania',
+        'beneficio', 'bullets', 'objecionesOverride',
+        'specsProyector', 'media', 'financiamientoOverride',
+      ];
       const writeData: any = {};
       for (const [key, val] of Object.entries(pData)) {
         if (val === undefined) {
