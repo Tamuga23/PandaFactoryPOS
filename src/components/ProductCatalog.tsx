@@ -740,7 +740,7 @@ export default function ProductCatalog({
                   required
                   className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
                 >
-                  <option value="">-- Seleccione Categoría --</option>
+                  <option value="">— Elegí una categoría —</option>
                   {uniqueCategories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}

@@ -206,7 +206,8 @@ export default function SalesHistory() {
     const prevStatus = sale.status || 'completed';
     if (prevStatus === newStatus) return;
     try {
-      await changeSaleStatus(sale, newStatus);
+      const { borrados, topeados } = await changeSaleStatus(sale, newStatus);
+
       if (sale.documentType !== 'PROFORMA' && prevStatus === 'completed' && newStatus !== 'completed') {
         toast.success('Estado actualizado — stock repuesto al inventario.');
       } else if (sale.documentType !== 'PROFORMA' && prevStatus !== 'completed' && newStatus === 'completed') {
@@ -214,8 +215,29 @@ export default function SalesHistory() {
       } else {
         toast.success('Estado actualizado.');
       }
-    } catch {
-      toast.error('No se pudo actualizar el estado de la venta.');
+
+      /*
+        El ajuste de stock puede aplicarse A MEDIAS, por dos motivos que están
+        documentados como deliberados en `changeSaleStatus`: un producto que ya
+        no existe se saltea, y el descuento tiene piso en 0. Los dos son
+        correctos; lo que no lo era es que la pantalla dijera "stock repuesto"
+        sin más y el operador creyera que recuperó tres unidades cuando
+        recuperó dos.
+      */
+      if (borrados.length > 0) {
+        toast.error(
+          `${borrados.length === 1 ? 'Este producto ya no existe' : 'Estos productos ya no existen'} ` +
+          `y su stock NO se ajustó: ${borrados.join(', ')}.`,
+        );
+      }
+      if (topeados.length > 0) {
+        toast.error(
+          `No había stock suficiente para descontar del todo: ${topeados.join(', ')}. ` +
+          `Quedaron en 0 — revisá el inventario, porque el kardex registra el movimiento completo.`,
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo actualizar el estado de la venta.');
     }
   };
 
@@ -238,20 +260,37 @@ export default function SalesHistory() {
       notes: (formData.get('notes') as string) || editingSale.notes || '',
     } as any; // Cast for custom fields if any
 
-    await updateSale(updatedSale);
-    setIsEditModalOpen(false);
-    setEditingSale(null);
-    toast.success('Venta actualizada.');
+    /*
+      Sin try/catch, y `updateSale` SÍ lanza: su manejador siempre relanza. Con
+      un fallo el rechazo quedaba sin manejar, las tres líneas de abajo no
+      corrían y el modal se quedaba abierto sin una palabra. El operador veía su
+      edición en pantalla —porque el formulario conserva lo tipeado— y se iba
+      creyendo que había guardado.
+
+      Es una venta YA EMITIDA: lo que se edita acá son los datos que van
+      impresos en la factura y en la etiqueta de envío.
+    */
+    try {
+      await updateSale(updatedSale);
+      setIsEditModalOpen(false);
+      setEditingSale(null);
+      toast.success(`Venta ${editingSale.invoiceNumber} actualizada.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo guardar la edición de la venta.');
+    }
   };
 
-  if (loading) return <div className="text-zinc-500 p-8">Cargando historial…</div>;
+  if (loading) return <div className="text-zinc-400 p-8">Cargando historial…</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div>
-          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Gestión de Ventas</h2>
-          <p className="text-xs text-zinc-500">Edite, elimine o gestione ventas, proformas y devoluciones.</p>
+          {/* Decía "Gestión de Ventas" mientras el menú y el encabezado dicen
+              "Historial de Ventas": dos nombres para la misma pantalla. Y el
+              subtítulo trataba de usted en una interfaz que vosea. */}
+          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Historial de Ventas</h2>
+          <p className="text-xs text-zinc-400">Revisá, editá o anulá ventas, cotizaciones y devoluciones.</p>
         </div>
         {/* P2.5: pestaña Facturas / Proformas */}
         <div className="flex bg-zinc-800 rounded-lg p-1 text-xs font-bold">

@@ -484,10 +484,24 @@ export function useStoreData() {
    *  - returned/cancelled → completed: vuelve a descontarlas (piso en 0).
    *  - returned ↔ cancelled: sin efecto en stock.
    * Las PROFORMAS nunca tocan stock. Productos borrados se saltan.
+   *
+   * Esas dos últimas reglas —el piso en 0 y saltar los productos borrados— son
+   * DELIBERADAS y no se tocan. Lo que faltaba es que se supieran: el ajuste se
+   * aplicaba a medias y la pantalla decía "stock repuesto" igual. El operador
+   * anulaba una venta de 3 unidades, recuperaba 2, y nada se lo decía.
+   *
+   * Por eso ahora devuelve un resumen de lo que NO pudo ajustar. No cambia
+   * ninguna escritura: sólo deja de perderse la información.
    */
-  const changeSaleStatus = async (sale: Sale, newStatus: Sale['status']) => {
-    if (!user) return;
+  const changeSaleStatus = async (
+    sale: Sale,
+    newStatus: Sale['status'],
+  ): Promise<{ borrados: string[]; topeados: string[] }> => {
+    if (!user) return { borrados: [], topeados: [] };
     const saleRef = doc(db, 'sales', sale.id);
+    // Se reinician en cada intento: la transacción puede reintentarse.
+    let borrados: string[] = [];
+    let topeados: string[] = [];
     try {
       await runTransaction(db, async (transaction) => {
         const saleSnap = await transaction.get(saleRef);
@@ -504,15 +518,26 @@ export function useStoreData() {
         if (affectsStock && wasDeducted && !willBeDeducted) direction = 1;
         if (affectsStock && !wasDeducted && willBeDeducted) direction = -1;
 
+        borrados = [];
+        topeados = [];
+
         if (direction !== 0) {
           const items = serverSale.items || [];
           const productSnaps = await Promise.all(
             items.map(i => transaction.get(doc(db, 'products', i.id)))
           );
           productSnaps.forEach((snap, idx) => {
-            if (!snap.exists()) return; // producto borrado: no se puede ajustar
+            if (!snap.exists()) {
+              // Producto borrado: no se puede ajustar. Se anota para avisar.
+              borrados.push(items[idx].name);
+              return;
+            }
             const pData = snap.data() as Product;
-            const newStock = Math.max(0, (pData.stock || 0) + direction * items[idx].quantity);
+            const bruto = (pData.stock || 0) + direction * items[idx].quantity;
+            const newStock = Math.max(0, bruto);
+            // El piso en 0 es deliberado, pero significa que se descontó MENOS
+            // de lo que dice el movimiento del kardex. Hay que decirlo.
+            if (bruto < 0) topeados.push(items[idx].name);
             transaction.update(doc(db, 'products', items[idx].id), {
               stock: newStock,
               updatedAt: Date.now(),
@@ -533,8 +558,10 @@ export function useStoreData() {
         transaction.update(saleRef, { status: newStatus });
       });
       setOlderSales(prev => prev.map(s => (s.id === sale.id ? { ...s, status: newStatus } : s)));
+      return { borrados, topeados };
     } catch (e) {
       handleFirestoreError(e, 'update', `sales/${sale.id}`);
+      return { borrados: [], topeados: [] };
     }
   };
 

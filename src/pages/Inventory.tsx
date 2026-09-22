@@ -298,9 +298,12 @@ export default function Inventory() {
         isReordering: updatedIsReordering,
       });
       closeModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating stock:', error);
-      toast.error('Error al actualizar el stock. Intente de nuevo.');
+      // El mensaje real: `adjustStock` lanza "El producto ya no existe", y las
+      // reglas y la cuota vienen humanizadas desde `db.ts`. Aplastarlo con un
+      // genérico le quitaba al operador el único dato que sirve.
+      toast.error(error?.message || 'No se pudo actualizar el stock. Intentá de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -347,9 +350,11 @@ export default function Inventory() {
         await addProduct(productData);
       }
       closeModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      toast.error('Error al guardar el producto. Intente de nuevo.');
+      // Acá el mensaje importa todavía más: el más frecuente es
+      // "Ya existe otro producto con el SKU X", que dice exactamente qué hacer.
+      toast.error(error?.message || 'No se pudo guardar el producto. Intentá de nuevo.');
     } finally {
       setIsSaving(false);
     }
