@@ -6,13 +6,14 @@ import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin,
 import { db } from '../lib/db';
 import { writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
 import FinanciamientoSettings from '../components/FinanciamientoSettings';
+import { toast } from '../components/Toast';
 
 export default function Settings() {
   const { companyInfo, updateCompanyInfo, loading, products } = useStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
   const [isConfirmingClean, setIsConfirmingClean] = useState(false);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+
   const [formData, setFormData] = useState<Omit<CompanyInfo, 'ownerId'>>({
     name: 'PandaStore',
     phone: '+505 8372 5528',
@@ -22,9 +23,22 @@ export default function Settings() {
     defaultExchangeRate: 36.6243, // Pilar 4: Tasa congelada
   });
 
+  /*
+    Configuración tenía su PROPIO sistema de avisos: una barra fija de relleno
+    sólido, con su estado, su temporizador de 5 s y su paleta. Hacía exactamente
+    el mismo trabajo que el Toast global del sistema, en otro lenguaje visual y
+    en otra esquina. DESIGN.md ya lo llamaba "deuda, no patrón".
+
+    Ahora es un envoltorio del Toast, así que esta pantalla hereda gratis lo que
+    el canal global fue ganando: los errores no se autodestruyen (son el único
+    soporte que tiene el operador), se anuncian a un lector de pantalla con
+    `role="alert"`, y se cierran a mano.
+
+    La firma se conserva para no tocar `FinanciamientoSettings`, que la recibe
+    por prop.
+  */
   const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 5000);
+    toast[type](message);
   };
 
   // Numeración de facturas: leer/fijar el contador (counters/invoices).
@@ -80,7 +94,8 @@ export default function Settings() {
         setFormData(prev => ({ ...prev, logoBase64: compressed }));
       } catch (error) {
         console.error('Error processing image:', error);
-        showNotification('Error processing image. Please try again.', 'error');
+        // Estaba en inglés, en una app que es toda en español.
+        showNotification('No se pudo procesar la imagen. Probá con otra.', 'error');
       }
     }
   };
@@ -147,15 +162,6 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 relative">
-      {notification && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg font-bold text-white shadow-xl transition-all ${
-          notification.type === 'success' ? 'bg-emerald-700' :
-          notification.type === 'error' ? 'bg-rose-600' : 'bg-cyan-700'
-        }`}>
-          {notification.message}
-        </div>
-      )}
-
       <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div className="p-2 bg-cyan-500/10 rounded-lg">
           <SettingsIcon className="w-6 h-6 text-cyan-400" />

@@ -576,9 +576,23 @@ marca el estado, no solo el fondo.
 Carbón Superficie al 95% + `backdrop-blur` + borde del color semántico al 40% +
 `shadow-2xl` + radio Tarjeta. Tres variantes: esmeralda, rosa y turquesa.
 
-> **Nota:** existe un **segundo** sistema de notificación en Configuración — una
-> barra fija de relleno sólido (`bg-emerald-600` / `bg-rose-600` / `bg-cyan-600`).
-> Hace el mismo trabajo que el Toast con otro lenguaje. Es deuda, no patrón.
+El Toast es el **único** canal de notificación del sistema, y por eso tiene dos
+reglas propias:
+
+- **Un error no se autodestruye.** Éxito e información se van solos a los 4,5
+  segundos; el error se queda hasta que se cierra con su X. Es el único soporte
+  que tiene un operador que trabaja solo, y `recordSale` produce diagnósticos
+  exactos que no se pueden tirar por temporizador.
+- **La región viva se monta siempre**, aunque esté vacía. Un contenedor
+  `aria-live` que nace junto con su primer contenido es el caso clásico que el
+  lector de pantalla no anuncia.
+
+> **Resuelto (2026-09-21).** Existía un **segundo** sistema de notificación en
+> Configuración —una barra fija de relleno sólido, con su propio estado y su
+> propio temporizador— que hacía el mismo trabajo con otro lenguaje visual y en
+> otra esquina. Esta nota lo llamaba "deuda, no patrón". Se migró al Toast: la
+> pantalla hereda gratis las dos reglas de arriba, y el sistema volvió a tener
+> una sola manera de avisar.
 
 ## Do's and Don'ts
 
