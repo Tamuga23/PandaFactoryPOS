@@ -539,8 +539,36 @@ export default function PurchaseRegistration({
                 <Tag className="w-4 h-4 text-amber-400" /> Costos de Importación (Landed Cost)
              </h4>
              <p className="text-[10px] text-zinc-400 mb-4 leading-relaxed">
-               Estos costos se suman al costo real de cada unidad al recibirla. El flete se calcula por peso con la tarifa $/lb
-               (si un ítem no tiene peso, se prorratea el Flete Total por valor). Aduana y seguro siempre se prorratean por valor.
+               Estos costos se suman al costo real de cada unidad al recibirla.
+               Cargá <strong className="text-zinc-300">una de las dos</strong> formas de flete:
+               la tarifa <strong className="text-zinc-300">$/lb</strong> (se cobra por el peso de cada ítem)
+               o el <strong className="text-zinc-300">Flete Total</strong> (se reparte por valor).
+               Aduana y seguro siempre se prorratean por valor.
+             </p>
+             {/*
+               El campo de tarifa mostraba "Default: 6.5" o "Default: 2.5" como
+               placeholder gris, y no era una sugerencia: si lo dejabas vacío,
+               ESE número se aplicaba igual. Y 'Sea Cargo' es la modalidad
+               inicial, así que toda orden traía un $2.50/lb latente que pisaba
+               el Flete Total declarado. Ahora no se aplica nada que no esté
+               escrito, y este aviso dice qué va a pasar con lo que hay cargado.
+             */}
+             <p className="text-[10px] mb-4 leading-relaxed" aria-live="polite">
+               {shippingRatePerLb && Number(shippingRatePerLb) > 0 ? (
+                 <span className="text-cyan-400">
+                   Se va a cobrar <strong>${Number(shippingRatePerLb)} por libra</strong> a cada ítem que tenga peso.
+                   {freightCost > 0 && ' El Flete Total se reparte entre los ítems que no tengan peso cargado.'}
+                 </span>
+               ) : freightCost > 0 ? (
+                 <span className="text-cyan-400">
+                   Se van a repartir los <strong>${freightCost}</strong> de Flete Total entre todos los ítems, por valor.
+                 </span>
+               ) : (
+                 <span className="text-amber-400">
+                   Sin flete cargado: el costo de cada unidad va a quedar sin el flete, y el margen que
+                   muestren los reportes va a salir más alto de lo real.
+                 </span>
+               )}
              </p>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
@@ -550,7 +578,7 @@ export default function PurchaseRegistration({
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
                     value={shippingRatePerLb}
                     onChange={(e) => setShippingRatePerLb(e.target.value)}
-                    placeholder={shippingMode === 'Air Cargo' ? 'Default: 6.5' : shippingMode === 'Sea Cargo' ? 'Default: 2.5' : 'Ej. 2.5'}
+                    placeholder={shippingMode === 'Air Cargo' ? 'Ej. 6.5' : 'Ej. 2.5'}
                   />
                 </div>
                 <div className="space-y-2">
@@ -560,7 +588,7 @@ export default function PurchaseRegistration({
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
                     value={freightCost || ''}
                     onChange={(e) => setFreightCost(Math.max(0, Number(e.target.value) || 0))}
-                    placeholder="Si no usa $/lb"
+                    placeholder="Si no cargás $/lb"
                   />
                 </div>
                 <div className="space-y-2">

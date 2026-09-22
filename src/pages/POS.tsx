@@ -922,7 +922,7 @@ export default function POS() {
             <button
               type="button"
               onClick={restaurarBorrador}
-              className="text-xs font-bold bg-cyan-700 hover:bg-cyan-800 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded-lg px-4 py-2 transition-colors"
+              className="text-xs font-bold bg-cyan-700 hover:bg-cyan-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-lg px-4 py-2 transition-colors"
             >
               Recuperar venta
             </button>
@@ -1107,7 +1107,7 @@ export default function POS() {
                 <button
                   type="button"
                   onClick={vaciarCarrito}
-                  className="text-[10px] uppercase tracking-wider font-bold text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-1 focus:ring-rose-400 rounded px-3 py-2 transition-colors"
+                  className="text-[10px] uppercase tracking-wider font-bold text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400 rounded px-3 py-2 transition-colors"
                 >
                   Descartar {cart.length} {cart.length === 1 ? 'línea' : 'líneas'}
                 </button>

@@ -236,9 +236,17 @@ export default function Layout({ children }: { children: ReactNode }) {
                   la última copia que llegó: no confíes en el stock ni en los totales hasta recargar.
                 </p>
               </div>
+              {/*
+                  Rose sólido es el color con el que esta aplicación pide confirmar
+                  un borrado. Recargar la página no destruye nada, y ponerle el tono
+                  más alarmante del sistema a la salida del problema —justo cuando
+                  el operador ya está alarmado por el cartel— gasta la señal que
+                  después hace falta para lo que sí destruye. El borde rosa del
+                  aviso ya da el tono.
+               */}
               <button
                 onClick={() => window.location.reload()}
-                className="shrink-0 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
+                className="shrink-0 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 text-xs font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-zinc-950"
               >
                 Recargar
               </button>

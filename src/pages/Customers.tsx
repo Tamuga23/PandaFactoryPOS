@@ -144,24 +144,37 @@ export default function Customers() {
       address: formData.get('address') as string,
     };
 
-    if (editingCustomer) {
-      // Update
-      await updateCustomer({
-        ...editingCustomer,
-        ...customerObj
-      });
-    } else {
-      // Create new natively
-      // NOTE: UUID for new ones created directly from CRM panel
-      await addCustomer({
-        id: crypto.randomUUID(),
-        ...customerObj,
-        createdAt: Date.now()
-      });
-    }
+    /*
+      Era el único formulario de la aplicación que quedó sin `try/catch`.
 
-    setIsModalOpen(false);
-    setEditingCustomer(null);
+      El barrido que le puso manejo de error a Inventario, Compras, Historial y
+      al botón de BORRAR de este mismo archivo —treinta líneas más arriba, con
+      su comentario explicando que `handleFirestoreError` siempre relanza— entró
+      por la puerta del borrado y no miró la del guardado.
+
+      Sin catch, un write rechazado (permisos, cuota de Spark, red, o un email
+      con typo que Zod rechaza) dejaba la promesa sin manejar: `setIsModalOpen`
+      nunca corría, el modal se quedaba abierto con los datos tipeados, y no
+      aparecía ni un carácter de diagnóstico. El operador vuelve a apretar
+      Guardar, para siempre.
+    */
+    try {
+      if (editingCustomer) {
+        await updateCustomer({ ...editingCustomer, ...customerObj });
+        toast.success(`Ficha de «${customerObj.fullName}» actualizada.`);
+      } else {
+        await addCustomer({
+          id: crypto.randomUUID(),
+          ...customerObj,
+          createdAt: Date.now(),
+        });
+        toast.success(`Cliente «${customerObj.fullName}» creado.`);
+      }
+      setIsModalOpen(false);
+      setEditingCustomer(null);
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo guardar la ficha del cliente.');
+    }
   };
 
   if (loading) return <div className="text-zinc-500 p-8">Cargando clientes…</div>;
@@ -245,7 +258,7 @@ export default function Customers() {
                    {/* P2.6: historial de compras */}
                    <button
                      onClick={() => openHistory(customer)}
-                     className="flex-1 py-1.5 bg-cyan-600/10 hover:bg-cyan-800/20 text-cyan-400 text-xs font-semibold rounded-md border border-cyan-500/30 transition-colors flex justify-center items-center gap-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                     className="flex-1 py-1.5 bg-cyan-500/10 hover:bg-cyan-800/20 text-cyan-400 text-xs font-semibold rounded-md border border-cyan-500/30 transition-colors flex justify-center items-center gap-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                    >
                      <History className="w-3 h-3" /> Historial
                    </button>
@@ -314,7 +327,7 @@ export default function Customers() {
                 <div className="grid grid-cols-3 gap-3 p-4 shrink-0">
                   <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-center">
                     <p className="text-[10px] uppercase font-bold text-zinc-400">Total Gastado</p>
-                    <p className="text-lg font-bold text-emerald-400">{formatCurrency(totalSpent)}</p>
+                    <p className="text-lg font-bold text-emerald-400 tabular-nums">{formatCurrency(totalSpent)}</p>
                   </div>
                   <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-center">
                     <p className="text-[10px] uppercase font-bold text-zinc-400">Compras</p>
@@ -355,7 +368,7 @@ export default function Customers() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-sm font-bold text-cyan-400 mr-2">{formatCurrency(sale.total)}</span>
+                      <span className="text-sm font-bold text-cyan-400 mr-2 tabular-nums">{formatCurrency(sale.total)}</span>
                       <button
                         onClick={() => openSalePreview(sale)}
                         title="Reimprimir PDF"

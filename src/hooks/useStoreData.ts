@@ -3,13 +3,14 @@ import { db, auth, handleFirestoreError, mensajeFirestore, tieneClaimStaff } fro
 import { toast } from '../components/Toast';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, getDoc, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
+import { Product, Sale, Purchase, PurchaseItem, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
 import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
 import {
   CONFIG_FINANCIAMIENTO_DEFAULT,
   normalizarConfig,
   type ConfigFinanciamiento,
 } from '../lib/financiamiento';
+import { maximoFacturaEmitido } from '../lib/correlativos';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
 // isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
@@ -309,6 +310,33 @@ export function useStoreData() {
         objetos donde estas claves están AUSENTES, no en `undefined`, así que
         no las toca.
       */
+      /*
+        `stock` NO se escribe por acá, NUNCA.
+
+        Los tres que llaman a esta función arman el objeto con `...product`
+        partiendo del array `products` de React — o sea, de la CACHÉ del
+        cliente — y `stock` nunca es `undefined`, así que viajaba en cada
+        guardado. El comentario de `Catalog.tsx` incluso afirma que "stock NO se
+        toca desde este form": la intención estaba, el `...originalProduct` se
+        la llevaba puesta.
+
+        Mientras la suscripción está viva casi siempre coincide y no se nota.
+        Cuando NO coincide es cuando duele: el listener de `products` se cae a
+        media mañana —caso que esta misma aplicación contempla, ver
+        `coleccionesCaidas`—, el POS sigue vendiendo (las ventas son
+        transaccionales, el servidor sí descuenta), y el primer guardado de un
+        precio desde el Catálogo devuelve el stock al valor congelado y borra
+        las ventas de la mañana del inventario. Sin transacción y sin un
+        movimiento de kardex que lo registre: la única forma de mover stock en
+        todo el sistema que el kardex no puede reconciliar.
+
+        El stock tiene dueños y todos leen del servidor y dejan rastro:
+        `recordSale`, `adjustStock`, `updatePurchase`, `revertTrackingReception`.
+        El formulario de Inventario ya enruta los cambios de stock por
+        `adjustStock`; acá se cierra la puerta de atrás.
+      */
+      delete pData.stock;
+
       const CLEARABLE = [
         'precioPromo', 'descEfectivoPct', 'campania',
         'beneficio', 'bullets', 'objecionesOverride',
@@ -711,31 +739,40 @@ export function useStoreData() {
     const saleRef = doc(db, 'sales', sale.id);
     let assignedNumber = fullSale.invoiceNumber as string;
 
-    // Siembra del contador de FACTURAS la primera vez: arranca desde el
-    // número máximo ya usado (soporta el formato legacy "A001543" y el nuevo
-    // "A-001543"), para no reiniciar la numeración de un negocio en marcha.
-    // El número definitivo igual se asigna DENTRO de la transacción.
+    /*
+      Siembra del contador de FACTURAS la primera vez: arranca desde el número
+      máximo ya usado, para no reiniciar la numeración de un negocio en marcha.
+      El número definitivo igual se asigna DENTRO de la transacción.
+
+      El barrido que había acá ordenaba por `invoiceNumber` descendente y se
+      quedaba con 30 filas. Como 'P' (0x50) > 'A' (0x41), las proformas se
+      ordenan por encima de TODAS las facturas: con treinta proformas emitidas
+      la ventana entera eran proformas, el filtro las descartaba, `maxNum`
+      quedaba en 0, el `if (maxNum > 0)` no sembraba nada y la primera factura
+      de un negocio en marcha salía `A-000001` OTRA VEZ. Con el `catch` vacío
+      de abajo, en silencio.
+
+      `maximoFacturaEmitido` lo calcula por rango de prefijo, que es lo único
+      que hace que el orden lexicográfico sea el numérico.
+    */
     if (!isProforma) {
       try {
         const probe = await getDoc(counterRef);
         if (!probe.exists()) {
-          const topSnap = await getDocs(query(
-            collection(db, 'sales'), orderBy('invoiceNumber', 'desc'), limit(30)
-          ));
-          let maxNum = 0;
-          topSnap.docs.forEach(d => {
-            const inv = String((d.data() as any).invoiceNumber || '');
-            if (!inv.toUpperCase().startsWith('A')) return;
-            const m = inv.match(/(\d+)\s*$/);
-            if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
-          });
+          const maxNum = await maximoFacturaEmitido();
           if (maxNum > 0) {
             await setDoc(counterRef, { value: maxNum, updatedAt: Date.now() });
           }
         }
-      } catch {
-        // Si la siembra falla, la transacción arranca desde 0 y el número se
-        // puede corregir en Configuración → Numeración de facturas.
+      } catch (e) {
+        // Si la siembra falla, la transacción arranca desde 0 y los números
+        // salen repetidos. Es barato avisarlo: el operador puede corregir el
+        // contador en Configuración ANTES de seguir facturando.
+        toast.error(
+          'No se pudo leer el último número de factura. Revisá el correlativo en ' +
+          'Configuración → Numeración de facturas antes de seguir facturando.',
+        );
+        console.error('siembra del contador de facturas', e);
       }
     }
 
@@ -925,10 +962,46 @@ export function useStoreData() {
 
         // --- 2. CÁLCULOS ---
         {
-        // Tarifa de flete: la guardada en la orden, o el default por modalidad.
-        const ratePerLb = updatedPurchase.shippingRatePerLb || (updatedPurchase.shippingModality === 'Air Cargo' ? 6.5 : (updatedPurchase.shippingModality === 'Sea Cargo' ? 2.5 : 0));
+        /*
+          La tarifa es la que el operador cargó. No se inventa ninguna.
+
+          Antes, si el campo venía vacío, se usaba un default por modalidad
+          (6.5 aéreo, 2.5 marítimo) — y 'Sea Cargo' es la modalidad inicial del
+          formulario, así que TODA orden que no la cambiara tenía un $2.50/lb
+          latente. Con peso cargado en los ítems (el formulario lo pide), ese
+          2.50 ganaba sobre el "Flete Total USD" que el operador había escrito
+          con la factura del courier en la mano, y el flete declarado se
+          descartaba sin decir nada.
+
+          Una orden de 40 lbs con $180 de flete real absorbía $100. Los otros
+          $80 no entraban al costo, el margen de Reportes salía optimista, y no
+          hay pantalla que muestre cuánto flete se imputó, así que el error era
+          invisible por los dos lados.
+
+          Con `|| 0`: si no hay tarifa por libra, se prorratea el flete total
+          declarado, que es lo que el operador quiso decir al escribirlo. Los
+          defaults 6.5 y 2.5 siguen existiendo como sugerencia VISIBLE en el
+          formulario, que es donde un default se puede ver y corregir.
+        */
+        const ratePerLb = updatedPurchase.shippingRatePerLb || 0;
         const totalBaseCost = updatedPurchase.items.reduce((acc, item) => acc + (item.cost * item.quantity), 0);
         const totalExpenses = updatedPurchase.freightCost || 0; // Flete global (fallback cuando no hay peso por ítem)
+        /*
+          Los dos regímenes de flete conviven en una misma orden: los ítems con
+          peso pagan por tarifa $/lb, los que no tienen peso se reparten el
+          "Flete Total". El problema era el DENOMINADOR: el prorrateo dividía
+          por el valor de la orden ENTERA, incluidos los ítems que ya habían
+          pagado su flete por peso. Resultado: los ítems sin peso absorbían sólo
+          una fracción del flete total y el resto no lo absorbía nadie.
+
+          El denominador correcto es el valor de los ítems que efectivamente
+          entran al prorrateo. Así el "Flete Total" se reparte completo entre
+          ellos y la suma de lo imputado cuadra con lo declarado.
+        */
+        const usaPeso = (it: PurchaseItem) => ratePerLb > 0 && !!it.estimatedWeight;
+        const baseProrrateo = updatedPurchase.items
+          .filter(i => !usaPeso(i))
+          .reduce((acc, i) => acc + (i.cost * i.quantity), 0);
         // P1.5: aduana + seguro SIEMPRE se prorratean al costo real (landed cost).
         const extraExpenses = (updatedPurchase.customsTaxes || 0) + (updatedPurchase.insuranceCost || 0);
 
@@ -965,11 +1038,14 @@ export function useStoreData() {
                     const itemWeightPerUnit = pItem.estimatedWeight / pItem.quantity;
                     itemFreightExpense = (itemWeightPerUnit * boxItem.quantity) * ratePerLb;
                   } else {
-                    // Prorrateo tradicional si no hay peso a nivel de item (fallback)
-                    if (totalBaseCost > 0) {
-                       itemFreightExpense = totalExpenses * ((pItem.cost * boxItem.quantity) / totalBaseCost);
+                    // Prorrateo del Flete Total entre los ítems que NO pagan por
+                    // peso. El denominador son sólo ellos: ver arriba.
+                    if (baseProrrateo > 0) {
+                       itemFreightExpense = totalExpenses * ((pItem.cost * boxItem.quantity) / baseProrrateo);
                     } else {
-                       const totalQty = updatedPurchase.items.reduce((acc, i) => acc + i.quantity, 0);
+                       const totalQty = updatedPurchase.items
+                         .filter(i => !usaPeso(i))
+                         .reduce((acc, i) => acc + i.quantity, 0);
                        if (totalQty > 0) itemFreightExpense = totalExpenses * (boxItem.quantity / totalQty);
                     }
                   }

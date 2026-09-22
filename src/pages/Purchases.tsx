@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Purchase, PurchaseItem, Product, PurchaseTracking } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
-import { Trash2, Calendar, User, Plus, Package, Clock, CheckCircle2, Navigation, Edit, Ban, X, Truck } from 'lucide-react';
+import { Trash2, Calendar, User, Plus, Package, Clock, CheckCircle2, Navigation, Edit, Ban, X, Truck, Search } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import PurchaseRegistration from '../components/PurchaseRegistration';
@@ -26,6 +26,8 @@ export default function Purchases() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [trackingModalPurchase, setTrackingModalPurchase] = useState<Purchase | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState<'todas' | 'OPEN' | 'PARTIAL' | 'CLOSED' | 'CANCELLED'>('todas');
 
   // P1.6: `purchase.supplier` guarda el ID del proveedor; resolver el nombre.
   const supplierName = (idOrName?: string) =>
@@ -377,6 +379,31 @@ export default function Purchases() {
   };
 
 
+  /*
+    Una COPIA ordenada, no el array del contexto. Ver el comentario de la tabla.
+    El filtro busca en lo que la tabla muestra mas los trackings, que no se ven
+    hasta abrir la caja pero son lo que uno tiene cuando llama el courier.
+  */
+  const ordenesVisibles = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return [...purchases]
+      .filter((p) => filtroEstado === 'todas' || (p.status || 'OPEN') === filtroEstado)
+      .filter((p) => {
+        if (!q) return true;
+        const campos = [
+          p.orderNumber,
+          supplierName(p.supplier),
+          p.id.slice(0, 8),
+          p.platform,
+          p.shippingChannel,
+          ...(p.trackings || []).map((t) => t.trackingNumber),
+          ...(p.items || []).map((i) => i.name),
+        ];
+        return campos.some((c) => (c || '').toString().toLowerCase().includes(q));
+      })
+      .sort((a, b) => b.date - a.date);
+  }, [purchases, busqueda, filtroEstado, suppliers]);
+
   if (loading) return <div className="text-zinc-500">Cargando compras…</div>;
 
   return (
@@ -395,6 +422,53 @@ export default function Purchases() {
           <Plus className="w-4 h-4" />
           REGISTRAR ORDEN (FASE 1)
         </button>
+      </div>
+
+      {/*
+          Buscador y filtro por estado, como en Inventario y en Historial. Se
+          busca por numero de orden, por proveedor, por el id corto que la tabla
+          muestra, y por numero de tracking — que es lo que uno tiene en la mano
+          cuando el courier llama preguntando por una caja.
+       */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" aria-hidden="true" />
+          <input
+            id="compras-buscar"
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por orden, proveedor, id o tracking…"
+            aria-label="Buscar ordenes de compra"
+            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-lg pl-9 pr-3 py-2.5 text-sm placeholder-zinc-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap" role="group" aria-label="Filtrar por estado">
+          {([
+            ['todas', 'Todas'],
+            ['OPEN', 'Abiertas'],
+            ['PARTIAL', 'Parciales'],
+            ['CLOSED', 'Cerradas'],
+            ['CANCELLED', 'Canceladas'],
+          ] as const).map(([valor, texto]) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => setFiltroEstado(valor)}
+              aria-pressed={filtroEstado === valor}
+              className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                filtroEstado === valor
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'
+              }`}
+            >
+              {texto}
+              <span className="ml-1.5 text-[10px] font-normal opacity-70 tabular-nums">
+                {valor === 'todas' ? purchases.length : purchases.filter((p) => (p.status || 'OPEN') === valor).length}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
@@ -419,7 +493,7 @@ export default function Purchases() {
                   avisarle, y el orden que esta pantalla eligio se le aparecia
                   a las otras. Una copia cuesta nada y no se lleva a nadie.
                */}
-              {[...purchases].sort((a, b) => b.date - a.date).map(p => {
+              {ordenesVisibles.map(p => {
                 const isClosed = p.status === 'CLOSED';
                 const isPartial = p.status === 'PARTIAL';
                 const isCancelled = p.status === 'CANCELLED';
@@ -472,7 +546,7 @@ export default function Purchases() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-cyan-400">
-                      {formatCurrency(p.totalCost)}
+                      <span className="tabular-nums">{formatCurrency(p.totalCost)}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
                        {isCancelled ? (
@@ -523,6 +597,20 @@ export default function Purchases() {
                   </tr>
                 );
               })}
+              {purchases.length > 0 && ordenesVisibles.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-zinc-400">
+                    Ninguna de las {purchases.length} ordenes coincide con lo que buscaste.{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setBusqueda(''); setFiltroEstado('todas'); }}
+                      className="text-cyan-400 hover:text-cyan-300 font-bold underline focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded"
+                    >
+                      Limpiar el filtro
+                    </button>
+                  </td>
+                </tr>
+              )}
               {purchases.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-zinc-500 italic">Sin compras registradas todavía.</td>
@@ -777,7 +865,7 @@ export default function Purchases() {
                                           </span>
                                         )}
                                       </span>
-                                      <span className="font-mono text-cyan-400 shrink-0 ml-2 tabular-nums">{iib.quantity} u.</span>
+                                      <span className="text-cyan-400 shrink-0 ml-2 tabular-nums">{iib.quantity} u.</span>
                                    </div>
                                  );
                               })}

@@ -4,7 +4,11 @@ import { CompanyInfo, Product } from '../types';
 import { fileToBase64, compressImage } from '../lib/utils';
 import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin, Eraser } from 'lucide-react';
 import { db } from '../lib/db';
-import { writeBatch, doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { writeBatch, doc, getDoc, setDoc, collection, query, getDocs } from 'firebase/firestore';
+// El barrido vivia aca y ordenaba por `invoiceNumber`: las proformas P- se
+// ordenan por encima de TODAS las facturas A-, asi que con 30 proformas el
+// guard devolvia 0 y dejaba pasar cualquier numero. Ver src/lib/correlativos.ts.
+import { maximoFacturaEmitido } from '../lib/correlativos';
 import FinanciamientoSettings from '../components/FinanciamientoSettings';
 import { toast } from '../components/Toast';
 
@@ -55,23 +59,6 @@ export default function Settings() {
       .catch(() => setNextInvoiceNumber(''));
   }, []);
 
-  /** El correlativo más alto que YA se usó en una factura. */
-  const maximoFacturado = async (): Promise<number> => {
-    // Mismo barrido que usa la siembra del contador en `recordSale`: como
-    // `invoiceNumber` va con ceros a la izquierda, el orden lexicográfico
-    // descendente coincide con el numérico.
-    const snap = await getDocs(query(
-      collection(db, 'sales'), orderBy('invoiceNumber', 'desc'), limit(30),
-    ));
-    let max = 0;
-    snap.docs.forEach((d) => {
-      const inv = String((d.data() as any).invoiceNumber || '');
-      if (!inv.toUpperCase().startsWith('A')) return;
-      const m = inv.match(/(\d+)\s*$/);
-      if (m) max = Math.max(max, parseInt(m[1], 10));
-    });
-    return max;
-  };
 
   const handleSaveCounter = async () => {
     const next = parseInt(nextInvoiceNumber, 10);
@@ -95,7 +82,7 @@ export default function Settings() {
         histórico de un negocio en marcha, que es para lo que se usó— así que
         bloquear el retroceso no le quita nada.
       */
-      const max = await maximoFacturado();
+      const max = await maximoFacturaEmitido();
       if (next <= max) {
         showNotification(
           `La factura A-${String(max).padStart(6, '0')} ya existe. El próximo número ` +

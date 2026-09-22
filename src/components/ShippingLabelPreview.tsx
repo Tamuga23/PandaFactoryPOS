@@ -322,7 +322,7 @@ export default function ShippingLabelPreview({ sale, isOpen, onClose, companyLog
         aria-labelledby="titulo-etiqueta-envio"
         tabIndex={-1}
         autoFocus
-        className="relative bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col"
+        className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col"
       >
         <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
           <div className="flex items-center gap-3">

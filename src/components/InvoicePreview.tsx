@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
+import { DEFAULT_WARRANTY_TEXT } from '../lib/invoice';
 import { formatCurrencyNIO } from '../lib/utils';
 import { Download, X, Loader2, Check, MessageCircle, AlertTriangle, Printer } from 'lucide-react';
 import { toast } from './Toast';
@@ -594,10 +595,12 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                               <span className="font-bold text-zinc-900 text-[10px] leading-tight break-words pt-1">{item.productName}</span>
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center font-bold text-zinc-600 text-[10px] pt-3">{item.quantity}</td>
-                          <td className="px-2 py-2 text-right font-bold text-zinc-600 text-[10px] pt-3">{formatCurrencyNIO(item.priceNIO)}</td>
-                          <td className="px-2 py-2 text-right font-bold text-zinc-600 text-[10px] pt-3">${item.priceUSD.toFixed(2)}</td>
-                          <td className="px-2 py-2 text-right font-bold text-[#135c7a] text-[10px] pt-3">
+                          {/* Es la factura impresa: aca es donde mas importa que
+                              los montos de cada linea caigan uno debajo del otro. */}
+                          <td className="px-2 py-2 text-center font-bold text-zinc-600 text-[10px] pt-3 tabular-nums">{item.quantity}</td>
+                          <td className="px-2 py-2 text-right font-bold text-zinc-600 text-[10px] pt-3 tabular-nums">{formatCurrencyNIO(item.priceNIO)}</td>
+                          <td className="px-2 py-2 text-right font-bold text-zinc-600 text-[10px] pt-3 tabular-nums">${item.priceUSD.toFixed(2)}</td>
+                          <td className="px-2 py-2 text-right font-bold text-[#135c7a] text-[10px] pt-3 tabular-nums">
                             {formatCurrencyNIO(item.priceNIO * item.quantity)}
                           </td>
                         </tr>
@@ -626,20 +629,20 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                               <div className="space-y-3">
                                  <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-500">
                                    <span>Monto Bruto</span>
-                                   <span className="text-zinc-900">{formatCurrencyNIO(subtotal)}</span>
+                                   <span className="text-zinc-900 tabular-nums">{formatCurrencyNIO(subtotal)}</span>
                                  </div>
                                  <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-500">
                                    <span>Costo de Envío</span>
-                                   <span className="text-zinc-900">{data.shippingCostNIO > 0 ? formatCurrencyNIO(data.shippingCostNIO) : 'C$0.00'}</span>
+                                   <span className="text-zinc-900 tabular-nums">{data.shippingCostNIO > 0 ? formatCurrencyNIO(data.shippingCostNIO) : 'C$0.00'}</span>
                                  </div>
                                  <div className="flex justify-between items-center text-[11px] font-semibold text-rose-600">
                                    <span>Descuento</span>
-                                   <span>{data.discountNIO > 0 ? `-${formatCurrencyNIO(data.discountNIO)}` : '-C$0.00'}</span>
+                                   <span className="tabular-nums">{data.discountNIO > 0 ? `-${formatCurrencyNIO(data.discountNIO)}` : '-C$0.00'}</span>
                                  </div>
                                  <div className="h-px bg-zinc-100 w-full my-2"></div>
                                  <div className="flex justify-between items-center font-extrabold uppercase pt-1">
                                    <span className="text-zinc-900 text-[11px]">TOTAL (C$)</span>
-                                   <span className="text-[#135c7a] text-base">{formatCurrencyNIO(total)}</span>
+                                   <span className="text-[#135c7a] text-base tabular-nums">{formatCurrencyNIO(total)}</span>
                                  </div>
 
                                  {/* Plan de cuotas cobrado. Va en el recibo para
@@ -652,11 +655,11 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                      </div>
                                      <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-500">
                                        <span>{data.financiamiento.plazoMeses} cuotas de</span>
-                                       <span className="text-zinc-900">{formatCurrencyNIO(data.financiamiento.cuotaNio)}</span>
+                                       <span className="text-zinc-900 tabular-nums">{formatCurrencyNIO(data.financiamiento.cuotaNio)}</span>
                                      </div>
                                      <div className="flex justify-between items-center text-[11px] font-bold">
                                        <span className="text-zinc-900">Total a plazos</span>
-                                       <span className="text-zinc-900">{formatCurrencyNIO(data.financiamiento.totalNio)}</span>
+                                       <span className="text-zinc-900 tabular-nums">{formatCurrencyNIO(data.financiamiento.totalNio)}</span>
                                      </div>
                                    </div>
                                  )}
@@ -687,14 +690,23 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                <h3 className="font-bold text-[#1a6ba0] text-xs tracking-wide">Garantía</h3>
                              </div>
                              <div className="ml-3.5 space-y-0.5">
-                               {data.warrantyText ? (
-                                 data.warrantyText.split('\n').map((line, i) => <p key={i}>{line}</p>)
-                               ) : (
-                                 <>
-                                   <p>1. Los productos vendidos por Panda Store tienen una garantía de [3] meses a partir de la fecha de compra.</p>
-                                   <p>2. La garantía cubre defectos de fabricación y no incluye daños causados por mal uso o accidentes.</p>
-                                 </>
-                               )}
+                               {/*
+                                   Acá había un texto de reserva que decía "garantía
+                                   de [3] meses", con los corchetes puestos. Nunca se
+                                   imprimió: los dos caminos que abren este preview
+                                   —vender y reimprimir— arman los datos con
+                                   `buildInvoiceDataFromSale`, que siempre pone
+                                   `DEFAULT_WARRANTY_TEXT`, así que la rama estaba
+                                   muerta. Pero era la versión que alguien iba a
+                                   copiar el día que agregara un tercer camino, y el
+                                   destinatario de esa hoja es el cliente.
+
+                                   El texto de garantía vive en un solo lugar:
+                                   `DEFAULT_WARRANTY_TEXT` en `src/lib/invoice.ts`.
+                                */}
+                               {(data.warrantyText || DEFAULT_WARRANTY_TEXT)
+                                 .split('\n')
+                                 .map((line, i) => <p key={i}>{line}</p>)}
                              </div>
                            </div>
                          </div>

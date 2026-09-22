@@ -327,7 +327,7 @@ export default function SalesHistory() {
            <input aria-label="N° de factura o cliente…"
             type="text"
             placeholder="N° de factura o cliente…"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
            />
@@ -434,7 +434,7 @@ export default function SalesHistory() {
                   </div>
                   <div className="text-left md:text-right flex flex-col justify-center">
                      <p className="text-zinc-400 text-[10px] font-bold uppercase">Total</p>
-                     <p className="text-xl font-bold text-cyan-400 truncate">{formatCurrency(sale.total)}</p>
+                     <p className="text-xl font-bold text-cyan-400 truncate tabular-nums">{formatCurrency(sale.total)}</p>
                      {/* Venta financiada: el plazo y la cuota reales que se cobraron. */}
                      {sale.financiamiento && (
                        <p className="text-[10px] text-zinc-400 truncate mt-0.5">
@@ -477,7 +477,7 @@ export default function SalesHistory() {
                     <button
                       onClick={() => setConfirmarEstado({ sale, nuevo: 'returned' })}
                       title="Marcar Devuelta (repone stock)"
-                      className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-1 focus:ring-cyan-500`}
+                      className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>

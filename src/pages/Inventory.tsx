@@ -385,9 +385,17 @@ export default function Inventory() {
             Exportar CSV
           </button>
           {/* P3.5: el alta de productos vive en UN solo lugar (Catálogo Maestro) */}
+          {/*
+              Dos cosas a la vez: era el único control visible con pinta de botón
+              primario que no declaraba anillo de foco —y es el único camino a dar
+              de alta un producto, así que con teclado no se veía dónde estabas—, y
+              era la última `shadow-lg` viva del proyecto, con el tinte turquesa
+              que la doctrina plana declara eliminado. La medición de la regla del
+              foco contaba sólo `<button>`, así que un `<Link>` no aparecía.
+           */}
           <Link
             to="/catalog"
-            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-lg shadow-cyan-900/20 text-white bg-cyan-700 hover:bg-cyan-800 transition-colors"
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-cyan-700 hover:bg-cyan-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-zinc-950"
           >
             <Plus className="h-4 w-4 mr-2" />
             Nuevo Producto (Catálogo)
@@ -723,7 +731,9 @@ export default function Inventory() {
                           const input = document.getElementById('quick-stock-input') as HTMLInputElement;
                           if(input) input.value = String(Math.max(0, Number(input.value) - 1));
                         }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">-</button>
-                        <input id="quick-stock-input" required type="number" name="stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-center text-lg font-bold text-cyan-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        {/* Sin `aria-label` no tenía nombre: su `id` sólo lo usan
+                            los botones de + y − por `getElementById`, no un <label>. */}
+                        <input id="quick-stock-input" required type="number" name="stock" aria-label="Unidades en stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-center text-lg font-bold text-cyan-400 tabular-nums focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                         <button type="button" onClick={() => {
                           const input = document.getElementById('quick-stock-input') as HTMLInputElement;
                           if(input) input.value = String(Number(input.value) + 1);
@@ -830,7 +840,7 @@ export default function Inventory() {
 
                     <div>
                       <label htmlFor="inv-imagen-del-producto" className="block text-xs uppercase text-zinc-500 font-bold mb-1">Imagen del producto</label>
-                      <input id="inv-imagen-del-producto" type="file" accept="image/*" className="block w-full text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-cyan-400 hover:file:bg-zinc-700" />
+                      <input id="inv-imagen-del-producto" type="file" accept="image/*" className="block w-full text-sm text-zinc-400 rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-cyan-400 hover:file:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                       {editingProduct?.imageBase64 && (
                         <div className="mt-3">
                           <img src={editingProduct.imageBase64} alt="Preview" className="h-20 w-20 object-cover rounded-md border border-zinc-700" />
