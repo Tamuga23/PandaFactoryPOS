@@ -1,5 +1,72 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — Barrido por pantalla (2026-09-21)
+
+Después del cuarto critique, que sólo miraba el POS, se recorrieron las otras
+diez pantallas **caminando lo que hacen**, no cómo se ven. Esto es lo que
+apareció y se arregló.
+
+### Lo que corrompía o perdía datos
+
+- **Una orden de compra YA RECIBIDA se podía borrar con dos clics.** Editar y
+  Cancelar estaban bloqueados por `canModifyOrder`; Eliminar no. Dejaba el stock
+  sin el documento que lo explica, el costo prorrateado sin respaldo y el kardex
+  apuntando a un `refId` inexistente. Ahora se rechaza y se nombra el camino
+  correcto, que ya existía: revertir la recepción caja por caja.
+- **Vaciar un campo de la ficha de producto no lo vaciaba.** `updateProduct`
+  tenía tres campos en su lista de borrables y le faltaban seis. El peor,
+  `financiamientoOverride`: un producto puesto en "sin cuotas" no se podía
+  devolver a la regla de su categoría desde la interfaz. Los otros cinco son el
+  contenido que baja a la tablet y a la web.
+- **El contador de facturas se podía fijar hacia atrás**, produciendo
+  correlativos repetidos en silencio. `recordSale` hace `valor + 1` y no
+  verifica. Ahora se consulta el máximo ya facturado y se rechaza el retroceso.
+- **El limpiador de duplicados borraba a ciegas.** La confirmación era un
+  "¿Estás seguro?" sin decir cuántos productos, cuáles ni si tenían stock. Ahora
+  muestra la lista exacta y excluye del lote a los que tienen stock.
+
+### Fallos silenciosos
+
+- **Tres borrados sin `await` ni `catch`** (producto, orden de compra, cliente).
+  Los tres lanzan: el manejador de errores siempre relanza. Un borrado fallido
+  era un rechazo sin manejar y la fila seguía ahí sin explicación.
+- **La edición masiva de Inventario se colgaba al fallar**: sin try/catch,
+  `setIsSaving(false)` nunca corría y el modal quedaba en "Guardando" para
+  siempre.
+- **Editar una venta ya emitida** fallaba con el modal abierto y sin mensaje.
+- **Anular una venta podía reponer menos de lo que decía.** El piso en 0 y el
+  saltar productos borrados son deliberados y están documentados; lo que faltaba
+  es que se supieran. `changeSaleStatus` ahora devuelve qué no pudo ajustar.
+- **El Panel mostraba el número de HOY cuando fallaba la consulta por rango**,
+  con el botón de "30 días" encendido.
+- **"Importar Preset (Masivo)"** escribía en la base y mandaba éxito y error a
+  la consola. Quitado por decisión del usuario, junto con sus 24 precios
+  hardcodeados y el costo inventado al 60%.
+
+### Lo que le hacía recordar al operador algo que el sistema sabe
+
+- **El mostrador no sabía el precio vigente** (`precioPromo`). Se extrajo
+  `precioVigente()` y ahora la usan el POS y `buildPublicCatalogDoc`.
+- **Editar una ficha era buscar el producto en un `<select>` de 31** sin SKU ni
+  precio. Ahora es el combobox del POS, y cada fila de Inventario abre la ficha
+  completa con el producto cargado.
+- **El override de objeción pedía tipear el ID de memoria.** Ahora es un
+  selector de las que existen.
+
+### Higiene del sistema
+
+- **Había CINCO sistemas de avisos**, no dos. Los cuatro que quedaban se
+  migraron al Toast global. Dos pintaban el éxito en cyan.
+- **Ocho de nueve pantallas no tenían `<h1>`**: el encabezado de nivel más alto
+  era el wordmark. Y el `<title>` del documento nunca cambiaba.
+- **El título del Catálogo era invisible con Windows en modo claro** (1.12:1),
+  por un `dark:` que en Tailwind v4 compila como `prefers-color-scheme`.
+- Paleta de vuelta a cinco colores; doctrina plana sin excepciones; 144 de 146
+  botones con anillo de foco; 142 de 144 controles con nombre accesible; la
+  aplicación por fin imprime.
+
+---
+
 ## ESTADO — Cuarto critique de diseño (2026-09-20/21)
 
 Se corrieron cuatro evaluadores aislados sobre `src/pages/POS.tsx` (revisión de
