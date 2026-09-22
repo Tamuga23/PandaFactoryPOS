@@ -4,7 +4,7 @@ Sistema de punto de venta e inventario para Panda Store (Nicaragua). Registra pr
 
 ## Stack
 
-Vite + React 19 + TypeScript + Tailwind v4. Firebase Auth (sesión anónima, pendiente Fase 2) y Firestore con **base de datos nombrada** (`firebase-applet-config.json` → `firestoreDatabaseId`). Plan **Spark** (gratuito): no hay Cloud Functions desplegadas; la sincronización del catálogo público se hace con el script de backfill (abajo).
+Vite + React 19 + TypeScript + Tailwind v4. Firebase Auth (**email/password** con custom claim `admin`; el proveedor anónimo sigue habilitado a propósito para la tablet PandaLink y PandaWEB, que sin el claim no leen nada sensible) y Firestore con **base de datos nombrada** (`firebase-applet-config.json` → `firestoreDatabaseId`). Plan **Spark** (gratuito): no hay Cloud Functions desplegadas; la sincronización del catálogo público se hace con el script de backfill (abajo).
 
 ## Comandos
 
@@ -41,12 +41,16 @@ En `functions/` hay una Cloud Function (`onProductWritten`) que automatizaría e
 ## Documentos internos
 
 - `CATALOGO_TABLET_RESUMEN.md` — diseño del feature de catálogo público.
-- `REVISION_2026-07.md` — revisión de código y plan de mejoras (incluye la Fase 2 de seguridad, pendiente).
-- `security_spec.md` — invariantes objetivo de seguridad (la Fase 2 los implementa; hoy las reglas solo exigen sesión).
+- `REVISION_2026-07.md` — revisión de código y plan de mejoras (histórico; su Fase 2 de seguridad ya se implementó).
+- `security_spec.md` — invariantes de seguridad. Implementados el 2026-09-10: las reglas exigen el claim `admin` (`isStaff()`), no una sesión cualquiera.
 - `REVISION_2026-07-07_MEJORAS.md` — revisión vigente con el ESTADO de lo aplicado (P1, P2.5–P2.8, P3.1, P3.5).
+- `DESIGN.md` — el sistema de diseño, derivado de lo que está embarcado. Tiene sidecar en `.impeccable/design.json`.
+- `PRODUCT.md` — qué es el producto y qué se le prometió al usuario.
 - `AGENTS.md` — guía para agentes de IA que trabajen en este repo.
 - La fuente de verdad del modelo de datos es `src/types.ts` + `firestore.rules` (el viejo `firebase-blueprint.json` se eliminó por obsoleto; las fichas Magcubic viven en `docs/`).
 
 ## Pendiente importante
 
-Fase 2 de seguridad (custom claim `admin` + cerrar lecturas/escrituras a anónimos): ver bloque comentado al final de `firestore.rules` y P0 en `REVISION_2026-07.md`. Borrar a mano `_probe.tmp` y `_sandbox_probe.txt` (restos de una sesión anterior).
+**Rotar el service account** (`gen-lang-client-*.json`, en la raíz). Se auditó el historial de git sobre un clon completo el 2026-09-10 y la llave NUNCA se commiteó, así que no hay que reescribir historia; falta rotarla por higiene. Al rotar: **borrá el JSON viejo de la raíz ANTES de revocar la clave en la consola**, porque seis scripts eligen credencial con `existsSync`, que mira si el archivo existe y no si sirve — una llave revocada pero presente en disco los hace fallar con `invalid_grant` aunque `GOOGLE_APPLICATION_CREDENTIALS` esté bien puesta.
+
+La Fase 2 de seguridad ya no está pendiente: se implementó el 2026-09-10 (commit `e029765`), verificada con 26 tests de reglas y contra Firestore real con un token anónimo.

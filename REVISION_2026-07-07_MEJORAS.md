@@ -1,5 +1,86 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — Los caminos de escritura y la conformidad (2026-09-22)
+
+Se corrieron evaluadores **a ciegas**: sin decirles qué se había tocado en las
+sesiones anteriores. Es lo que hace falta para que encuentren lo que uno mismo
+introdujo. Uno recorrió los 22 caminos de escritura; otro comparó el código
+contra `DESIGN.md` y contra el resto de los `.md`.
+
+### Lo que movía plata mal
+
+- **[P0] El único freno contra facturas repetidas se apagaba solo.** El barrido
+  del máximo emitido ordenaba por `invoiceNumber` descendente con `limit(30)` y
+  descartaba lo que no empezara con `'A'`. Como `'P'` (0x50) > `'A'` (0x41),
+  toda proforma se ordena por encima de toda factura: con treinta proformas la
+  ventana entera eran proformas, el máximo quedaba en 0, y "no podés bajar el
+  contador" dejaba pasar cualquier número. El comentario que justificaba el
+  orden ("con ceros a la izquierda el lexicográfico coincide con el numérico")
+  es cierto sólo dentro de un mismo prefijo. La siembra de `recordSale` tenía
+  el mismo barrido y peor desenlace —la primera factura de un negocio en marcha
+  salía `A-000001` otra vez, con un `catch` vacío—. Ahora vive en
+  `src/lib/correlativos.ts`: el contador, que es la autoridad, más dos barridos
+  por rango de prefijo, uno por formato.
+
+- **[P1] Revertir una recepción dejaba el costo inflado, y re-recibirla lo
+  inflaba más.** La reversión devolvía el stock y no tocaba el costo (estaba
+  documentado como deliberado), pero también reabre el tracking: volver a poner
+  la fecha promediaba OTRA VEZ contra el costo ya inflado. Con 5 unidades a $10
+  y una caja de 10 a $16: $14, $15.33, $15.78, $15.90 — sin que entrara un
+  centavo más de mercadería. Ese costo alimenta el valor de inventario del
+  Dashboard y el margen de Reportes. La fórmula y su inversa se sacaron de la
+  transacción a `src/lib/costoPromedio.ts`, con 13 pruebas (`npm run costo:test`),
+  y la recepción guarda en cada caja con qué costo entraron sus unidades.
+
+- **[P1] El "Flete Total USD" declarado se tiraba.** Si el campo de tarifa $/lb
+  quedaba vacío, el motor usaba un default por modalidad — y Sea Cargo es la
+  modalidad inicial del formulario, así que toda orden traía un $2.50/lb latente
+  que, con peso cargado en los ítems, ganaba sobre lo que el operador había
+  escrito con la factura del courier en la mano. Una orden de 40 lbs con $180 de
+  flete absorbía $100. El placeholder decía "Default: 2.5" en gris, como si
+  fuera una sugerencia, y era el número que se aplicaba.
+
+- **[P1] Guardar un producto reescribía su stock desde la caché.** Los tres
+  callers arman el objeto con `...product` partiendo del array de React. Con la
+  suscripción caída —caso que la app contempla y para el que mantiene un cartel
+  permanente— el primer guardado de un precio devolvía el stock al valor
+  congelado, sin transacción y sin kardex.
+
+- Guardar un cliente fallaba mudo; recibir una caja con un producto borrado
+  decía "N unidades sumadas al inventario" sin que entrara ninguna; los cuatro
+  costos de importación no se podían bajar a cero; una objeción nueva con un id
+  que ya existía pisaba la anterior diciendo "creada correctamente"; el ajuste
+  masivo leía el stock de la caché y reventaba a partir de 250 productos.
+
+### Lo que confundía al operador
+
+- **[P0] El Enter del buscador del Catálogo Maestro guardaba el producto
+  abierto.** El campo "Producto a editar" vive dentro del `<form>` y su
+  manejador sólo frenaba la tecla si había una opción resaltada con las flechas.
+  Buscar el producto B con el producto A cargado guardaba a A, sin confirmación.
+
+- **Un solo diálogo para todo lo que se borra** (`src/components/ConfirmarBorrado.tsx`).
+  Había dos patrones y el peor era el más usado: un botón que cambiaba a
+  «¿Eliminar?» y se desarmaba SOLO a los 3 segundos, con el aviso de la
+  consecuencia en un toast de la esquina. Leer el aviso tarda más que eso: el
+  sistema castigaba al que leía. El modal de Historial hacía todo bien y
+  protegía la acción menos grave de las cuatro.
+
+- El modal de nueva orden no tenía ni título visible ni X ni Cancelar
+  (`onCancel` llegaba por props y nunca se renderizaba); los estados salían
+  crudos de Firestore (`completed`, `OPEN`) y cada pantalla los nombraba
+  distinto; Compras ordenaba EN EL LUGAR el array del contexto y no tenía
+  buscador; cuatro primarios en esmeralda y un azul fuera de paleta;
+  «Recargar» en rose sólido, que es el color con el que la app pide confirmar
+  un borrado.
+
+### Documentación
+
+`README.md` decía que la autenticación era anónima con la Fase 2 pendiente —
+resuelta hace doce días— y pedía borrar dos archivos que ya no existen.
+`AGENTS.md` listaba como pendientes cuatro cosas que su propio ESTADO daba por
+hechas, y el focus-trap de P4.6, que existe con seis consumidores.
+
 ## ESTADO — Barrido por pantalla (2026-09-21)
 
 Después del cuarto critique, que sólo miraba el POS, se recorrieron las otras
