@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { Product, Movimiento } from '../types';
 import { formatCurrency, fileToBase64, compressImage } from '../lib/utils';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Search, PackagePlus, AlertTriangle, ShoppingCart, Check, Layers, History, Download, X, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Search, PackagePlus, AlertTriangle, ShoppingCart, Check, Layers, History, Download, X, Loader2, PackageOpen } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '../components/Toast';
 import { toCsv, downloadCsv } from '../lib/csv';
@@ -17,6 +17,7 @@ const TIPO_LABEL: Record<Movimiento['tipo'], string> = {
 
 export default function Inventory() {
   const { products, loading, addProduct, updateProduct, deleteProduct, bulkUpdateProducts, adjustStock, fetchMovimientos } = useStore();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -386,30 +387,54 @@ export default function Inventory() {
                 </th>
                 <th scope="col" className="px-4 py-3">Imagen</th>
                 {/* P4.3: orden por nombre y precio, además de stock */}
-                <th scope="col" className="px-4 py-3 cursor-pointer hover:text-zinc-200 transition-colors group" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-1">
+                <th
+                  scope="col"
+                  className="px-4 py-3"
+                  aria-sort={sortConfig?.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSort('name')}
+                    className="flex items-center gap-1 w-full hover:text-zinc-200 transition-colors group focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                  >
                     Producto
-                    <span className={`text-zinc-600 group-hover:text-zinc-400 ${sortConfig?.key === 'name' ? 'text-cyan-500' : ''}`}>
+                    <span aria-hidden="true" className={`text-zinc-600 group-hover:text-zinc-400 ${sortConfig?.key === 'name' ? 'text-cyan-500' : ''}`}>
                       {sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? '↑' : '↓'}
                     </span>
-                  </div>
+                  </button>
                 </th>
                 <th scope="col" className="px-4 py-3">SKU</th>
-                <th scope="col" className="px-4 py-3 text-right cursor-pointer hover:text-zinc-200 transition-colors group" onClick={() => handleSort('price')}>
-                  <div className="flex items-center justify-end gap-1">
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-right"
+                  aria-sort={sortConfig?.key === 'price' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSort('price')}
+                    className="flex items-center justify-end gap-1 w-full hover:text-zinc-200 transition-colors group focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                  >
                     Precio
-                    <span className={`text-zinc-600 group-hover:text-zinc-400 ${sortConfig?.key === 'price' ? 'text-cyan-500' : ''}`}>
+                    <span aria-hidden="true" className={`text-zinc-600 group-hover:text-zinc-400 ${sortConfig?.key === 'price' ? 'text-cyan-500' : ''}`}>
                       {sortConfig?.key === 'price' && sortConfig.direction === 'asc' ? '↑' : '↓'}
                     </span>
-                  </div>
+                  </button>
                 </th>
-                <th scope="col" className="px-4 py-3 text-right cursor-pointer hover:text-zinc-200 transition-colors group" onClick={() => handleSort('stock')}>
-                  <div className="flex items-center justify-end gap-1">
+                <th
+                  scope="col"
+                  className="px-4 py-3 text-right"
+                  aria-sort={sortConfig?.key === 'stock' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSort('stock')}
+                    className="flex items-center justify-end gap-1 w-full hover:text-zinc-200 transition-colors group focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                  >
                     Stock
-                    <span className={`text-zinc-600 group-hover:text-zinc-400 ${sortConfig?.key === 'stock' ? 'text-cyan-500' : ''}`}>
+                    <span aria-hidden="true" className={`text-zinc-600 group-hover:text-zinc-400 ${sortConfig?.key === 'stock' ? 'text-cyan-500' : ''}`}>
                       {sortConfig?.key === 'stock' && sortConfig.direction === 'asc' ? '↑' : '↓'}
                     </span>
-                  </div>
+                  </button>
                 </th>
                 <th scope="col" className="px-4 py-3 text-center">Estado</th>
                 <th scope="col" className="px-4 py-3 relative"><span className="sr-only">Acciones</span></th>
@@ -497,8 +522,23 @@ export default function Inventory() {
                     >
                       <PackagePlus className="h-4 w-4 inline" />
                     </button>
-                    <button onClick={() => openModal(product)} className="text-zinc-400 hover:text-cyan-400 mr-4 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded" title="Editar producto">
+                    <button onClick={() => openModal(product)} className="text-zinc-400 hover:text-cyan-400 mr-4 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded" title="Edición rápida (SKU, nombre, categoría, precio)" aria-label={`Edición rápida de ${product.name}`}>
                       <Edit2 className="h-4 w-4 inline" />
+                    </button>
+                    {/*
+                      La ficha COMPLETA —specs, bullets, objeciones, multimedia,
+                      precio de promo, financiamiento— vive en el Catálogo
+                      Maestro. Hasta ahora había que ir hasta allá y volver a
+                      encontrar el producto de memoria. Se busca donde hay
+                      buscador y se edita donde está la ficha.
+                    */}
+                    <button
+                      onClick={() => navigate('/catalog', { state: { editarId: product.id } })}
+                      className="text-zinc-400 hover:text-cyan-400 mr-4 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                      title="Abrir la ficha completa en el Catálogo Maestro"
+                      aria-label={`Abrir la ficha completa de ${product.name} en el Catálogo Maestro`}
+                    >
+                      <PackageOpen className="h-4 w-4 inline" />
                     </button>
                     <button
                       onClick={() => handleDeleteClick(product.id)}

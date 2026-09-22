@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import ProductCatalog, { CatalogProduct } from '../components/ProductCatalog';
 import { fileToBase64, compressImage } from '../lib/utils';
@@ -7,6 +8,14 @@ import { v4 as uuidv4 } from 'uuid';
 
 export default function Catalog() {
   const { products, addProduct, updateProduct, loading, companyInfo } = useStore();
+  /*
+    Entrada directa desde Inventario. El Catálogo es donde vive la ficha
+    completa, pero el Inventario es donde se BUSCA: tiene buscador, filtro por
+    categoría y orden por columna. Antes había que encontrar el producto acá,
+    de memoria y en una lista.
+  */
+  const { state } = useLocation();
+  const editarId = (state as { editarId?: string } | null)?.editarId ?? null;
 
   if (loading) {
     return <div className="text-zinc-500">Cargando catálogo...</div>;
@@ -140,7 +149,8 @@ export default function Catalog() {
   */
   return (
     <div className="space-y-6">
-      <ProductCatalog  
+      <ProductCatalog
+        productoInicialId={editarId}
         catalog={catalogForComponent}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useMemo, useEffect, ChangeEvent, FormEvent } from 'react';
 import { PackagePlus, Edit, Save, Image as ImageIcon, Loader2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from './Toast';
 import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
@@ -120,6 +120,9 @@ export interface ProductCatalogProps {
   onAddProduct: (productData: any) => Promise<void>;
   onUpdateProduct: (id: string, productData: any) => Promise<void>;
   onSuccess?: () => void;
+  /** Abre la ficha directamente en modo edición sobre este producto. Lo usa el
+   *  botón "Ficha completa" de Inventario, que es donde de verdad se busca. */
+  productoInicialId?: string | null;
 }
 
 interface FormData {
@@ -183,9 +186,20 @@ export default function ProductCatalog({
   onAddProduct,
   onUpdateProduct,
   onSuccess,
+  productoInicialId,
 }: ProductCatalogProps) {
   // 2. ESTADOS REQUERIDOS
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  /*
+    Buscador de producto. Antes esto era un <select> con los 31 productos, que
+    mostraba SOLO el nombre: para editar "MagCubic Proyector Portatil HY450MAX
+    1100 ANSI" había que reconocerlo entre otros seis MagCubic de nombre casi
+    idéntico, sin ver el SKU ni el precio y sin poder escribir para filtrar.
+    Es el mismo patrón de combobox que ya funciona en el POS.
+  */
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [listaAbierta, setListaAbierta] = useState(false);
+  const [opcionActiva, setOpcionActiva] = useState(-1);
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   /*
@@ -238,11 +252,17 @@ export default function ProductCatalog({
     setIsEditing(editing);
     setFormData(INITIAL_FORM_DATA);
     setIsCustomCategory(false);
+    setBusquedaProducto('');
+    setListaAbierta(false);
+    setOpcionActiva(-1);
   };
 
-  // Selección para Editar
-  const handleProductSelect = (e: ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = e.target.value;
+  /**
+   * Carga un producto del catálogo en el formulario. Se extrajo del handler del
+   * <select> para poder reusarla desde el buscador y desde la entrada directa
+   * de Inventario.
+   */
+  const cargarProducto = (selectedId: string) => {
     const product = catalog.find((p) => p.id === selectedId);
 
     if (product) {
@@ -275,9 +295,86 @@ export default function ProductCatalog({
         media: toFormMedia(product.media),
       });
       setIsCustomCategory(!isStandardCategory);
+      setBusquedaProducto(product.description);
     } else {
       setFormData(INITIAL_FORM_DATA);
       setIsCustomCategory(false);
+      setBusquedaProducto('');
+    }
+    setListaAbierta(false);
+    setOpcionActiva(-1);
+  };
+
+  /*
+    Entrada directa desde Inventario: el botón "Ficha completa" de cada fila
+    navega acá con el id del producto. El Catálogo es donde vive la ficha
+    entera; el Inventario es donde se BUSCA, porque tiene buscador, filtro por
+    categoría y orden por columna. Antes había que acordarse del nombre exacto
+    y volver a encontrarlo en una lista.
+  */
+  useEffect(() => {
+    if (!productoInicialId) return;
+    if (!catalog.some((p) => p.id === productoInicialId)) return;
+    setIsEditing(true);
+    cargarProducto(productoInicialId);
+    // Solo al llegar con un id, o cuando el catálogo termina de cargar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productoInicialId, catalog.length]);
+
+  /** Los que matchean lo tipeado, por nombre o por SKU. Sin texto: todos. */
+  const coincidenciasProducto = useMemo(() => {
+    const orden = [...catalog].sort((a, b) => {
+      const ai = a.status === 'Inactivo' ? 1 : 0;
+      const bi = b.status === 'Inactivo' ? 1 : 0;
+      if (ai !== bi) return ai - bi;
+      return a.description.localeCompare(b.description, 'es');
+    });
+    const q = busquedaProducto.trim().toLowerCase();
+    if (!q) return orden;
+    return orden.filter(
+      (p) =>
+        p.description.toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q),
+    );
+  }, [catalog, busquedaProducto]);
+
+  // La lista tiene alto máximo: resaltar algo fuera de la ventana visible se ve
+  // igual que no hacer nada.
+  useEffect(() => {
+    if (opcionActiva < 0) return;
+    document.getElementById(`catalogo-op-${opcionActiva}`)?.scrollIntoView({ block: 'nearest' });
+  }, [opcionActiva]);
+
+  const onTeclaProducto = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!listaAbierta) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setListaAbierta(true);
+        setOpcionActiva(0);
+      }
+      return;
+    }
+    const ultimo = coincidenciasProducto.length - 1;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpcionActiva((a) => (a >= ultimo ? 0 : a + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setOpcionActiva((a) => (a <= 0 ? ultimo : a - 1));
+    } else if (e.key === 'Enter') {
+      // Solo si hay algo resaltado: si no, el Enter es del formulario.
+      if (opcionActiva >= 0 && coincidenciasProducto[opcionActiva]) {
+        e.preventDefault();
+        cargarProducto(coincidenciasProducto[opcionActiva].id);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setListaAbierta(false);
+      setOpcionActiva(-1);
+    } else if (e.key === 'Tab') {
+      setListaAbierta(false);
+      setOpcionActiva(-1);
     }
   };
 
@@ -488,31 +585,95 @@ export default function ProductCatalog({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Selector de edición condicional */}
+        {/*
+          Buscador del producto a editar. Era un <select> con los 31 productos
+          que mostraba SOLO el nombre: para editar uno había que reconocerlo
+          entre seis MagCubic de nombre casi idéntico, sin ver el SKU ni el
+          precio, y sin poder escribir para filtrar.
+
+          Ahora es el patrón combobox de ARIA 1.2 con el foco en el input, el
+          mismo que el buscador de cliente del POS: se escribe parte del nombre
+          o el SKU, se baja con las flechas y se elige con Enter. Cada opción
+          muestra SKU y precio, que es como se distinguen entre sí.
+        */}
         {isEditing && (
           <div className="bg-zinc-800/50 p-4 rounded-xl border border-zinc-700">
-            <label htmlFor="catalogo-producto-editar" className="block text-sm font-medium text-zinc-300 mb-2">Seleccionar Producto a Actualizar</label>
-            <select
-              id="catalogo-producto-editar"
-              value={formData.id}
-              onChange={handleProductSelect}
-              required
-              className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
-            >
-              <option value="">-- Seleccione un producto --</option>
-              {[...catalog]
-                .sort((a, b) => {
-                  const aInactive = a.status === 'Inactivo' ? 1 : 0;
-                  const bInactive = b.status === 'Inactivo' ? 1 : 0;
-                  if (aInactive !== bInactive) return aInactive - bInactive;
-                  return a.description.localeCompare(b.description, 'es');
-                })
-                .map(product => (
-                  <option key={product.id} value={product.id}>
-                    {product.status === 'Inactivo' ? `[Inactivo] ${product.description}` : product.description}
-                  </option>
-                ))}
-            </select>
+            <label htmlFor="catalogo-producto-editar" className="block text-sm font-medium text-zinc-300 mb-2">
+              Producto a editar
+              <span className="font-normal text-zinc-400"> · escribí el nombre o el SKU</span>
+            </label>
+            <div className="relative">
+              <input
+                id="catalogo-producto-editar"
+                type="text"
+                role="combobox"
+                aria-expanded={listaAbierta}
+                aria-controls="catalogo-sugerencias"
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  listaAbierta && opcionActiva >= 0 ? `catalogo-op-${opcionActiva}` : undefined
+                }
+                autoComplete="off"
+                placeholder="Buscar en el catálogo…"
+                value={busquedaProducto}
+                onChange={(e) => {
+                  setBusquedaProducto(e.target.value);
+                  setListaAbierta(true);
+                  setOpcionActiva(-1);
+                }}
+                onFocus={() => setListaAbierta(true)}
+                onKeyDown={onTeclaProducto}
+                onBlur={() => {
+                  // Elegir una opción no pasa por acá: la lista cancela su
+                  // mousedown para que el input no pierda el foco antes del clic.
+                  setListaAbierta(false);
+                  setOpcionActiva(-1);
+                }}
+                className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-lg px-4 py-2.5 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              />
+              {listaAbierta && coincidenciasProducto.length > 0 && (
+                <ul
+                  id="catalogo-sugerencias"
+                  role="listbox"
+                  aria-label="Productos del catálogo"
+                  className="absolute z-20 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-2xl max-h-64 overflow-y-auto list-none"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {coincidenciasProducto.map((p, idx) => (
+                    <li
+                      key={p.id}
+                      id={`catalogo-op-${idx}`}
+                      role="option"
+                      aria-selected={idx === opcionActiva}
+                      onClick={() => cargarProducto(p.id)}
+                      className={`px-3 py-2 flex items-baseline justify-between gap-3 cursor-pointer hover:bg-zinc-700 ${
+                        idx === opcionActiva ? 'bg-zinc-700' : ''
+                      }`}
+                    >
+                      <span className="text-sm text-white truncate">
+                        {p.status === 'Inactivo' && (
+                          <span className="text-[10px] uppercase font-bold text-amber-400 mr-1.5">Inactivo</span>
+                        )}
+                        {p.description}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 shrink-0 tabular-nums">
+                        {p.sku} · US${Number(p.priceUSD).toFixed(2)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {listaAbierta && coincidenciasProducto.length === 0 && (
+                <div className="absolute z-20 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-400">
+                  Ningún producto coincide con «{busquedaProducto.trim()}».
+                </div>
+              )}
+            </div>
+            {formData.id && (
+              <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold mt-2">
+                Editando · SKU {formData.sku}
+              </p>
+            )}
           </div>
         )}
 
