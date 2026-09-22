@@ -468,14 +468,72 @@ export default function POS() {
     // Re-suscribir en cada render cuesta un addEventListener y es lo correcto.
   });
 
+  /**
+   * Restaura la venta a medias, RECONCILIANDO contra el catálogo de ahora.
+   *
+   * El borrador guarda el `CartItem` entero, que es un spread del `Product` del
+   * momento. Antes se volcaba crudo al estado, sin una sola consulta, y eso
+   * mentía en tres formas distintas y todas en silencio:
+   *
+   *  - `item.stock` era el de hace seis horas, y es el TECHO que usan el botón
+   *    de sumar y el input de cantidad. El operador podía subir a 5 unidades de
+   *    algo que ya tenía 1, y el choque recién aparecía al confirmar.
+   *  - Si el producto se borró del catálogo, el error llegaba recién dentro de
+   *    la transacción ("ya no existe en la base de datos").
+   *  - Si el cliente se borró, `customerId` viajaba a Firestore como id
+   *    colgante: la venta no aparecía nunca más en el historial de nadie y
+   *    nadie avisaba.
+   *
+   * Lo que NO se toca es el `price`: puede ser un precio negociado a mano y es
+   * justo lo que hay que conservar. Si el precio de catálogo cambió, se avisa
+   * pero se respeta lo pactado — el operador decide.
+   */
   const restaurarBorrador = () => {
     if (!borrador) return;
-    setCart(borrador.cart);
+
+    const avisos: string[] = [];
+
+    const vivos = borrador.cart.filter((item) => {
+      const p = products.find((x) => x.id === item.id);
+      if (!p) {
+        avisos.push(`«${item.name}» ya no está en el catálogo`);
+        return false;
+      }
+      return true;
+    });
+
+    const reconciliado = vivos.map((item) => {
+      const p = products.find((x) => x.id === item.id)!;
+      const cantidad = Math.min(item.quantity, Math.max(1, p.stock));
+      if (p.stock <= 0) {
+        avisos.push(`«${item.name}» quedó sin stock`);
+      } else if (cantidad !== item.quantity) {
+        avisos.push(`«${item.name}»: ${item.quantity} → ${cantidad} por stock`);
+      }
+      const catalogo = precioVigente(p);
+      if (!item.efectivoApplied && Math.abs(catalogo - item.price) > 0.005) {
+        avisos.push(
+          `«${item.name}» vale ahora ${formatCurrency(catalogo * currentExchangeRate, 'NIO')} ` +
+          `y quedó al precio guardado`,
+        );
+      }
+      // Solo se refresca `stock`, que es un techo de control, no un dato de la
+      // venta. El precio guardado manda.
+      return { ...item, stock: p.stock, quantity: cantidad };
+    });
+
+    let clienteId = borrador.selectedCustomerId;
+    if (clienteId && !customers.some((c) => c.id === clienteId)) {
+      avisos.push('la ficha del cliente ya no existe: se guarda el nombre sin vincular');
+      clienteId = null;
+    }
+
+    setCart(reconciliado);
     setCustomerName(borrador.customerName);
     setCustomerEmail(borrador.customerEmail);
     setCustomerPhone(borrador.customerPhone);
     setCustomerAddress(borrador.customerAddress);
-    setSelectedCustomerId(borrador.selectedCustomerId);
+    setSelectedCustomerId(clienteId);
     setTransport(borrador.transport);
     setPaymentMethod(borrador.paymentMethod);
     setPaymentReference(borrador.paymentReference);
@@ -484,7 +542,14 @@ export default function POS() {
     setShipping(borrador.shipping);
     setCustomNote(borrador.customNote);
     setBorrador(null);
-    toast.success('Venta recuperada.');
+
+    // El aviso dice QUÉ cambió. "Venta recuperada." a secas no admitía que lo
+    // recuperado pudiera estar desactualizado, que es exactamente el caso.
+    if (avisos.length === 0) {
+      toast.success('Venta recuperada.');
+    } else {
+      toast.info(`Venta recuperada con cambios · ${avisos.join(' · ')}`);
+    }
   };
 
   const descartarBorrador = () => {
@@ -1285,7 +1350,23 @@ export default function POS() {
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 value={discount || ''}
                 min="0"
-                onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+                onChange={(e) => {
+                  /*
+                    Se acota al bruto MIENTRAS se tipea. Antes aceptaba
+                    cualquier monto: el total del cierre fijo se pintaba en
+                    NEGATIVO, en turquesa, como si fuera una cifra legítima, y
+                    el error recién aparecía al apretar FACTURAR. El operador ya
+                    había dicho un número en voz alta para entonces.
+                  */
+                  const pedido = Math.max(0, Number(e.target.value) || 0);
+                  const techo = subtotal * currentExchangeRate + shipping;
+                  if (pedido > techo && techo > 0) {
+                    setDiscount(round2(techo));
+                    toast.info(`El descuento no puede pasar de ${formatCurrencyNIO(techo)}, que es el total.`);
+                    return;
+                  }
+                  setDiscount(pedido);
+                }}
               />
             </div>
             <div className="space-y-1">
@@ -1345,7 +1426,18 @@ export default function POS() {
               )}
             </div>
             <div className="space-y-1 col-span-2">
-              <label htmlFor="pos-referencia-pago" className="text-[10px] uppercase text-zinc-400 font-bold">Referencia de Pago (Opcional)</label>
+              {/*
+                Estos dos campos se llamaban casi igual —"Referencia de Pago" y
+                "Nota / Referencia"— y estaban a dos centímetros uno del otro.
+                Peor: el placeholder del segundo ("Ref: Carlos Pago mediante
+                Transferencia…") describía exactamente al PRIMERO, así que el
+                que leía el ejemplo escribía la referencia bancaria en el campo
+                equivocado. Ahora cada uno dice qué es y adónde va.
+              */}
+              <label htmlFor="pos-referencia-pago" className="text-[10px] uppercase text-zinc-400 font-bold">
+                N° de transferencia o voucher
+                <span className="normal-case font-normal text-zinc-400"> · opcional</span>
+              </label>
               <input id="pos-referencia-pago"
                 type="text"
                 placeholder="N° de transferencia / voucher…"
@@ -1357,10 +1449,13 @@ export default function POS() {
           </div>
 
           <div className="space-y-1 mb-4">
-            <label htmlFor="pos-nota" className="text-[10px] uppercase text-zinc-400 font-bold">Nota / Referencia (Opcional)</label>
-            <textarea id="pos-nota" 
+            <label htmlFor="pos-nota" className="text-[10px] uppercase text-zinc-400 font-bold">
+              Nota en la factura
+              <span className="normal-case font-normal text-zinc-400"> · la ve el cliente</span>
+            </label>
+            <textarea id="pos-nota"
               rows={2}
-              placeholder="Ref: Carlos Pago mediante Transferencia..." 
+              placeholder="Instrucciones de entrega, garantía acordada, detalle del trato…"  
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
@@ -1470,20 +1565,16 @@ export default function POS() {
             </div>
           )}
 
-          {/* P2.5: descuento por pago en efectivo */}
-          {paymentMethod === 'EFECTIVO' && pendingCashDiscount.length > 0 && (
-            <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between gap-2">
-              <span className="text-[11px] text-emerald-400 leading-tight">
-                {pendingCashDiscount.length} {pendingCashDiscount.length === 1 ? 'producto' : 'productos'} con descuento por efectivo
-              </span>
-              <button
-                onClick={applyCashDiscount}
-                className="text-[11px] font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg shrink-0 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              >
-                Aplicar
-              </button>
-            </div>
-          )}
+          {/*
+            P2.5: el chip de "aplicar" vive ahora en el cierre FIJO, junto al
+            total — ver más abajo. Acá era el último elemento del área con
+            scroll, después del carrito, la ficha del cliente, la dirección,
+            tres campos de entrega, el método, la referencia y la nota: con dos
+            líneas en el carrito quedaba fuera de pantalla SIEMPRE. El precio de
+            efectivo se publica a `catalogo_publico`, o sea que es una promesa
+            hecha al cliente antes de llegar al mostrador, y el operador nunca
+            lo veía.
+          */}
           {appliedCashCount > 0 && (
             <div className="mb-3 p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg flex items-center justify-between gap-2">
               <span className="text-[11px] text-emerald-500/80">
@@ -1509,6 +1600,27 @@ export default function POS() {
           vista justo cuando se la estaba diciendo.
         */}
         <div className="flex-none p-4 border-t border-zinc-700 bg-zinc-900">
+          {/*
+            El precio de efectivo se avisa ACÁ, pegado al total, y no al final
+            del área con scroll donde el operador no llegaba a verlo. Es un
+            número que ya se le publicó al cliente en la web y en la tablet:
+            enterarse tarde significa cobrar de más y que el cliente reclame con
+            el celular en la mano.
+          */}
+          {paymentMethod === 'EFECTIVO' && pendingCashDiscount.length > 0 && (
+            <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between gap-2">
+              <span className="text-[11px] text-emerald-400 leading-tight">
+                Hay precio de efectivo en {pendingCashDiscount.length}{' '}
+                {pendingCashDiscount.length === 1 ? 'producto' : 'productos'}
+              </span>
+              <button
+                onClick={applyCashDiscount}
+                className="text-[11px] font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
+              >
+                Aplicar
+              </button>
+            </div>
+          )}
           <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
             <div className="flex justify-between text-xs mb-2 text-zinc-300">
               <span>Subtotal</span>
@@ -1646,9 +1758,12 @@ export default function POS() {
               Proforma
             </button>
           </div>
-          <p className="text-[10px] text-zinc-400 text-center mt-2 italic">
-            El stock se verifica automáticamente al facturar
-          </p>
+          {/*
+            Decía "El stock se verifica automáticamente al facturar" SIEMPRE,
+            también cuando el operador iba a hacer una proforma — que no
+            verifica ni toca stock. Un renglón que afirma algo falso en la mitad
+            de los casos es peor que no tener renglón.
+          */}
           <p className="text-[10px] text-zinc-400 text-center mt-1">
             <kbd className="font-sans font-bold text-zinc-400">F2</kbd> facturar ·{' '}
             <kbd className="font-sans font-bold text-zinc-400">F3</kbd> proforma ·{' '}
