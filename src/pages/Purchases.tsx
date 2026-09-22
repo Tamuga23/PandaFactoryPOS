@@ -309,7 +309,7 @@ export default function Purchases() {
     if (!trackingModalPurchase) return;
 
     if (boxItems.length === 0) {
-        toast.error('Agregue al menos un ítem a esta caja.');
+        toast.error('Agregá al menos un artículo a esta caja.');
         return;
     }
 
@@ -339,11 +339,37 @@ export default function Purchases() {
     // Set temp state for immediate UI feedback while DB saves
     setTrackingModalPurchase(updatedPurchase);
     
+    /*
+      Esto era la escritura que MÁS INVENTARIO MUEVE de todo el sistema —suma
+      stock, recalcula el costo promedio ponderado y fija el landed cost de cada
+      unidad— y era la única acción consecuente de la app que no producía ni un
+      aviso. El formulario se cerraba y el operador tenía que deducir que había
+      funcionado porque aparecía un badge.
+
+      Peor: la recepción no la dispara un botón, la dispara haber escrito una
+      fecha en "Recepción en Bodega". Un modo oculto. Mientras eso siga así, lo
+      mínimo es que el aviso diga QUÉ entró al inventario.
+    */
+    const vaARecibir = !!newTracking.receptionDate && !newTracking.isReceived;
+    const unidades = boxItems.reduce((a, b) => a + b.quantity, 0);
+
     try {
       await updatePurchase(updatedPurchase);
       closeTrackingForm();
-    } catch (error) {
-      toast.error('Error al guardar el tracking.');
+      if (vaARecibir) {
+        toast.success(
+          `Caja recibida · ${unidades} unidad(es) sumadas al inventario, ` +
+          `con su costo de importación prorrateado. Queda en el kardex.`,
+        );
+      } else {
+        toast.success(
+          newTracking.trackingNumber
+            ? `Tracking ${newTracking.trackingNumber} guardado.`
+            : 'Caja guardada.',
+        );
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'No se pudo guardar el tracking.');
     } finally {
       setIsSavingPhase2(false);
     }
@@ -872,7 +898,17 @@ export default function Purchases() {
                       
                       {!editingTracking?.isReceived && (
                         <button type="submit" disabled={isSavingPhase2} className="w-full bg-cyan-700 hover:bg-cyan-800 disabled:bg-cyan-900 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                           {isSavingPhase2 ? 'Guardando...' : 'Guardar y Asociar a Orden'}
+                           {/*
+                             El rótulo no mencionaba el inventario, y esta acción
+                             lo mueve. Ahora dice lo que va a hacer, y cambia
+                             según haya fecha de recepción o no — que es lo que
+                             de verdad decide si entra stock.
+                           */}
+                           {isSavingPhase2
+                             ? 'Guardando…'
+                             : receptionDate
+                               ? 'Recibir: sumar al inventario'
+                               : 'Guardar caja en la orden'}
                         </button>
                       )}
                    </div>

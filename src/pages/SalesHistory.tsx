@@ -48,11 +48,24 @@ export default function SalesHistory() {
   const [fMethod, setFMethod] = useState('todos');
   // P4.5: modal de confirmación de borrado (reemplaza el doble-clic).
   const [deleteModalSale, setDeleteModalSale] = useState<Sale | null>(null);
+  /*
+    Cambiar el estado de una venta REPONE O DESCUENTA STOCK y escribe en el
+    kardex, y era un clic en un ícono de 28px. Sin pregunta, sin resumen.
+    Mientras tanto, BORRAR una venta ya anulada —lo menos consecuente que se
+    puede hacer en esta pantalla— exige un modal con detalle y la frase "no se
+    puede deshacer".
+
+    La fricción estaba invertida: la acción que mueve inventario tenía menos
+    resistencia que la que no lo mueve. Y el ícono vive pegado al de reimprimir,
+    así que un pixel de más anulaba una venta.
+  */
+  const [confirmarEstado, setConfirmarEstado] = useState<{ sale: Sale; nuevo: Sale['status'] } | null>(null);
 
   // P4.7: ESC cierra el modal de más arriba.
-  useEscapeKey(isEditModalOpen || !!labelData || !!reprintData || !!deleteModalSale, () => {
+  useEscapeKey(isEditModalOpen || !!labelData || !!reprintData || !!deleteModalSale || !!confirmarEstado, () => {
     if (reprintData) setReprintData(null);
     else if (labelData) setLabelData(null);
+    else if (confirmarEstado) setConfirmarEstado(null);
     else if (deleteModalSale) setDeleteModalSale(null);
     else setIsEditModalOpen(false);
   });
@@ -68,8 +81,10 @@ export default function SalesHistory() {
     dos escrituras más destructivas de la aplicación.
   */
   const borrarModalRef = useRef<HTMLDivElement>(null);
+  const estadoModalRef = useRef<HTMLDivElement>(null);
   const editarModalRef = useRef<HTMLDivElement>(null);
   useFocusTrap(!!deleteModalSale, borrarModalRef);
+  useFocusTrap(!!confirmarEstado, estadoModalRef);
   useFocusTrap(isEditModalOpen && !!editingSale, editarModalRef);
 
   // P1.4: ventana en vivo (100) + páginas viejas cargadas bajo demanda.
@@ -453,21 +468,21 @@ export default function SalesHistory() {
                   ) : (
                   <div className="flex items-center bg-zinc-800 rounded-lg p-1">
                     <button
-                      onClick={() => handleStatusChange(sale, 'completed')}
+                      onClick={() => setConfirmarEstado({ sale, nuevo: 'completed' })}
                       title="Marcar Completada (descuenta stock si venía anulada)"
                       className={`p-1.5 rounded ${estadoVenta === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <CheckCircle className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleStatusChange(sale, 'returned')}
+                      onClick={() => setConfirmarEstado({ sale, nuevo: 'returned' })}
                       title="Marcar Devuelta (repone stock)"
                       className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-1 focus:ring-cyan-500`}
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleStatusChange(sale, 'cancelled')}
+                      onClick={() => setConfirmarEstado({ sale, nuevo: 'cancelled' })}
                       title="Marcar Cancelada (repone stock)"
                       className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-500 hover:text-rose-400'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                     >
@@ -578,6 +593,96 @@ export default function SalesHistory() {
       )}
 
       {/* P4.5: confirmación de borrado con resumen y consecuencias */}
+      {/*
+        Confirmación del cambio de estado. Antes esto era un clic directo en un
+        ícono de 28px pegado al de reimprimir: un pixel de más anulaba la venta,
+        reponía el stock y escribía el kardex, y el único rastro era un aviso
+        describiendo algo que el operador no había pedido.
+
+        El modal dice QUÉ unidades se mueven y en qué dirección, porque eso es
+        lo que el operador necesita para decidir — no basta con "¿estás seguro?".
+      */}
+      {confirmarEstado && (() => {
+        const { sale, nuevo } = confirmarEstado;
+        const previo = sale.status || 'completed';
+        const esProforma = sale.documentType === 'PROFORMA';
+        // Misma aritmética que `changeSaleStatus`: +1 repone, -1 vuelve a
+        // descontar, 0 no toca stock.
+        const direccion = esProforma ? 0
+          : previo === 'completed' && nuevo !== 'completed' ? 1
+          : previo !== 'completed' && nuevo === 'completed' ? -1
+          : 0;
+        const unidades = (sale.items || []).reduce((a, i) => a + i.quantity, 0);
+        return (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+              onClick={() => setConfirmarEstado(null)}
+              aria-hidden="true"
+            ></div>
+            <div
+              ref={estadoModalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="titulo-cambiar-estado"
+              tabIndex={-1}
+              autoFocus
+              className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4"
+            >
+              <h3 id="titulo-cambiar-estado" className="text-lg font-bold text-zinc-100">
+                Marcar como {STATUS_LABEL[nuevo || 'completed']}
+              </h3>
+
+              <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-sm text-zinc-200">
+                <p className="font-bold">{sale.invoiceNumber} — {sale.customerName || 'Cliente final'}</p>
+                <p className="text-zinc-400 text-xs mt-1 tabular-nums">
+                  {new Date(sale.date).toLocaleDateString()} · {sale.items.length} línea(s) ·{' '}
+                  {formatCurrency(sale.total)}
+                </p>
+              </div>
+
+              {direccion === 1 && (
+                <p className="text-sm text-emerald-400 leading-relaxed">
+                  Se van a <strong>reponer {unidades} unidad(es)</strong> al inventario, y queda
+                  registrado en el kardex.
+                </p>
+              )}
+              {direccion === -1 && (
+                <p className="text-sm text-amber-400 leading-relaxed">
+                  Se van a <strong>descontar {unidades} unidad(es)</strong> del inventario. Si no hay
+                  stock suficiente, el descuento se aplica hasta donde alcanza y te lo aviso.
+                </p>
+              )}
+              {direccion === 0 && (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {esProforma
+                    ? 'Es una cotización: no toca stock.'
+                    : 'Este cambio no mueve stock.'}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  onClick={() => setConfirmarEstado(null)}
+                  className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmarEstado(null);
+                    handleStatusChange(sale, nuevo);
+                  }}
+                  className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white text-sm font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
+                >
+                  Marcar como {STATUS_LABEL[nuevo || 'completed']}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {deleteModalSale && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           {/* El telón es un blanco de clic para el mouse, no un control: sin
