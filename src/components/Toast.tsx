@@ -50,7 +50,23 @@ export function Toaster() {
   useEffect(() => {
     pushToast = (t) => {
       const id = ++seq;
-      setItems((prev) => [...prev.slice(-3), { ...t, id }]);
+      setItems((prev) => {
+        /*
+          Los errores no caducan por tiempo (ver abajo) pero SÍ se podían
+          perder por cantidad: `prev.slice(-3)` recortaba la cola sin mirar el
+          tipo, así que un error todavía sin leer se caía de la lista apenas
+          llegaban tres avisos después. En el POS eso es fácil: una venta que
+          falla suele venir seguida de un "se creó la ficha", un "se quitó el
+          precio de efectivo" y un "venta recuperada".
+
+          Ahora el recorte sólo alcanza a los que sí caducan solos. Los errores
+          se quedan hasta que alguien los cierra, que es la regla que este
+          archivo ya declaraba y que este recorte contradecía.
+        */
+        const errores = prev.filter((i) => i.type === 'error');
+        const efimeros = prev.filter((i) => i.type !== 'error').slice(-2);
+        return [...errores, ...efimeros, { ...t, id }];
+      });
       /*
         Los ERRORES no se autodestruyen. Los avisos de este POS son el único
         canal de los fallos que bloquean el cobro, y el operador es su propia

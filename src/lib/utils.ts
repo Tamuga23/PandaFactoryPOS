@@ -45,13 +45,34 @@ export const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800
   });
 };
 
+/**
+ * Dinero. Dos monedas, dos reglas, y las dos SE DICEN.
+ *
+ * El reparto es una decisión del negocio (confirmada el 2026-09-22): el
+ * inventario y las ventas se miden en DÓLARES, que es como se compra y como se
+ * mide el margen; la FACTURACIÓN va en córdobas, que es lo que el cliente paga.
+ * Por eso el POS cobra en C$, la factura se imprime en C$, y el Panel, el
+ * Historial, Inventario, Clientes, Compras y Reportes hablan en US$.
+ *
+ * Lo que faltaba era el rótulo. Esta función emitía un `$` pelado, y en
+ * Nicaragua un `$` a secas es ambiguo: el operador vende todo el día en
+ * córdobas y después lee `$350.00` en seis pantallas, donde la única diferencia
+ * tipográfica con `C$350.00` es una letra y la diferencia real es 36x. Peor en
+ * la tarjeta del Historial, donde el total en dólares y la cuota en córdobas
+ * quedaban a tres renglones de distancia sin ninguna etiqueta que los separe.
+ *
+ * Ahora emite `US$12,713.45`, que tiene exactamente la misma forma que
+ * `C$12,713.45` —mismo agrupamiento, mismos decimales— y se distingue de un
+ * vistazo. Es además como ya lo escribía el código a mano en el POS y en el
+ * Catálogo Maestro.
+ */
 export const formatCurrency = (amount: number, currency: 'USD' | 'NIO' = 'USD') => {
   if (currency === 'NIO') {
     return formatCurrencyNIO(amount);
   }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return 'US$' + new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 };
 

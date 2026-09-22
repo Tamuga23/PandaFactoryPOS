@@ -245,17 +245,17 @@ export default function Reports() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4" aria-hidden="true"/> Total Ventas (USD)</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4" aria-hidden="true"/> Total Ventas</div>
             <div className="text-3xl font-bold text-emerald-400 tabular-nums relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
          </div>
          
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4" aria-hidden="true"/> Costo de Ventas (USD)</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4" aria-hidden="true"/> Costo de Ventas</div>
             <div className="text-3xl font-bold text-rose-400 tabular-nums relative z-10">{formatCurrency(metrics.totalCost)}</div>
          </div>
 
          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4" aria-hidden="true"/> Utilidad Bruta (USD)</div>
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4" aria-hidden="true"/> Utilidad Bruta</div>
             <div className="text-3xl font-bold text-cyan-400 tabular-nums relative z-10">{formatCurrency(metrics.grossProfit)}</div>
          </div>
 
@@ -334,7 +334,14 @@ export default function Reports() {
                     <th className="px-6 py-4 text-center">Cant. Vendida</th>
                     <th className="px-6 py-4 text-right">Ingresos</th>
                     <th className="px-6 py-4 text-right">Costo Total</th>
-                    <th className="px-6 py-4 text-right text-cyan-400 hover:bg-cyan-500/5 cursor-pointer">Utilidad Bruta</th>
+                    {/*
+                      Tenía `cursor-pointer` y realce al pasar el mouse, como
+                      las cabeceras ordenables de Inventario, y NINGÚN `onClick`.
+                      Una afordancia sin acción es peor que no tener afordancia:
+                      el operador hace clic, no pasa nada, y concluye que la app
+                      está trabada. La tabla ya viene ordenada por ingreso.
+                    */}
+                    <th className="px-6 py-4 text-right text-cyan-400">Utilidad Bruta</th>
                     <th className="px-6 py-4 text-left w-32 border-l border-zinc-800">Margen %</th>
                  </tr>
               </thead>

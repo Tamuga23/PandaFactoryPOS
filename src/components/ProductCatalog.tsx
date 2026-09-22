@@ -816,7 +816,7 @@ export default function ProductCatalog({
                   type="file"
                   accept="image/*"
                   onChange={handleFileChange}
-                  className="hidden"
+                  className="sr-only"
                 />
               </label>
               <div className="flex-1 text-sm text-zinc-400 truncate">

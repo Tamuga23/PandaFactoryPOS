@@ -681,7 +681,7 @@ export default function PurchaseRegistration({
                             <div className="flex items-center justify-center w-full">
                                 <label className="flex flex-col items-center justify-center w-full h-20 border border-zinc-700 border-dashed rounded-xl cursor-pointer bg-zinc-800/50 hover:bg-zinc-800">
                                     <span className="text-[10px] text-zinc-400">Click para subir foto</span>
-                                    <input aria-label="Elegir una imagen para el artículo" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                                    <input aria-label="Elegir una imagen para el artículo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
                                 </label>
                             </div>
                          )}

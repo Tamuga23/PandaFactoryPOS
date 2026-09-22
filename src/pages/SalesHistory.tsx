@@ -365,13 +365,26 @@ export default function SalesHistory() {
       </div>
 
       <div className="grid gap-4">
-        {filteredSales.map(sale => (
+        {filteredSales.map(sale => {
+          /*
+            Las ventas viejas se guardaron ANTES de que existiera el campo
+            `status`. El texto del chip ya aplicaba el fallback
+            (`sale.status || 'completed'`), pero el COLOR del chip, el del ícono
+            y el estado activo de los tres botones comparaban `sale.status`
+            crudo — así que una venta sin campo caía al `else` y se pintaba en
+            ROSA, el color que este sistema reserva para lo destructivo,
+            mientras el texto de adentro decía "Completada". El color contradecía
+            a la palabra que tenía al lado, y ninguno de los tres botones se veía
+            activo, así que la fila no decía en qué estado estaba.
+          */
+          const estadoVenta = sale.status || 'completed';
+          return (
           <div key={sale.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden group">
             <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-zinc-800/50">
                <div className="flex items-center gap-4 w-full lg:w-auto">
                   <div className={`p-3 rounded-lg flex-shrink-0 ${
-                    sale.status === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
-                    sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' :
+                    estadoVenta === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
+                    estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
                     'bg-rose-500/10 text-rose-500'
                   }`}>
                      <FileText className="w-6 h-6" />
@@ -380,11 +393,11 @@ export default function SalesHistory() {
                      <h4 className="font-bold text-zinc-100 flex items-center gap-2 flex-wrap">
                        {sale.invoiceNumber}
                        <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full ${
-                        sale.status === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
-                        sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' :
+                        estadoVenta === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
+                        estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
                         'bg-rose-500/10 text-rose-500'
                        }`}>
-                         {STATUS_LABEL[sale.status || 'completed'] || sale.status}
+                         {STATUS_LABEL[estadoVenta] || estadoVenta}
                        </span>
                      </h4>
                      <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
@@ -442,14 +455,14 @@ export default function SalesHistory() {
                     <button
                       onClick={() => handleStatusChange(sale, 'completed')}
                       title="Marcar Completada (descuenta stock si venía anulada)"
-                      className={`p-1.5 rounded ${sale.status === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className={`p-1.5 rounded ${estadoVenta === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <CheckCircle className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleStatusChange(sale, 'returned')}
                       title="Marcar Devuelta (repone stock)"
-                      className={`p-1.5 rounded ${sale.status === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-1 focus:ring-cyan-500`}
+                      className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-1 focus:ring-cyan-500`}
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>
@@ -522,7 +535,8 @@ export default function SalesHistory() {
                ))}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {filteredSales.length === 0 && (
           <div className="p-20 text-center text-zinc-500 flex flex-col items-center gap-4">

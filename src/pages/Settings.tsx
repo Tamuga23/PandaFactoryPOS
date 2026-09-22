@@ -352,7 +352,7 @@ export default function Settings() {
                   )}
                   <label className="absolute inset-0 bg-zinc-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
                     <Upload className="w-6 h-6 text-white" />
-                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-2">
@@ -363,7 +363,7 @@ export default function Settings() {
                   </p>
                   <label className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer transition-all">
                     <Upload className="w-3.5 h-3.5" /> Seleccionar Archivo
-                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
                   </label>
                 </div>
               </div>

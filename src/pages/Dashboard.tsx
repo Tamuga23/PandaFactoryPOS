@@ -60,7 +60,7 @@ export default function Dashboard() {
     : null;
 
   const kpis = [
-    { title: 'Valor Inventario a costo (USD)', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-cyan-400', border: '' },
+    { title: 'Valor Inventario a costo', value: formatCurrency(stats.totalStockValue), icon: TrendingUp, color: 'text-cyan-400', border: '' },
     { title: 'Productos', value: stats.totalProducts.toString(), icon: Package, color: 'text-white', border: '' },
     { title: 'Inventario Crítico', value: stats.lowStockItems.length.toString(), icon: AlertTriangle, color: 'text-rose-400', border: 'border-l-rose-500 border-l-2' },
   ];
@@ -73,7 +73,7 @@ export default function Dashboard() {
         <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-xl">
           <div className="flex items-center justify-between gap-2">
             <p className="text-zinc-400 text-xs font-medium uppercase flex items-center gap-2">
-              <DollarSign className="h-4 w-4" aria-hidden="true" /> Ventas (USD)
+              <DollarSign className="h-4 w-4" aria-hidden="true" /> Ventas
             </p>
             <div className="flex bg-zinc-800 rounded-md p-0.5">
               {(Object.keys(PERIOD_LEN) as Period[]).map(p => (
