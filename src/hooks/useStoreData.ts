@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, auth, handleFirestoreError, tieneClaimStaff } from '../lib/db';
+import { db, auth, handleFirestoreError, mensajeFirestore, tieneClaimStaff } from '../lib/db';
+import { toast } from '../components/Toast';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, getDoc, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { Product, Sale, Purchase, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
@@ -56,6 +57,22 @@ export function useStoreData() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [universalObjections, setUniversalObjections] = useState<UniversalObjection[]>([]);
+  /*
+    Colecciones cuya suscripción en vivo se cayó.
+
+    Los ocho `onSnapshot` pasaban su error a `handleFirestoreError`, que SIEMPRE
+    LANZA — y lanzar adentro del callback de error de un listener no lo atrapa
+    nadie: no hay `try`, no es un render de React, no es una promesa encadenada.
+    Además `setLoading(false)` vivía sólo en el camino de éxito, así que si el
+    PRIMER snapshot fallaba, `loading` no bajaba nunca y la aplicación entera se
+    quedaba en "Cargando App…" sin un solo carácter de diagnóstico.
+
+    Y el caso intermedio es peor que el total: cuando un listener muere a media
+    mañana, Firestore lo termina y `products` deja de actualizarse EN SILENCIO —
+    el POS sigue vendiendo contra un stock congelado. En un tablero de vuelo, el
+    instrumento que se queda clavado es más peligroso que el que se apaga.
+  */
+  const [coleccionesCaidas, setColeccionesCaidas] = useState<string[]>([]);
   const [categoryObjections, setCategoryObjections] = useState<CategoryObjection[]>([]);
   // Reglas de financiamiento a plazos. Las edita Configuración y las consume el
   // checkout del POS para calcular la cuota que se le cobra al cliente.
@@ -138,36 +155,50 @@ export function useStoreData() {
     if (!user) return;
     setLoading(true);
 
+    /*
+      Un listener que se cae: se avisa, se deja de cargar, y queda anotado para
+      que el shell muestre un cartel permanente. Lo que NO se hace es lanzar.
+    */
+    const fallaSuscripcion = (error: any, coleccion: string) => {
+      setLoading(false);
+      setColeccionesCaidas((prev) => (prev.includes(coleccion) ? prev : [...prev, coleccion]));
+      toast.error(
+        `Se perdió la conexión en vivo con «${coleccion}». ` +
+        `${mensajeFirestore(error, 'list', coleccion)} ` +
+        `Lo que ves puede estar desactualizado: recargá la página.`,
+      );
+    };
+
     const qProducts = query(collection(db, 'products'));
     const unsubProducts = onSnapshot(qProducts, (snapshot) => {
       const prodData = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Product));
       setProducts(prodData);
       setLoading(false);
-    }, (error) => handleFirestoreError(error, 'list', 'products'));
+    }, (error) => fallaSuscripcion(error, 'products'));
 
     const qSales = query(collection(db, 'sales'), orderBy('date', 'desc'), limit(100));
     const unsubSales = onSnapshot(qSales, (snapshot) => {
       const saleData = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale));
       setSales(saleData);
-    }, (error) => handleFirestoreError(error, 'list', 'sales'));
+    }, (error) => fallaSuscripcion(error, 'sales'));
 
     const qPurchases = query(collection(db, 'purchases'), orderBy('date', 'desc'), limit(100));
     const unsubPurchases = onSnapshot(qPurchases, (snapshot) => {
       const purchaseData = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Purchase));
       setPurchases(purchaseData);
-    }, (error) => handleFirestoreError(error, 'list', 'purchases'));
+    }, (error) => fallaSuscripcion(error, 'purchases'));
 
     const qCustomers = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
     const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
       const customerData = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Customer));
       setCustomers(customerData);
-    }, (error) => handleFirestoreError(error, 'list', 'customers'));
+    }, (error) => fallaSuscripcion(error, 'customers'));
 
     const qSuppliers = query(collection(db, 'suppliers'), orderBy('createdAt', 'desc'));
     const unsubSuppliers = onSnapshot(qSuppliers, (snapshot) => {
       const supplierData = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Supplier));
       setSuppliers(supplierData);
-    }, (error) => handleFirestoreError(error, 'list', 'suppliers'));
+    }, (error) => fallaSuscripcion(error, 'suppliers'));
 
     const qCompany = query(collection(db, 'company'));
     const unsubCompany = onSnapshot(qCompany, (snapshot) => {
@@ -176,7 +207,7 @@ export function useStoreData() {
       } else {
         setCompanyInfo(null);
       }
-    }, (error) => handleFirestoreError(error, 'list', 'company'));
+    }, (error) => fallaSuscripcion(error, 'company'));
 
     const qUniversalObjections = query(
       collection(db, 'objeciones_universales'),
@@ -185,7 +216,7 @@ export function useStoreData() {
     const unsubUniversalObjections = onSnapshot(qUniversalObjections, (snapshot) => {
       const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as UniversalObjection));
       setUniversalObjections(data);
-    }, (error) => handleFirestoreError(error, 'list', 'objeciones_universales'));
+    }, (error) => fallaSuscripcion(error, 'objeciones_universales'));
 
     const qCategoryObjections = query(
       collection(db, 'objeciones_categoria'),
@@ -194,7 +225,7 @@ export function useStoreData() {
     const unsubCategoryObjections = onSnapshot(qCategoryObjections, (snapshot) => {
       const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as CategoryObjection));
       setCategoryObjections(data);
-    }, (error) => handleFirestoreError(error, 'list', 'objeciones_categoria'));
+    }, (error) => fallaSuscripcion(error, 'objeciones_categoria'));
 
     // Si el doc todavía no existe (reglas sin desplegar, o nunca se guardó),
     // queda el default del módulo compartido: proyectores 0%, resto con recargo.
@@ -1265,6 +1296,8 @@ export function useStoreData() {
     suppliers,
     companyInfo,
     universalObjections,
+    /** Colecciones cuya suscripción en vivo se cayó: el shell lo muestra. */
+    coleccionesCaidas,
     categoryObjections,
     configFinanciamiento,
     loading,

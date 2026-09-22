@@ -718,9 +718,24 @@ export default function POS() {
     
     const { sale, isProforma } = pendingSale;
 
-    // Process CRM specific logic if customer name is provided
+    /*
+      Las dos escrituras al CRM estaban FUERA de todo `try`, y las dos lanzan.
+      Con un fallo —red, permisos, Zod— el rechazo escapaba de esta función sin
+      pasar nunca por `setIsConfirming(false)`, así que el botón se quedaba en
+      "Procesando…" con su spinner, deshabilitado y mudo, PARA SIEMPRE, con el
+      cliente enfrente.
+
+      Era un arreglo a medias de esta misma sesión: el error dentro del diálogo
+      se agregó para `recordSale`, que es lo que viene DESPUÉS. El tramo que
+      corre antes quedó sin red, que es el lado equivocado — el fallo mudo
+      ocurría justo antes del único punto que sabía hablar.
+
+      El mensaje distingue los dos estados, porque no es lo mismo: acá la venta
+      TODAVÍA NO se registró, así que reintentar es seguro.
+    */
     let finalCustomerId = sale.customerId;
-    if (sale.customerName.trim() && !isProforma) {
+    try {
+      if (sale.customerName.trim() && !isProforma) {
       if (finalCustomerId) {
         // Find existing customer to check if update is needed
         const existingCust = customers.find(c => c.id === finalCustomerId);
@@ -749,6 +764,13 @@ export default function POS() {
         // nadie lo dijera, y despues aparecia en Clientes sin explicacion.
         toast.info(`Se creó la ficha de ${sale.customerName.trim()} en Clientes.`);
       }
+      }
+    } catch (e: any) {
+      const msg = e?.message || 'No se pudo guardar la ficha del cliente.';
+      toast.error(`${msg} La venta TODAVÍA no se registró: podés reintentar.`);
+      setErrorConfirmacion(`${msg} La venta todavía no se registró.`);
+      setIsConfirming(false);
+      return;
     }
 
     sale.customerId = finalCustomerId || undefined;

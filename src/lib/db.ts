@@ -63,7 +63,17 @@ const OP_LABEL: Record<string, string> = {
   list: 'leer', get: 'leer', write: 'guardar',
 };
 
-export const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
+/**
+ * El mensaje humanizado de un error de Firestore, SIN lanzarlo.
+ *
+ * Existe porque `handleFirestoreError` siempre lanza, y eso está bien para las
+ * escrituras —quien las llama tiene un `catch`— pero es inservible en el
+ * callback de error de un `onSnapshot`: ahí no hay nadie que atrape, así que la
+ * excepción se pierde y el fallo queda mudo.
+ *
+ * Deja el detalle técnico completo en la consola, igual que antes.
+ */
+export const mensajeFirestore = (error: any, operationType: string, path: string | null): string => {
   const code = error?.code || '';
   const isMissingPermissions =
     code === 'permission-denied' ||
@@ -75,22 +85,28 @@ export const handleFirestoreError = (error: any, operationType: string, path: st
 
   const op = OP_LABEL[operationType] || operationType;
   if (isMissingPermissions) {
-    throw new Error(
-      `Sin permisos para ${op} en "${path}". Si acabás de actualizar la app, ` +
-      `probablemente falte desplegar las reglas (firebase deploy --only firestore:rules).`
-    );
+    return `Sin permisos para ${op} en "${path}". Si acabás de actualizar la app, ` +
+      `probablemente falte desplegar las reglas (firebase deploy --only firestore:rules).`;
   }
   if (code === 'unavailable') {
-    throw new Error('Sin conexión con la base de datos. Verificá tu internet e intentá de nuevo.');
+    return 'Sin conexión con la base de datos. Verificá tu internet e intentá de nuevo.';
   }
   if (code === 'not-found') {
-    throw new Error(`No se pudo ${op}: el documento "${path}" ya no existe.`);
+    return `No se pudo ${op}: el documento "${path}" ya no existe.`;
   }
   if (code === 'aborted' || code === 'failed-precondition') {
-    throw new Error('Otro dispositivo modificó estos datos al mismo tiempo. Intentá de nuevo.');
+    return 'Otro dispositivo modificó estos datos al mismo tiempo. Intentá de nuevo.';
   }
   if (code === 'resource-exhausted') {
-    throw new Error('Se alcanzó la cuota diaria de Firestore (plan Spark). Intentá más tarde.');
+    return 'Se alcanzó la cuota diaria de Firestore (plan Spark). Intentá más tarde.';
   }
-  throw error;
+  return error?.message || 'Error de base de datos.';
+};
+
+export const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
+  const msg = mensajeFirestore(error, operationType, path);
+  // Se conserva el error original cuando no hubo nada que humanizar, para no
+  // perder el `code` que el llamador pueda estar mirando.
+  if (msg === error?.message) throw error;
+  throw new Error(msg);
 };

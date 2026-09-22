@@ -1,6 +1,6 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../context/StoreContext';
 import { logout } from '../lib/db';
@@ -22,7 +22,7 @@ const navigation = [
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { stats, user, companyInfo } = useStore();
+  const { stats, user, companyInfo, coleccionesCaidas } = useStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const logoSrc = companyInfo?.logoBase64 || "/logo.png";
@@ -214,6 +214,36 @@ export default function Layout({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 relative overflow-y-auto focus:outline-none custom-scrollbar">
+          {/*
+            Cartel permanente cuando una suscripción en vivo se cayó. El aviso
+            flotante se va solo; esto no, porque la consecuencia tampoco: a
+            partir de ese momento los datos de esa colección están congelados y
+            el POS puede estar vendiendo contra un stock viejo. Se queda hasta
+            que se recargue la página, que es lo único que reabre el listener.
+          */}
+          {coleccionesCaidas.length > 0 && (
+            <div
+              role="alert"
+              className="mx-4 sm:mx-6 md:mx-8 mt-6 flex items-start gap-3 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3"
+            >
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-rose-300">
+                  Los datos en pantalla pueden estar desactualizados
+                </p>
+                <p className="text-xs text-rose-200/80 mt-0.5 leading-relaxed">
+                  Se perdió la conexión en vivo con {coleccionesCaidas.join(', ')}. Lo que ves es
+                  la última copia que llegó: no confíes en el stock ni en los totales hasta recargar.
+                </p>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="shrink-0 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
+              >
+                Recargar
+              </button>
+            </div>
+          )}
           <div className="py-6 px-4 sm:px-6 md:px-8">
             {children}
           </div>
