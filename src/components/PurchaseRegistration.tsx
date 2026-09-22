@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, ShoppingBag, Search, Tag, Image as ImageIcon, Loader2, Package } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag, Search, Tag, Image as ImageIcon, Loader2, Package, X } from 'lucide-react';
 import { formatCurrency } from '../lib/utils';
 import { Product, Supplier } from '../types';
 import { toast } from './Toast';
@@ -327,6 +327,37 @@ export default function PurchaseRegistration({
 
   return (
     <div className="flex flex-col w-full h-full bg-zinc-900 overflow-hidden">
+      {/*
+        Este formulario ocupa el 90% de la altura de la pantalla y se abre
+        encima de todo, y hasta ahora no tenia ni titulo ni salida: ni una X, ni
+        un boton de cancelar, ni nada que dijera que era. `onCancel` llegaba por
+        props desde Purchases y el componente nunca lo usaba.
+
+        Quedaban dos formas de salir —la tecla ESC y el clic en el fondo— y
+        ninguna de las dos se ve. Quien no las conoce se queda adentro.
+      */}
+      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-zinc-700 shrink-0">
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+            Registrar orden de compra
+          </h3>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Fase 1: queda anotada la orden. El inventario recién se mueve cuando
+            marcás cada caja como recibida.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cerrar sin guardar la orden"
+          title="Cerrar sin guardar"
+          className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        >
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
+      </div>
+
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
 
@@ -754,14 +785,26 @@ export default function PurchaseRegistration({
       </div>
       
       {/* Sticky Bottom Actions */}
-      <div className="p-4 border-t border-zinc-700 bg-zinc-900 shrink-0">
+      <div className="p-4 border-t border-zinc-700 bg-zinc-900 shrink-0 flex items-center gap-3">
+         <button
+           type="button"
+           onClick={onCancel}
+           disabled={isSubmitting}
+           className="px-5 py-3 text-sm text-zinc-400 hover:text-white font-semibold transition-colors rounded-xl disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+         >
+           Cancelar
+         </button>
          <button
            onClick={handleSubmit}
            disabled={isSubmitting || items.length === 0}
-           className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+           className="flex-1 bg-cyan-700 hover:bg-cyan-800 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
          >
            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
-           {isSubmitting ? 'Procesando Múltiples Artículos...' : `Finalizar y Guardar ${items.length > 0 ? items.length : ''} Artículos`}
+           {isSubmitting
+             ? 'Guardando la orden...'
+             : items.length === 0
+               ? 'Agregá al menos un artículo'
+               : `Guardar la orden (${items.length} artículo${items.length === 1 ? '' : 's'})`}
          </button>
       </div>
 

@@ -1637,7 +1637,7 @@ export default function POS() {
               </span>
               <button
                 onClick={applyCashDiscount}
-                className="text-[11px] font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
+                className="text-[11px] font-bold bg-cyan-700 hover:bg-cyan-800 text-white px-3 py-1.5 rounded-lg shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
               >
                 Aplicar
               </button>

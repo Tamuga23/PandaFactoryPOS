@@ -340,7 +340,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
               <button
                 onClick={onConfirm}
                 disabled={isConfirming}
-                className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50"
+                className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-6 py-2.5 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50"
               >
                 {isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                 {/*
@@ -399,7 +399,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
               <button
                 onClick={handleDownloadPDF}
                 disabled={isGenerating || isSharing}
-                className="flex items-center gap-2 bg-[#1a6ba0] hover:bg-[#1a6ba0]/90 text-white font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                 {isGenerating ? 'Generando PDF...' : 'Descargar PDF'}

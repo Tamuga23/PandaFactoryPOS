@@ -363,7 +363,6 @@ export default function Inventory() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        {/* <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1> */}
         <div className="relative w-full sm:max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-zinc-500" />

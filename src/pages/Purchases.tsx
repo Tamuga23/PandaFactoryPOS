@@ -6,6 +6,7 @@ import { Trash2, Calendar, User, Plus, Package, Clock, CheckCircle2, Navigation,
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import PurchaseRegistration from '../components/PurchaseRegistration';
+import { etiquetaOrden } from '../lib/etiquetas';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -411,7 +412,14 @@ export default function Purchases() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {purchases.sort((a, b) => b.date - a.date).map(p => {
+              {/*
+                  `purchases.sort()` ordenaba EN EL LUGAR el mismo array que
+                  vive en el contexto y que comparten Dashboard, Reportes y el
+                  Catalogo. Ordenar durante el render muta un dato de React sin
+                  avisarle, y el orden que esta pantalla eligio se le aparecia
+                  a las otras. Una copia cuesta nada y no se lleva a nadie.
+               */}
+              {[...purchases].sort((a, b) => b.date - a.date).map(p => {
                 const isClosed = p.status === 'CLOSED';
                 const isPartial = p.status === 'PARTIAL';
                 const isCancelled = p.status === 'CANCELLED';
@@ -423,6 +431,13 @@ export default function Purchases() {
                   <tr key={p.id} className={`hover:bg-zinc-800/30 transition-colors ${isCancelled ? 'opacity-60' : ''}`}>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1.5 w-fit">
+                        {/*
+                            Decia OPEN, PARTIAL o CLOSED: el valor crudo de
+                            Firestore. Y una orden recien puesta —lo mas normal
+                            que hay en esta pantalla— se pintaba de rose, que en
+                            toda la aplicacion significa peligro. Nada esta mal
+                            en una orden que todavia no llego; esta en camino.
+                         */}
                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
                           isCancelled
                             ? 'bg-zinc-700/40 text-zinc-400 border border-zinc-600/40'
@@ -430,10 +445,10 @@ export default function Purchases() {
                             ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                             : isPartial
                             ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                            : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                            : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                         }`}>
                           {isCancelled ? <Ban className="w-3 h-3" /> : isClosed ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          <span>{isCancelled ? 'CANCELADA' : (p.status || 'OPEN')}</span>
+                          <span className="uppercase">{etiquetaOrden(p.status)}</span>
                         </div>
                         <span className="font-mono text-[10px] text-zinc-400 px-1">{p.id.slice(0, 8)}</span>
                       </div>
@@ -723,14 +738,14 @@ export default function Purchases() {
                        <div key={t.id} className="bg-zinc-800 p-4 border border-zinc-700 rounded-xl relative">
                          {t.isReceived && (
                            <div className="absolute top-4 right-4 flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                             <CheckCircle2 className="w-3 h-3" /> IN STOCK
+                             <CheckCircle2 className="w-3 h-3" /> YA EN INVENTARIO
                            </div>
                          )}
                          <div className="flex items-center gap-3 mb-2">
                             <span className="font-mono text-sm text-zinc-100 font-bold tracking-wider">{t.trackingNumber || 'Sin Asignar'}</span>
                          </div>
                          <div className="text-xs text-zinc-400 mb-3 flex gap-4 flex-wrap">
-                            <span><b>Status:</b> {t.status || 'N/A'}</span>
+                            <span><b>Estado:</b> {t.status || 'Sin estado'}</span>
                             {t.finalWeight && <span><b>Peso:</b> {t.finalWeight} lbs</span>}
                             {/* P2.8: días en tránsito por caja (para reclamos al courier) */}
                             {(() => {
@@ -762,7 +777,7 @@ export default function Purchases() {
                                           </span>
                                         )}
                                       </span>
-                                      <span className="font-mono text-cyan-400 shrink-0 ml-2">Qty: {iib.quantity}</span>
+                                      <span className="font-mono text-cyan-400 shrink-0 ml-2 tabular-nums">{iib.quantity} u.</span>
                                    </div>
                                  );
                               })}
@@ -892,7 +907,7 @@ export default function Purchases() {
                       {receptionDate && !editingTracking?.isReceived && (
                         <div className="p-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-start gap-2">
                           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                          <p className="text-[10px] text-emerald-400 leading-relaxed uppercase font-semibold mt-0.5">Al establecer Fecha de Recepción e ingresar este tracking general, se sumarán al inventario permanentemente estas unidades. Revisa la cantidad correctamente.</p>
+                          <p className="text-[10px] text-emerald-400 leading-relaxed uppercase font-semibold mt-0.5">Al establecer Fecha de Recepción e ingresar este tracking general, se sumarán al inventario permanentemente estas unidades. Revisá bien la cantidad.</p>
                         </div>
                       )}
                       

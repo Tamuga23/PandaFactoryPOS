@@ -366,10 +366,22 @@ export default function ProductCatalog({
       e.preventDefault();
       setOpcionActiva((a) => (a <= 0 ? ultimo : a - 1));
     } else if (e.key === 'Enter') {
-      // Solo si hay algo resaltado: si no, el Enter es del formulario.
+      /*
+        El Enter NUNCA sigue de largo hasta el <form>.
+
+        Antes solo se frenaba si habia una opcion resaltada con las flechas; si
+        no, la tecla llegaba al formulario, que hace submit y GUARDA. Buscar el
+        producto B con el producto A abierto lo guardaba a A en silencio.
+
+        Ahora: si hay algo resaltado se carga; si la busqueda dejo una sola
+        coincidencia se carga esa, que es lo que uno espera al escribir un SKU
+        completo; y si no, no pasa nada.
+      */
+      e.preventDefault();
       if (opcionActiva >= 0 && coincidenciasProducto[opcionActiva]) {
-        e.preventDefault();
         cargarProducto(coincidenciasProducto[opcionActiva].id);
+      } else if (coincidenciasProducto.length === 1) {
+        cargarProducto(coincidenciasProducto[0].id);
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();

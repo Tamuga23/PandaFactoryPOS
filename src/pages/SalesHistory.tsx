@@ -7,6 +7,7 @@ import { v5 as uuidv5 } from 'uuid';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
+import { ESTADO_VENTA } from '../lib/etiquetas';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -19,9 +20,8 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 const NS_PROFORMA_A_FACTURA = '7f1c0a5e-9b3d-4a2e-8c41-2f6d5b0e91a7';
 
 // P4.1: estados en español para los chips.
-const STATUS_LABEL: Record<string, string> = {
-  completed: 'Completada', returned: 'Devuelta', cancelled: 'Cancelada',
-};
+// El diccionario vive en `src/lib/etiquetas.ts`: Clientes y Compras lo
+// necesitaban tambien, y cada pantalla tenia el suyo o ninguno.
 // P4.2: fecha yyyy-MM-dd a medianoche LOCAL.
 const localDayStart = (str: string) => {
   const [y, m, d] = str.split('-').map(Number);
@@ -412,7 +412,7 @@ export default function SalesHistory() {
                         estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
                         'bg-rose-500/10 text-rose-500'
                        }`}>
-                         {STATUS_LABEL[estadoVenta] || estadoVenta}
+                         {ESTADO_VENTA[estadoVenta] || estadoVenta}
                        </span>
                      </h4>
                      <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
@@ -456,7 +456,7 @@ export default function SalesHistory() {
                         onClick={() => handleInvoiceProforma(sale)}
                         disabled={!!invoicingProformaId}
                         title="Convierte esta proforma en factura (verifica y descuenta stock)"
-                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       >
                         {invoicingProformaId === sale.id ? 'Facturando…' : 'FACTURAR'}
                       </button>
@@ -630,7 +630,7 @@ export default function SalesHistory() {
               className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4"
             >
               <h3 id="titulo-cambiar-estado" className="text-lg font-bold text-zinc-100">
-                Marcar como {STATUS_LABEL[nuevo || 'completed']}
+                Marcar como {ESTADO_VENTA[nuevo || 'completed']}
               </h3>
 
               <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-sm text-zinc-200">
@@ -675,7 +675,7 @@ export default function SalesHistory() {
                   }}
                   className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white text-sm font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
                 >
-                  Marcar como {STATUS_LABEL[nuevo || 'completed']}
+                  Marcar como {ESTADO_VENTA[nuevo || 'completed']}
                 </button>
               </div>
             </div>

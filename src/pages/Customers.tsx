@@ -5,6 +5,7 @@ import { Search, Plus, Trash2, Edit, User, Phone, MapPin, Mail, Calendar, Histor
 import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
+import { etiquetaVenta } from '../lib/etiquetas';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -346,7 +347,7 @@ export default function Customers() {
                           (sale.status || 'completed') === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
                           sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-500'
                         }`}>
-                          {sale.documentType === 'PROFORMA' ? 'proforma' : (sale.status || 'completed')}
+                          {sale.documentType === 'PROFORMA' ? 'Proforma' : etiquetaVenta(sale.status)}
                         </span>
                       </p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">

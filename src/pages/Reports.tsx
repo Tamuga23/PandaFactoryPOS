@@ -3,6 +3,8 @@ import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { format, parseISO, startOfMonth, subDays } from 'date-fns';
+// El eje del grafico mensual decia "Sep 2026" en ingles.
+import { es } from 'date-fns/locale';
 import {
   AreaChart,
   Area,
@@ -120,7 +122,7 @@ export default function Reports() {
   const areaData = useMemo(() => {
     const monthlyData = filteredSales.reduce((acc, sale) => {
       const dateStr = format(new Date(sale.date), 'yyyy-MM');
-      if (!acc[dateStr]) acc[dateStr] = { dateStr, month: format(new Date(sale.date), 'MMM yyyy'), Revenue: 0, Cost: 0 };
+      if (!acc[dateStr]) acc[dateStr] = { dateStr, month: format(new Date(sale.date), 'MMM yyyy', { locale: es }), Revenue: 0, Cost: 0 };
       
       acc[dateStr].Revenue += sale.total;
       
@@ -273,7 +275,7 @@ export default function Reports() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart */}
         <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-           <h3 className="text-sm font-bold text-zinc-100 mb-6">Revenue vs Cost (Tendencia Mensual)</h3>
+           <h3 className="text-sm font-bold text-zinc-100 mb-6">Ingresos contra costo, mes a mes</h3>
            <div className="h-72">
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={areaData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
@@ -324,7 +326,7 @@ export default function Reports() {
       {/* Product Performance Table */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800">
-           <h3 className="text-sm font-bold text-zinc-100">Performance de Productos (Detallado)</h3>
+           <h3 className="text-sm font-bold text-zinc-100">Rendimiento por producto</h3>
         </div>
         <div className="overflow-x-auto text-sm text-left custom-scrollbar">
            <table className="w-full">

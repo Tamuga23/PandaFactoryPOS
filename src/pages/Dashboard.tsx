@@ -4,6 +4,10 @@ import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { format } from 'date-fns';
+// La tabla de ventas recientes decia "Sep 22, 2026 2:30 PM": mes abreviado en
+// ingles y reloj de 12 horas, en una aplicacion que por lo demas esta entera en
+// espanol y donde nadie dice "2:30 PM".
+import { es } from 'date-fns/locale';
 
 const DAY = 86400000;
 type Period = 'hoy' | 'semana' | 'mes';
@@ -178,7 +182,7 @@ export default function Dashboard() {
                   {stats.recentSales.map(sale => (
                     <tr key={sale.id} className="hover:bg-zinc-800/30">
                       <td className="px-4 py-3 font-medium text-cyan-400">{sale.invoiceNumber}</td>
-                      <td className="px-4 py-3 text-zinc-400 tabular-nums">{format(sale.date, 'MMM dd, yyyy h:mm a')}</td>
+                      <td className="px-4 py-3 text-zinc-400 tabular-nums">{format(sale.date, "d 'de' MMM, HH:mm", { locale: es })}</td>
                       <td className="px-4 py-3 text-right text-zinc-300">{sale.items.length}</td>
                       <td className="px-4 py-3 text-right font-medium text-zinc-200">{formatCurrency(sale.total)}</td>
                     </tr>
