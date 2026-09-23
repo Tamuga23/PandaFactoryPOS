@@ -173,6 +173,8 @@ interface FormData {
   category: string;
   status: 'Activo' | 'Inactivo' | string;
   imageFile: File | null;
+  /** El operador pidió sacar la foto que ya tiene el producto. */
+  quitarImagen: boolean;
   publicar: boolean;
   precioPromo: number | string;
   descEfectivoPct: number | string;
@@ -207,6 +209,7 @@ const INITIAL_FORM_DATA: FormData = {
   category: '',
   status: 'Activo',
   imageFile: null,
+  quitarImagen: false,
   publicar: true,
   precioPromo: '',
   descEfectivoPct: '',
@@ -355,6 +358,7 @@ export default function ProductCatalog({
         category: product.category,
         status: product.status || 'Activo',
         imageFile: null,
+        quitarImagen: false,
         publicar: product.publicar !== false,
         precioPromo: product.precioPromo || '',
         descEfectivoPct: product.descEfectivoPct || '',
@@ -488,7 +492,7 @@ export default function ProductCatalog({
   // Manejo de la subida de imagen
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFormData({ ...formData, imageFile: e.target.files[0] });
+      setFormData({ ...formData, imageFile: e.target.files[0], quitarImagen: false });
     }
   };
 
@@ -517,6 +521,7 @@ export default function ProductCatalog({
         category: formData.category,
         status: formData.status,
         imageFile: formData.imageFile,
+        quitarImagen: formData.quitarImagen,
         publicar: formData.publicar,
         precioPromo: formData.precioPromo ? Number(formData.precioPromo) : undefined,
         descEfectivoPct: formData.descEfectivoPct ? Number(formData.descEfectivoPct) : undefined,
@@ -912,7 +917,9 @@ export default function ProductCatalog({
             <div className="flex items-center gap-4">
               <label className="flex items-center justify-center w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-cyan-500 cursor-pointer transition-colors group relative overflow-hidden shrink-0 focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                 {(() => {
-                   const existingImg = isEditing && formData.id ? catalog.find(p => p.id === formData.id)?.imageUrl : null;
+                   const existingImg = isEditing && formData.id && !formData.quitarImagen
+                     ? catalog.find(p => p.id === formData.id)?.imageUrl
+                     : null;
                    const previewUrl = formData.imageFile ? URL.createObjectURL(formData.imageFile) : existingImg;
                    
                    if (previewUrl) {
@@ -934,16 +941,50 @@ export default function ProductCatalog({
                   className="sr-only"
                 />
               </label>
-              <div className="flex-1 text-sm text-zinc-400 truncate">
+              <div className="flex-1 text-sm text-zinc-400 min-w-0">
                 {formData.imageFile ? (
-                  <span className="text-cyan-400 font-medium">{formData.imageFile.name}</span>
+                  <span className="text-cyan-400 font-medium truncate block">{formData.imageFile.name}</span>
+                ) : formData.quitarImagen ? (
+                  <span className="text-amber-400">Se va a quitar la foto al guardar.</span>
                 ) : (
                   <span>Subir una foto (PNG, JPG)</span>
                 )}
-                {isEditing && !formData.imageFile && catalog.find(p => p.id === formData.id)?.imageUrl && (
+                {isEditing && !formData.imageFile && !formData.quitarImagen
+                  && catalog.find(p => p.id === formData.id)?.imageUrl && (
                   <p className="text-xs text-zinc-400 mt-1">Se mantiene la foto actual si no elegís otra.</p>
                 )}
               </div>
+
+              {/*
+                  Quitar la foto no se podía: sólo reemplazarla. Si subiste la
+                  equivocada, quedaba para siempre — ni el formulario ni el hook
+                  tenían forma de borrarla.
+               */}
+              {(formData.imageFile || (isEditing && !formData.quitarImagen && catalog.find(p => p.id === formData.id)?.imageUrl)) && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    imageFile: null,
+                    // Con un archivo recien elegido, el boton CANCELA esa
+                    // eleccion y la foto que ya estaba se queda. Sin archivo,
+                    // el boton pide quitar la que hay.
+                    quitarImagen: formData.imageFile === null,
+                  })}
+                  className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:text-rose-400 hover:border-rose-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  {formData.imageFile ? 'Cancelar' : 'Quitar foto'}
+                </button>
+              )}
+              {formData.quitarImagen && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, quitarImagen: false })}
+                  className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  Dejarla
+                </button>
+              )}
             </div>
 
             <div className="mt-3">

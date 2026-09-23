@@ -132,11 +132,17 @@ export default function Catalog() {
     const originalProduct = products.find(p => p.id === id);
     if (!originalProduct) throw new Error('Producto no encontrado');
 
-    let imageBase64 = originalProduct.imageBase64;
-    // Si subió un archivo nuevo, reemplazar imagen
+    /*
+      Tres casos, y antes sólo existían dos: se sube una foto nueva, se deja la
+      que estaba... y ahora también se la puede QUITAR. `undefined` es lo que
+      `updateProduct` traduce a `deleteField()` — ver su lista `CLEARABLE`.
+    */
+    let imageBase64: string | undefined = originalProduct.imageBase64;
     if (productData.imageFile) {
        const rawBase64 = await fileToBase64(productData.imageFile);
        imageBase64 = await compressImage(rawBase64);
+    } else if (productData.quitarImagen) {
+       imageBase64 = undefined;
     }
 
     const updatedProduct = {

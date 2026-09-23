@@ -342,6 +342,10 @@ export function useStoreData() {
         'precioPromo', 'descEfectivoPct', 'campania',
         'beneficio', 'bullets', 'objecionesOverride',
         'specsProyector', 'media', 'financiamientoOverride',
+        // La foto no se podía QUITAR, sólo reemplazar: si subías la equivocada,
+        // quedaba. Es opcional en `firestore.rules`, así que `deleteField()`
+        // pasa sin tocar nada más.
+        'imageBase64',
       ];
       const writeData: any = {};
       for (const [key, val] of Object.entries(pData)) {
