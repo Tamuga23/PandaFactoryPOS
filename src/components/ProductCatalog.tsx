@@ -283,6 +283,26 @@ export default function ProductCatalog({
     () => resolverCategoriaSpec(formData.category) ?? formData.category,
     [formData.category],
   );
+  /*
+    Specs que quedaron de OTRA categoría.
+
+    `toFirestoreSpecs` preserva a propósito las claves que no pertenecen a la
+    categoría actual, para que cambiar de categoría por error —o volver— no
+    pierda lo cargado. La decisión es buena; lo que faltaba es que se viera.
+
+    Porque al espejo de la tablet viajan TODAS: el backfill hace
+    `if (p.specsProyector) doc.specsProyector = p.specsProyector`, sin filtrar.
+    Así que un smartwatch que alguna vez fue proyector le puede llegar al
+    cliente con "brillo: 800 lúmenes", y desde este formulario no había forma
+    de enterarse, porque sólo se dibujan los campos de la categoría de ahora.
+  */
+  const specsDeOtraCategoria = useMemo(() => {
+    const conocidos = new Set(specFields.map((f) => f.key));
+    return Object.entries(formData.specsOriginal ?? {})
+      .filter(([k, v]) => !conocidos.has(k) && v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => ({ clave: k, valor: Array.isArray(v) ? v.join(', ') : String(v) }));
+  }, [specFields, formData.specsOriginal]);
+
   /** Cuántos campos de la categoría tienen dato: da feedback de qué falta cargar. */
   const specsCargadas = useMemo(
     () =>
@@ -1201,6 +1221,44 @@ export default function ProductCatalog({
             Se muestra en la tablet y en la web tal como se escribe acá. Los campos vacíos no se muestran.
           </p>
 
+          {specsDeOtraCategoria.length > 0 && (
+            <div className="mb-4 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+              <p className="text-xs text-amber-400 leading-relaxed">
+                <strong>
+                  {specsDeOtraCategoria.length === 1
+                    ? 'Hay un dato guardado que no es de esta categoría'
+                    : `Hay ${specsDeOtraCategoria.length} datos guardados que no son de esta categoría`}
+                </strong>{' '}
+                — quedaron de una categoría anterior. No se editan acá, pero <strong>sí se le
+                muestran al cliente en la tablet</strong>.
+              </p>
+              <ul className="mt-2 space-y-0.5 list-none">
+                {specsDeOtraCategoria.map((s) => (
+                  <li key={s.clave} className="text-xs text-zinc-300">
+                    <span className="text-zinc-400">{s.clave}:</span> {s.valor}
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => {
+                  const conocidos = new Set(specFields.map((f) => f.key));
+                  const limpio: Record<string, unknown> = {};
+                  for (const [k, v] of Object.entries(formData.specsOriginal ?? {})) {
+                    if (conocidos.has(k)) limpio[k] = v;
+                  }
+                  setFormData({ ...formData, specsOriginal: limpio as typeof formData.specsOriginal });
+                }}
+                className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 hover:text-rose-400 hover:border-rose-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500"
+              >
+                Quitarlos
+              </button>
+              <p className="text-[10px] text-zinc-400 mt-2">
+                Se quitan al guardar. Si volvés a la categoría anterior antes de guardar, reaparecen.
+              </p>
+            </div>
+          )}
+
           {specFields.length === 0 ? (
             <p className="text-xs text-zinc-400 italic">
               {formData.category
@@ -1347,7 +1405,7 @@ export default function ProductCatalog({
         {/* --- Objeciones Override --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
           <div className="flex justify-between items-center mb-4">
-            <h4 className="text-base font-medium text-cyan-400">Respuestas a Objeciones (Override)</h4>
+            <h4 className="text-base font-medium text-cyan-400">Respuestas a objeciones, solo para este producto</h4>
             <button type="button" onClick={handleObjAdd} className="text-xs bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 px-3 py-1.5 rounded flex items-center gap-1 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500">
               <Plus className="w-3 h-3" /> Agregar Objeción
             </button>
@@ -1419,14 +1477,17 @@ export default function ProductCatalog({
             <div className="space-y-2">
               {(formData.media.gallery ?? []).map((g: { url: string; label: string }, i: number) => (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input aria-label="Fotos complementarias (Demo de la tablet)"
+                  {/* Los dos campos de la fila tenian el MISMO aria-label, asi
+                      que un lector anunciaba cuatro veces "Fotos complementarias"
+                      sin distinguir la direccion de la etiqueta. */}
+                  <input aria-label={`Direccion de la foto ${i + 2}`}
                     type="url"
                     value={g.url}
                     onChange={(e) => handleGalleryChange(i, 'url', e.target.value)}
                     placeholder={`https://... (foto ${i + 2})`}
                     className="md:col-span-2 w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
-                  <input aria-label="Fotos complementarias (Demo de la tablet)"
+                  <input aria-label={`Etiqueta de la foto ${i + 2}`}
                     type="text"
                     maxLength={40}
                     value={g.label}
