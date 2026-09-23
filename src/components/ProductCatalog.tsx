@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, ChangeEvent, FormEvent } from 'react';
 import { PackagePlus, Edit, Save, Image as ImageIcon, Loader2, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import ConfirmarBorrado from './ConfirmarBorrado';
 import { toast } from './Toast';
 import type { SalesBullet, ObjectionOverride, ProjectorSpecs, TabletMedia } from '../types';
 import type { FinanciamientoOverride } from '../lib/financiamiento';
@@ -142,6 +143,24 @@ export interface ProductCatalogProps {
   objecionesDisponibles?: { id: string; titulo: string }[];
 }
 
+/*
+  Comparacion estable de dos estados del formulario.
+
+  `JSON.stringify` a secas depende del ORDEN de las claves, y los dos objetos
+  que se comparan se arman por caminos distintos: `INITIAL_FORM_DATA` es un
+  literal y el que sale de `cargarProducto` es otro. Con las claves ordenadas,
+  dos formularios iguales dan la misma cadena vengan de donde vengan.
+
+  `imageFile` queda afuera porque es un `File`, que no se serializa: se compara
+  aparte, y basta con que exista para saber que hay una foto sin guardar.
+*/
+const huella = (valor: unknown): string =>
+  JSON.stringify(valor, (_clave, v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.keys(v).sort().reduce((acc: any, k) => { acc[k] = v[k]; return acc; }, {})
+      : v,
+  );
+
 interface FormData {
   id: string;
   sku: string;
@@ -235,6 +254,19 @@ export default function ProductCatalog({
     quedó.
   */
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+  /*
+    Como estaba el formulario la ultima vez que se cargo o se guardo. Sirve para
+    saber si hay trabajo sin guardar antes de tirarlo.
+
+    Habia CUATRO caminos que borraban el formulario entero sin preguntar: las
+    dos pestanas de modo, el boton "Cancelar / Limpiar" y elegir otro producto
+    en el buscador. Son 31 campos, y varios son parrafos: los bullets, las
+    respuestas a objeciones, la ficha tecnica. Un clic de mas en "Crear" y no
+    quedaba nada, sin un aviso.
+  */
+  const [referencia, setReferencia] = useState<FormData>(INITIAL_FORM_DATA);
+  /** Lo que hay que hacer si el operador confirma que quiere descartar. */
+  const [descartarY, setDescartarY] = useState<{ accion: () => void } | null>(null);
 
   // Extraer categorías únicas para el dropdown
   const uniqueCategories = useMemo(() => {
@@ -268,14 +300,36 @@ export default function ProductCatalog({
   // 3. LÓGICA DE CAMPOS Y MANEJADORES
 
   // Cambio Nuevo/Editar
-  const handleModeToggle = (editing: boolean) => {
+  const hayCambiosSinGuardar = useMemo(() => {
+    if (formData.imageFile) return true;
+    const { imageFile: _f, ...actual } = formData;
+    const { imageFile: _r, ...base } = referencia;
+    return huella(actual) !== huella(base);
+  }, [formData, referencia]);
+
+  /**
+   * Corre `accion` si no hay nada que perder; si lo hay, primero pregunta.
+   * Todo lo que tire el formulario pasa por acá.
+   */
+  const siNoHayNadaQuePerder = (accion: () => void) => {
+    if (!hayCambiosSinGuardar) {
+      accion();
+      return;
+    }
+    setDescartarY({ accion });
+  };
+
+  const limpiarFormulario = (editing: boolean) => {
     setIsEditing(editing);
     setFormData(INITIAL_FORM_DATA);
+    setReferencia(INITIAL_FORM_DATA);
     setIsCustomCategory(false);
     setBusquedaProducto('');
     setListaAbierta(false);
     setOpcionActiva(-1);
   };
+
+  const handleModeToggle = (editing: boolean) => siNoHayNadaQuePerder(() => limpiarFormulario(editing));
 
   /**
    * Carga un producto del catálogo en el formulario. Se extrajo del handler del
@@ -287,7 +341,9 @@ export default function ProductCatalog({
 
     if (product) {
       const isStandardCategory = uniqueCategories.includes(product.category);
-      setFormData({
+      // El mismo objeto va al formulario y a la referencia: desde este momento
+      // "sin cambios" significa "igual a como vino del catálogo".
+      const cargado: FormData = {
         id: product.id,
         sku: product.sku || product.id,
         cost: product.cost ?? '',
@@ -314,11 +370,14 @@ export default function ProductCatalog({
         specsProyector: toFormSpecs(product.specsProyector),
         specsOriginal: product.specsProyector,
         media: toFormMedia(product.media),
-      });
+      };
+      setFormData(cargado);
+      setReferencia(cargado);
       setIsCustomCategory(!isStandardCategory);
       setBusquedaProducto(product.nombre);
     } else {
       setFormData(INITIAL_FORM_DATA);
+      setReferencia(INITIAL_FORM_DATA);
       setIsCustomCategory(false);
       setBusquedaProducto('');
     }
@@ -395,10 +454,13 @@ export default function ProductCatalog({
         completo; y si no, no pasa nada.
       */
       e.preventDefault();
+      // Cargar otro producto pisa el formulario entero: pasa por el portero.
       if (opcionActiva >= 0 && coincidenciasProducto[opcionActiva]) {
-        cargarProducto(coincidenciasProducto[opcionActiva].id);
+        const id = coincidenciasProducto[opcionActiva].id;
+        siNoHayNadaQuePerder(() => cargarProducto(id));
       } else if (coincidenciasProducto.length === 1) {
-        cargarProducto(coincidenciasProducto[0].id);
+        const id = coincidenciasProducto[0].id;
+        siNoHayNadaQuePerder(() => cargarProducto(id));
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();
@@ -514,6 +576,7 @@ export default function ProductCatalog({
 
       // Limpiar y resetear estados
       setFormData(INITIAL_FORM_DATA);
+      setReferencia(INITIAL_FORM_DATA);
       setIsCustomCategory(false);
       
       // Callback opcional de éxito
@@ -679,7 +742,7 @@ export default function ProductCatalog({
                       id={`catalogo-op-${idx}`}
                       role="option"
                       aria-selected={idx === opcionActiva}
-                      onClick={() => cargarProducto(p.id)}
+                      onClick={() => siNoHayNadaQuePerder(() => cargarProducto(p.id))}
                       className={`px-3 py-2 flex items-baseline justify-between gap-3 cursor-pointer hover:bg-zinc-700 ${
                         idx === opcionActiva ? 'bg-zinc-700' : ''
                       }`}
@@ -1335,6 +1398,7 @@ export default function ProductCatalog({
           <button
             type="button"
             onClick={() => handleModeToggle(isEditing)}
+            title={hayCambiosSinGuardar ? 'Hay cambios sin guardar' : undefined}
             disabled={isSubmitting}
             className="px-6 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
@@ -1360,6 +1424,32 @@ export default function ProductCatalog({
           </button>
         </div>
       </form>
+
+      {/*
+          Descartar el formulario es tirar trabajo, así que usa el mismo diálogo
+          que todo lo demás que no vuelve. Antes las dos pestañas de modo, el
+          botón de limpiar y elegir otro producto en el buscador lo hacían sin
+          preguntar nada.
+       */}
+      <ConfirmarBorrado
+        abierto={!!descartarY}
+        titulo="Descartar los cambios sin guardar"
+        nombre={formData.nombre.trim() || 'Producto sin nombre'}
+        detalle={isEditing && formData.sku ? `SKU ${formData.sku}` : 'Producto nuevo, todavía sin guardar'}
+        consecuencias={[
+          {
+            tono: 'peligro' as const,
+            texto: 'Se pierde todo lo que escribiste desde la última vez que guardaste, incluidos los bullets, las respuestas a objeciones y la ficha técnica.',
+          },
+        ]}
+        textoConfirmar="Descartar los cambios"
+        onConfirmar={() => {
+          const accion = descartarY?.accion;
+          setDescartarY(null);
+          accion?.();
+        }}
+        onCancelar={() => setDescartarY(null)}
+      />
     </div>
   );
 }
