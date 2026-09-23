@@ -69,7 +69,8 @@ export default function Catalog() {
     cost: p.cost,
     stock: p.stock,
     minStockAlert: p.minStockAlert,
-    description: p.name, // Usamos el nombre del producto como descripcion principal
+    nombre: p.name,
+    descripcion: p.description || '',
     priceUSD: p.price,
     category: p.category,
     status: p.activo === false ? 'Inactivo' : 'Activo',
@@ -100,8 +101,8 @@ export default function Catalog() {
     const newProduct = {
       id: uuidv4(),
       sku: (productData.sku || '').trim(),
-      name: productData.description,
-      description: productData.description,
+      name: productData.nombre,
+      description: productData.descripcion || undefined,
       price: Number(productData.priceUSD), // We store USD as base now
       cost: productData.cost !== undefined ? Number(productData.cost) : 0,
       stock: productData.stock !== undefined ? Number(productData.stock) : 0,
@@ -145,8 +146,15 @@ export default function Catalog() {
       sku: (productData.sku || '').trim() || originalProduct.sku,
       cost: productData.cost !== undefined ? Number(productData.cost) : originalProduct.cost,
       minStockAlert: productData.minStockAlert !== undefined ? Number(productData.minStockAlert) : originalProduct.minStockAlert,
-      name: productData.description,
-      // A3: no pisar `description` con el nombre al editar; se preserva la original.
+      name: productData.nombre,
+      /*
+        `description` ya es un campo propio y editable, no una copia del nombre.
+        Antes se preservaba la original a proposito (A3) para no pisarla con el
+        nombre — pero como al crear se grababa IGUAL al nombre y despues no se
+        podia tocar, lo que se preservaba era el nombre viejo, y eso es lo que
+        la tablet mostraba como descripcion.
+      */
+      description: productData.descripcion || undefined,
       price: Number(productData.priceUSD), // We store USD as base now
       category: productData.category,
       imageBase64: imageBase64,

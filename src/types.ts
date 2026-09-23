@@ -279,6 +279,16 @@ export interface ClientData {
 /** Bullet / guion de venta mostrado en la tablet. */
 export interface SalesBullet {
   text: string;
+  /**
+   * Etiqueta corta arriba del bullet en la tablet (ej. "BRILLO", "BATERÍA").
+   *
+   * Faltaba acá aunque el formulario la escribe, `SalesBulletSchema` la valida
+   * (máximo 24) y las reglas la aceptan. No se notó porque `@types/react` no
+   * estaba instalado: sin él, `useState` resuelve a `any` y con `strict` apagado
+   * TypeScript no chista, así que TODO el estado de TODOS los componentes era
+   * `any` y `npm run lint` no podía ver este error ni ningún otro de la UI.
+   */
+  etiqueta?: string;
   icon?: string;
   order?: number;
 }

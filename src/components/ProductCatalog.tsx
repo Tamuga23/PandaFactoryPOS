@@ -105,7 +105,10 @@ const toFormMedia = (media?: TabletMedia) => {
 export interface CatalogProduct {
   id: string; // id del documento (uuid en productos nuevos; SKU en legacy)
   sku?: string; // P3.5: el SKU ahora es campo propio, ya no es el id
-  description: string;
+  /** El nombre: lo que ven el POS, el Inventario y la factura (`name`). */
+  nombre: string;
+  /** El párrafo que la tablet muestra debajo del nombre (`description`). */
+  descripcion?: string;
   priceUSD: number;
   category: string;
   status: 'Activo' | 'Inactivo' | string;
@@ -145,7 +148,8 @@ interface FormData {
   cost: number | string;
   stock: number | string;
   minStockAlert: number | string;
-  description: string;
+  nombre: string;
+  descripcion: string;
   priceUSD: number | string;
   category: string;
   status: 'Activo' | 'Inactivo' | string;
@@ -178,7 +182,8 @@ const INITIAL_FORM_DATA: FormData = {
   cost: '',
   stock: '',
   minStockAlert: '',
-  description: '',
+  nombre: '',
+  descripcion: '',
   priceUSD: '',
   category: '',
   status: 'Activo',
@@ -288,7 +293,8 @@ export default function ProductCatalog({
         cost: product.cost ?? '',
         stock: product.stock ?? '',
         minStockAlert: product.minStockAlert ?? '',
-        description: product.description,
+        nombre: product.nombre,
+        descripcion: product.descripcion || '',
         priceUSD: product.priceUSD,
         category: product.category,
         status: product.status || 'Activo',
@@ -310,7 +316,7 @@ export default function ProductCatalog({
         media: toFormMedia(product.media),
       });
       setIsCustomCategory(!isStandardCategory);
-      setBusquedaProducto(product.description);
+      setBusquedaProducto(product.nombre);
     } else {
       setFormData(INITIAL_FORM_DATA);
       setIsCustomCategory(false);
@@ -342,13 +348,13 @@ export default function ProductCatalog({
       const ai = a.status === 'Inactivo' ? 1 : 0;
       const bi = b.status === 'Inactivo' ? 1 : 0;
       if (ai !== bi) return ai - bi;
-      return a.description.localeCompare(b.description, 'es');
+      return a.nombre.localeCompare(b.nombre, 'es');
     });
     const q = busquedaProducto.trim().toLowerCase();
     if (!q) return orden;
     return orden.filter(
       (p) =>
-        p.description.toLowerCase().includes(q) ||
+        p.nombre.toLowerCase().includes(q) ||
         (p.sku || '').toLowerCase().includes(q),
     );
   }, [catalog, busquedaProducto]);
@@ -439,7 +445,8 @@ export default function ProductCatalog({
       // Crear objeto estandarizado
       const productDataToSave = {
         sku: formData.sku.trim(),
-        description: formData.description,
+        nombre: formData.nombre,
+        descripcion: formData.descripcion.trim(),
         priceUSD: Number(formData.priceUSD),
         // P3.5: datos POS en la misma ficha
         cost: formData.cost !== '' ? Number(formData.cost) : undefined,
@@ -497,12 +504,12 @@ export default function ProductCatalog({
         if (!formData.id) throw new Error('Debe seleccionar un producto para actualizar.');
         // Update product
         await onUpdateProduct(formData.id, productDataToSave);
-        toast.success(`«${formData.description}» actualizado en el catálogo.`);
+        toast.success(`«${formData.nombre}» actualizado en el catálogo.`);
       } else {
         if (!formData.sku.trim()) throw new Error('El SKU es obligatorio para nuevos productos.');
         // P3.5: el id del documento lo genera el caller (uuid); acá viaja solo el SKU.
         await onAddProduct(productDataToSave);
-        toast.success(`«${formData.description}» registrado en el catálogo.`);
+        toast.success(`«${formData.nombre}» registrado en el catálogo.`);
       }
 
       // Limpiar y resetear estados
@@ -681,7 +688,7 @@ export default function ProductCatalog({
                         {p.status === 'Inactivo' && (
                           <span className="text-[10px] uppercase font-bold text-amber-400 mr-1.5">Inactivo</span>
                         )}
-                        {p.description}
+                        {p.nombre}
                       </span>
                       <span className="text-[10px] text-zinc-400 shrink-0 tabular-nums">
                         {p.sku} · US${Number(p.priceUSD).toFixed(2)}
@@ -719,18 +726,32 @@ export default function ProductCatalog({
             />
           </div>
 
-          {/* Description Field */}
+          {/*
+              Este campo se llamaba "Descripción del Producto" y escribía en
+              `name`: es el nombre que ven el POS, el Inventario y la factura.
+              El placeholder lo delataba — "Ej. Proyector MagCubic HY450" es un
+              nombre, no una descripción.
+
+              La descripción de verdad existía en Firestore, se grababa UNA vez
+              al crear con el mismo valor que el nombre, no se podía editar
+              nunca más... y sí viajaba a la tablet. Así que renombrar un
+              producto le dejaba al cliente el nombre nuevo arriba y el viejo
+              como descripción. Ahora son dos campos distintos, los dos editables.
+           */}
           <div>
-            <label htmlFor="producto-descripcion-del-producto" className="block text-sm font-medium text-zinc-300 mb-2">Descripción del Producto</label>
-            <input id="producto-descripcion-del-producto"
+            <label htmlFor="producto-nombre" className="block text-sm font-medium text-zinc-300 mb-2">
+              Nombre del producto
+            </label>
+            <input id="producto-nombre"
               type="text"
-              name="description"
-              value={formData.description}
+              name="nombre"
+              value={formData.nombre}
               onChange={handleInputChange}
               required
               placeholder="Ej. Proyector MagCubic HY450"
               className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
             />
+            <p className="text-xs text-zinc-400 mt-1">Es el que aparece en el mostrador, en el inventario y en la factura.</p>
           </div>
 
           {/* Price Field */}
@@ -998,6 +1019,25 @@ export default function ProductCatalog({
                 placeholder="Ej. Black Friday"
                 className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
               />
+            </div>
+
+            <div>
+              <label htmlFor="producto-descripcion" className="block text-sm font-medium text-zinc-300 mb-2">
+                Descripción <span className="font-normal text-zinc-400">· opcional</span>
+              </label>
+              <textarea
+                id="producto-descripcion"
+                name="descripcion"
+                value={formData.descripcion}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                rows={3}
+                maxLength={1000}
+                placeholder="Un párrafo corto. Ej. Proyector portátil con Android TV integrado, ideal para cuartos sin mucha luz."
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none resize-none"
+              />
+              <p className="text-xs text-zinc-400 mt-1 mb-6">
+                La tablet la muestra debajo del nombre. Si la dejás vacía, no se muestra nada.
+              </p>
             </div>
 
             <div>
