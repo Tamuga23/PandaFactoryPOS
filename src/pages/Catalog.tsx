@@ -2,9 +2,50 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import ProductCatalog, { CatalogProduct } from '../components/ProductCatalog';
-import { fileToBase64, compressImage } from '../lib/utils';
+import { fileToBase64, compressImage, MEDIDA_FOTO_TABLET } from '../lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 
+
+/*
+  Una sola foto para las tres superficies.
+
+  Antes eran dos y había que mantenerlas a mano: la que se sube va a
+  `imageBase64`, que leen el POS, el Inventario y la factura, y NO viaja al
+  espejo `catalogo_publico` — ni `buildPublicCatalogDoc` ni el backfill la
+  copian. Lo único que le llega a la tablet es `media.heroImage`, una URL que
+  había que pegar quinientas líneas más abajo en el formulario, bajo un título
+  que decía «(URLs)». El operador hacía lo obvio —subir la foto, verla en la
+  vista previa— y el cliente parado en el mostrador veía un hueco.
+
+  Es justo lo que el principio 2 de PRODUCT.md prohíbe: «cualquier feature que
+  obligue a mantener el mismo dato en dos lados está mal planteada».
+
+  Ahora `media.heroImage` significa una sola cosa: LA IMAGEN QUE VE EL CLIENTE.
+  Si se pegó una URL de alta calidad, esa manda. Si no, se deriva de la foto
+  subida, reducida a la medida de tablet. PandaLink no se entera: un data URI
+  entra en un `<img src>` igual que una URL, y ni el schema (`heroImage` es
+  `z.string()`) ni las reglas (`media is map`) piden que sea una URL.
+*/
+const fotoParaLaTablet = async (
+  urlPegada: string | undefined,
+  fotoDelProducto: string | undefined,
+): Promise<string | undefined> => {
+  const url = (urlPegada || '').trim();
+  // Una URL pegada por el operador gana siempre: es la de alta calidad.
+  if (url && !url.startsWith('data:')) return url;
+  if (!fotoDelProducto) return undefined;
+  const { ancho, alto, calidad } = MEDIDA_FOTO_TABLET;
+  return compressImage(fotoDelProducto, ancho, alto, calidad);
+};
+
+/** `media` con su `heroImage` ya resuelto. Devuelve `undefined` si queda vacío. */
+const conFotoDeTablet = async (media: any, fotoDelProducto?: string) => {
+  const hero = await fotoParaLaTablet(media?.heroImage, fotoDelProducto);
+  const resultado = { ...(media || {}) };
+  if (hero) resultado.heroImage = hero;
+  else delete resultado.heroImage;
+  return Object.keys(resultado).length > 0 ? resultado : undefined;
+};
 
 export default function Catalog() {
   const { products, addProduct, updateProduct, loading, companyInfo, universalObjections } = useStore();
@@ -76,7 +117,7 @@ export default function Catalog() {
       bullets: productData.bullets,
       objecionesOverride: productData.objecionesOverride,
       specsProyector: productData.specsProyector,
-      media: productData.media,
+      media: await conFotoDeTablet(productData.media, imageBase64),
       financiamientoOverride: productData.financiamientoOverride,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -118,7 +159,11 @@ export default function Catalog() {
       bullets: productData.bullets,
       objecionesOverride: productData.objecionesOverride,
       specsProyector: productData.specsProyector,
-      media: productData.media,
+      // La foto de la tablet se rederiva en CADA guardado, no solo cuando se
+      // sube una nueva: si el operador borra la URL de alta calidad, tiene que
+      // volver a valer la foto del producto, y si cambia la foto, la de la
+      // tablet tiene que cambiar con ella.
+      media: await conFotoDeTablet(productData.media, imageBase64),
       financiamientoOverride: productData.financiamientoOverride,
       updatedAt: Date.now(),
     };

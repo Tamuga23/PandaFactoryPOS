@@ -15,6 +15,21 @@ export const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+/*
+  Medida de la foto que viaja al catálogo público.
+
+  La foto del mostrador se guarda a 800px: se ve en el POS, en el Inventario y
+  en la factura, todas superficies donde hay pantalla grande y la imagen se lee
+  del mismo documento del producto.
+
+  La de la tablet va aparte y más chica porque el espejo `catalogo_publico` se
+  lee ENTERO: cada kilobyte se multiplica por la cantidad de productos cada vez
+  que la tablet carga el catálogo. A 400px y calidad 0.6 son unos 30 KB por
+  producto, que a cien productos son 3 MB — contra los 12 MB que serían con la
+  foto de 800px.
+*/
+export const MEDIDA_FOTO_TABLET = { ancho: 400, alto: 400, calidad: 0.6 } as const;
+
 export const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();

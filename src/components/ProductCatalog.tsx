@@ -88,7 +88,18 @@ const toFormMedia = (media?: TabletMedia) => {
     .slice(0, 2)
     .map((g) => (typeof g === 'string' ? { url: g, label: '' } : { url: g.url || '', label: g.label || '' }));
   while (rows.length < 2) rows.push({ url: '', label: '' });
-  return { heroImage: media?.heroImage || '', videoUrl: media?.videoUrl || '', gallery: rows };
+  /*
+    `heroImage` puede ser una URL que pegó el operador o el data URI que el
+    sistema derivó de la foto subida. En el campo de texto SOLO va la primera:
+    mostrar un data URI de 30 KB en un input sería ilegible, y además el
+    operador creería que lo escribió él y que puede editarlo.
+  */
+  const hero = media?.heroImage || '';
+  return {
+    heroImage: hero.startsWith('data:') ? '' : hero,
+    videoUrl: media?.videoUrl || '',
+    gallery: rows,
+  };
 };
 
 export interface CatalogProduct {
@@ -803,9 +814,17 @@ export default function ProductCatalog({
              </select>
           </div>
 
-          {/* Image Upload Field */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Imagen del Producto (Opcional)</label>
+          {/*
+              Foto del producto: la subida y la URL de alta calidad, JUNTAS.
+
+              Estaban a quinientas líneas de distancia —el cargador acá arriba y
+              «Imagen Principal (URL)» al fondo, bajo un título que decía
+              «(URLs)»— y nada las relacionaba. Como sólo la URL viajaba a la
+              tablet, el operador subía la foto, la veía en la vista previa, y
+              el cliente no veía nada.
+           */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-zinc-300 mb-2">Foto del producto (opcional)</label>
             <div className="flex items-center gap-4">
               <label className="flex items-center justify-center w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-cyan-500 cursor-pointer transition-colors group relative overflow-hidden shrink-0 focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                 {(() => {
@@ -835,12 +854,31 @@ export default function ProductCatalog({
                 {formData.imageFile ? (
                   <span className="text-cyan-400 font-medium">{formData.imageFile.name}</span>
                 ) : (
-                  <span>Subir nueva imagen (PNG, JPG)</span>
+                  <span>Subir una foto (PNG, JPG)</span>
                 )}
                 {isEditing && !formData.imageFile && catalog.find(p => p.id === formData.id)?.imageUrl && (
-                  <p className="text-xs text-zinc-400 mt-1">Mantendrá la imagen actual si no selecciona otra.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Se mantiene la foto actual si no elegís otra.</p>
                 )}
               </div>
+            </div>
+
+            <div className="mt-3">
+              <label htmlFor="producto-imagen-principal-url-alta-calidad" className="block text-xs text-zinc-400 mb-1">
+                URL de alta calidad para la tablet <span className="font-normal">(opcional)</span>
+              </label>
+              <input
+                id="producto-imagen-principal-url-alta-calidad"
+                type="url"
+                value={formData.media.heroImage}
+                onChange={(e) => handleMediaChange('heroImage', e.target.value)}
+                placeholder="https://…"
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
+              />
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                {formData.media.heroImage.trim()
+                  ? 'Ésta es la que ve el cliente en la tablet. La foto subida se usa en el mostrador y en la factura.'
+                  : 'Sin URL, el cliente ve una versión reducida de la foto subida. Pegá una acá solo si tenés una imagen mejor.'}
+              </p>
             </div>
           </div>
         </div>
@@ -1213,12 +1251,10 @@ export default function ProductCatalog({
 
         {/* --- Media (URLs) --- */}
         <div className="mt-6 border-t border-zinc-800/50 pt-6">
-          <h4 className="text-base font-medium text-cyan-400 mb-4">Multimedia del Catálogo Público (URLs)</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="producto-imagen-principal-url-alta-calidad" className="block text-sm text-zinc-400 mb-1">Imagen Principal (URL Alta Calidad)</label>
-              <input id="producto-imagen-principal-url-alta-calidad" type="url" value={formData.media.heroImage} onChange={(e) => handleMediaChange('heroImage', e.target.value)} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
-            </div>
+          <h4 className="text-base font-medium text-cyan-400 mb-4">Video y fotos extra para la tablet</h4>
+          {/* La imagen principal se mudó arriba, junto a la foto que se sube:
+              eran el mismo dato partido en dos lugares del formulario. */}
+          <div className="grid grid-cols-1 gap-6">
             <div>
               <label htmlFor="producto-video-promocional-url-solo-youtube" className="block text-sm text-zinc-400 mb-1">Video Promocional (URL — solo YouTube)</label>
               <input id="producto-video-promocional-url-solo-youtube" type="url" value={formData.media.videoUrl} onChange={(e) => handleMediaChange('videoUrl', e.target.value)} placeholder="https://youtube.com/..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
