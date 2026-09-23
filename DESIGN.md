@@ -220,19 +220,40 @@ superficie de badge informativo y de ícono contenido.
 - **Carbón Borde Hover** (`#52525b`): el borde de toda superficie clickeable que
   no es botón — tarjeta de producto, chip de categoría, tab — al pasar el mouse.
 
-Texto, de más a menos voz: **Texto Máximo** (`#ffffff`) para títulos y texto sobre
-color · **Texto Cuerpo** (`#e4e4e7`) por defecto · **Texto Control** (`#d4d4d8`)
-para la etiqueta del botón secundario · **Texto Secundario** (`#a1a1aa`) para
-**las etiquetas de campo**, los placeholders y los controles terciarios en reposo
-· **Texto Terciario** (`#71717a`) solo para lo genuinamente accesorio: unidades
-sueltas y metadatos que se pueden no leer.
+Texto, de más a menos voz: **Texto Máximo** (`#ffffff`) para títulos y texto
+sobre color · **Texto Cuerpo** (`#e4e4e7`) por defecto · **Texto Control**
+(`#d4d4d8`) para la etiqueta del botón secundario · **Texto Secundario**
+(`#a1a1aa`, `zinc-400`) para todo lo demás: etiquetas de campo, placeholders,
+texto de ayuda, metadatos, controles terciarios en reposo.
 
-> La etiqueta de campo usaba Texto Terciario y daba **3.67:1** sobre la
-> superficie — por debajo del piso AA de 4.5:1, y era el texto de menor
-> contraste de la pantalla. Pero el nombre de un campo no es información
-> accesoria: dice qué se está por escribir. Pasa a Texto Secundario, que da
-> **6.91:1**. Los placeholders estaban peor (**3.08:1**, el peor ratio del
-> proyecto) y suben igual, a **5.81:1**.
+**Son cuatro escalones y no hay un quinto.** El tema oscuro no tiene un "Texto
+Terciario": `zinc-500` da **3.67:1** sobre el panel y `zinc-600` da **2.29:1**,
+y ninguno de los dos llega al piso AA de 4.5:1 en NINGUNA superficie del tema
+(`zinc-950` 4.12 / 2.58, `zinc-900` 3.67 / 2.29, `zinc-800` 3.09 / 1.93,
+`zinc-700` 2.16 / 1.35). No hay un escalón intermedio en la escala zinc que
+pase, así que el quinto nivel no existe: la jerarquía por debajo de Texto
+Cuerpo se hace con **tamaño y peso**, no con otro gris.
+
+Lo único que conserva `zinc-500` son los íconos decorativos que duplican una
+etiqueta que está al lado —el teléfono junto al número, la lupa dentro de un
+campo ya rotulado, el `%` junto a un campo de porcentaje—, porque a un gráfico
+decorativo no le aplica el umbral.
+
+> Este documento ya había subido las etiquetas de campo y los placeholders por
+> esta razón, pero se quedó ahí: **97 usos de texto** seguían en `zinc-500` o
+> `zinc-600`, y eran casi todos texto de AYUDA. "Mantendrá la imagen actual si
+> no selecciona otra", "Las compras lo recalculan (costo promedio)", "Ajustalo
+> desde Inventario (queda en el kardex)", el `help` de cada campo de ficha
+> técnica. El único lugar donde el sistema se explica, escrito en el único gris
+> que no se podía leer. Corregidos el 2026-09-22.
+>
+> En el **papel blanco** es al revés y por eso la factura y la etiqueta no se
+> tocan: `zinc-500` sobre blanco da **4.83:1** y `zinc-600` da **7.72:1**.
+>
+> Los ratios de arriba están medidos desde los **OKLCH de Tailwind v4**, no
+> desde los hex de v3 — `zinc-500` es `#71717b`, no `#71717a`. Se recalculan
+> con `npm run medir:contraste`, que trae control positivo (blanco sobre negro
+> = 21.0000) para que nadie tenga que confiar en el número.
 
 ### El mundo impreso
 
@@ -302,7 +323,22 @@ existe el dialecto "ninguno": un botón sin `focus:` hereda el anillo del
 navegador sobre una superficie casi negra, que es impredecible. Para campos,
 `focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500`; para botones,
 `focus:ring-2` del color de su acción si tienen relleno sólido, `focus:ring-1`
-si son terciarios o de ícono. **El sistema la cumple**: 144 de 146 botones.
+si son terciarios o de ícono. **El sistema la cumple**: **284 de 284 controles
+enfocables** — 149 botones, 109 campos, 17 selects, 7 textareas y 2 enlaces.
+
+> El número anterior decía "144 de 146 botones" y estaba mal por los dos lados.
+> Contaba solo `<button>`, así que daba la regla por cumplida mientras tres
+> controles visibles no declaraban nada: un `<Link>` con pinta de botón
+> primario —el único camino a dar de alta un producto—, el buscador del
+> Historial y un file input. Y el denominador incluía dos menciones de
+> `<button` que estaban dentro de comentarios.
+>
+> Ahora se mide con `npm run medir:foco`, que balancea llaves (un `<button>` de
+> JSX no termina en el primer `>`: `onClick={() => ...}` trae uno adentro),
+> descuenta los comentarios y recorre los cinco tipos de control. Cuenta como
+> foco visible el anillo declarado, el nativo del navegador cuando nadie puso
+> `outline-none` —los checkbox lo dibujan solos— y el `focus-within` del
+> `<label>` que envuelve a un file input `sr-only`.
 
 **La Regla del Tinte sin Borde.** El badge canónico es tinte al 10% + texto al
 500, *sin* borde (56 casos contra 24). El borde `/20` se agrega solo cuando el
@@ -362,10 +398,15 @@ mayúsculas de 10px, negrita. Es lo que separa "qué es este campo" de "qué dic
 este campo", sin gastar un pixel de más.
 
 **La Regla del Dinero Alineado.** Toda columna de cifras se alinea a la derecha
-y usa `tabular-nums`. *El sistema la cumple a medias*: `tabular-nums` aparece
-**14 veces**, de las cuales 3 son teléfonos de la etiqueta de envío y el resto
-es dinero — el POS entero ya la cumple (carrito, totales, vuelto) y la factura
-también.
+y usa `tabular-nums`. **El sistema la cumple**: aparece **53 veces en 12
+archivos** — el POS, Reportes, Inventario, Historial, Clientes, Compras y las
+dos columnas de la factura impresa, que es donde más importa que los montos de
+cada línea caigan uno debajo del otro.
+
+> El número que decía este documento era **14**, y sobre esa cifra se listaban
+> cuatro pantallas como pendientes. Una de ellas (Inventario) ya estaba hecha,
+> con un comentario en el código citando esta misma regla. Un documento que
+> mide mal manda a trabajar sobre lo que ya está.
 
 Lo que falta está identificado y es chico: las cuatro pantallas donde el
 operador **compara** cifras en vez de cobrar una sola — el Total del Historial
@@ -445,10 +486,18 @@ La profundidad se construye con tres recursos, en este orden:
 - **Flotante** (`shadow-2xl`): lo único que está por encima de la interfaz —
   modales, el panel del carrito, el toast, el desplegable del autocompletado y
   la barra fija del POS en móvil. Todos ellos tapan contenido de verdad.
-- **Papel** (`shadow-xl`): **sólo los documentos imprimibles.**
+- **Papel** (`shadow-xl` y `shadow-2xl`): los documentos imprimibles. La
+  factura usa `xl` y la etiqueta de envío `2xl`; el lienzo es el mismo y la
+  diferencia no significa nada, es deuda.
+- **Relieve de papel** (`shadow-sm`, `shadow-md`): **sólo dentro del lienzo
+  blanco de la factura**, 11 usos, para separar la caja de totales y los
+  bloques de datos del papel. No es elevación de interfaz: es el sombreado que
+  tendría un formulario impreso. Este renglón faltaba y el documento decía "y
+  nada más" con once sombras vivas.
 
 Y nada más. **No existe un vocabulario de "Afirmación"**: ningún botón lleva
-sombra. Hay exactamente dos razones para que algo proyecte sombra en este
+sombra. Medido el 2026-09-22: 18 `shadow-2xl`, 2 `shadow-xl`, 9 `shadow-sm`,
+2 `shadow-md`, cero en botones. Hay exactamente dos razones para que algo proyecte sombra en este
 sistema, y las dos significan lo mismo — *esto está por encima del resto*.
 
 > **Decisión (2026-09-20/21).** Esta lista bendecía `shadow-xl` / `shadow-sm` en
@@ -510,7 +559,11 @@ notable es que, aun así, **el color es consistente y la geometría no**.
   blanco, negrita, radio Control. El hover **oscurece** a Turquesa Acción Hover
   (`#155e75`, `bg-cyan-800`). 22 botones lo cumplen y ninguno usa ya el
   `#0891b2` de relleno. El color y el peso no varían nunca; el padding sí
-  (cinco combinaciones distintas en uso) y la sombra es opcional en tres formas.
+  (cinco combinaciones distintas en uso). **La sombra no varía: no hay.** Esta
+  línea decía antes "la sombra es opcional en tres formas", contradiciendo a
+  `## Elevation & Depth`, que dice "sin excepciones, tampoco para los botones".
+  Mandaban cosas opuestas y ganó la permisiva: sobrevivió una `shadow-lg` con
+  tinte turquesa en el `<Link>` de "Nuevo Producto" hasta el 2026-09-22.
 - **Secundario** — Carbón Control de fondo, Texto Control de etiqueta, hover a
   Carbón Borde con texto blanco.
 - **Confirmar** — esmeralda sólido. Cierra la venta, finaliza la recepción,
@@ -541,11 +594,17 @@ El anillo es **del color de la acción del botón**, deducido de su relleno:
 
 Así el anillo nunca inventa un color que el botón no tenga.
 
-**Los nombres accesibles también están puestos:** 142 de 144 controles de
-formulario tienen `htmlFor`+`id` (69) o `aria-label` (88). Los 2 restantes son
-asociación *implícita* —el `<input>` vive dentro de su propio `<label>`— y se
-dejan así a propósito: ya tienen nombre, y un `aria-label` pisaría el texto
-visible y rompería "Label in Name" (WCAG 2.5.3).
+**Los nombres accesibles también están puestos:** los controles de formulario
+tienen `htmlFor`+`id` o `aria-label`, salvo unos pocos con asociación
+*implícita* —el `<input>` vive dentro de su propio `<label>`— que se dejan así
+a propósito: ya tienen nombre, y un `aria-label` pisaría el texto visible y
+rompería "Label in Name" (WCAG 2.5.3).
+
+> El conteo que había acá ("142 de 144, los 2 restantes implícitos") estaba mal:
+> los implícitos eran tres, y el tercero —el campo de stock rápido de
+> Inventario— no tenía nombre en absoluto. Su `id` sólo lo usaban los botones de
+> `+` y `−` por `getElementById`; no había ningún `<label htmlFor>`. Se le puso
+> `aria-label`.
 
 > **Sobre medir.** Las cifras de esta sección se habían quedado viejas y
 > **daban vuelta el diagnóstico**: decían que el dialecto dominante era el campo
@@ -618,7 +677,8 @@ reglas propias:
 - **Do** dar dos escalones a toda acción destructiva: teñido primero, sólido solo
   al confirmar.
 - **Do** alinear a la derecha y usar `tabular-nums` en cualquier columna de
-  cifras nueva. El sistema todavía no lo hace; empezá a cumplirlo.
+  cifras nueva. El sistema ya lo hace en 53 lugares: seguilo, y no lo mezcles
+  con `font-mono`, que cambia la familia.
 - **Do** declarar un anillo de foco visible en cada control nuevo, del color de
   la acción de ese control: `focus:ring-2` sobre relleno sólido, `focus:ring-1`
   en terciarios y botones de ícono, y `focus:border-cyan-500 focus:ring-1

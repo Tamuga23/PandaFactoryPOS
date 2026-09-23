@@ -18,7 +18,7 @@ export default function Catalog() {
   const editarId = (state as { editarId?: string } | null)?.editarId ?? null;
 
   if (loading) {
-    return <div className="text-zinc-500">Cargando catálogo...</div>;
+    return <div className="text-zinc-400">Cargando catálogo...</div>;
   }
 
   // Preparamos los datos para que el componente ProductCatalog los entienda

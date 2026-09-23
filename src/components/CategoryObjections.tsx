@@ -213,7 +213,7 @@ export default function CategoryObjections() {
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   ID <span className="text-rose-400">*</span>
-                  {editingId && <span className="ml-1 text-zinc-600">(no editable)</span>}
+                  {editingId && <span className="ml-1 text-zinc-400">(no editable)</span>}
                 </label>
                 <input aria-label="ID"
                   type="text"
@@ -366,7 +366,7 @@ export default function CategoryObjections() {
             <tbody>
               {visible.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-zinc-500 text-sm">
+                  <td colSpan={6} className="px-4 py-10 text-center text-zinc-400 text-sm">
                     {filterSlug
                       ? `No hay objeciones para la categoría "${filterSlug}".`
                       : 'No hay objeciones por categoría. Crea la primera con el botón de arriba.'}
@@ -381,7 +381,7 @@ export default function CategoryObjections() {
                         {obj.categorySlug}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-zinc-500 text-xs">{obj.orden}</td>
+                    <td className="px-4 py-3 text-zinc-400 text-xs">{obj.orden}</td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs bg-zinc-800 text-cyan-400 px-2 py-0.5 rounded">
                         {obj.id}

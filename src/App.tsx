@@ -100,7 +100,7 @@ function AppContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoggingIn}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
                 placeholder="vos@tudominio.com"
               />
             </div>
@@ -115,7 +115,7 @@ function AppContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoggingIn}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-600 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-white placeholder-zinc-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
                 placeholder="••••••••"
               />
             </div>

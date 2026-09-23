@@ -19,7 +19,9 @@
     "financiamiento": "node scripts/reporte_financiamiento.mjs",
     "financiamiento:test": "node scripts/lib/analisisFinanciamiento.test.mjs",
     "financiamiento:cuotas": "node --experimental-strip-types scripts/lib/financiamiento.test.mjs",
-    "costo:test": "node --experimental-strip-types scripts/lib/costoPromedio.test.mjs"
+    "costo:test": "node --experimental-strip-types scripts/lib/costoPromedio.test.mjs",
+    "medir:foco": "node scripts/medir/foco.mjs",
+    "medir:contraste": "node scripts/medir/contraste.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

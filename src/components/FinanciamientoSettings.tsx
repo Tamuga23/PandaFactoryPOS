@@ -203,7 +203,7 @@ export default function FinanciamientoSettings({
             onChange={(e) => setConfig({ ...config, minUsd: Number(e.target.value) || 0 })}
             className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 outline-none"
           />
-          <p className="text-xs text-zinc-500 mt-1">Debajo de este monto no se muestran cuotas en ningún lado.</p>
+          <p className="text-xs text-zinc-400 mt-1">Debajo de este monto no se muestran cuotas en ningún lado.</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-zinc-300 mb-2">Banco</label>
@@ -219,7 +219,7 @@ export default function FinanciamientoSettings({
       {/* --- Recargo por categoría --- */}
       <div className="mt-8 border-t border-zinc-800/50 pt-6">
         <h3 className="text-base font-medium text-cyan-400 mb-1">Recargo por categoría</h3>
-        <p className="text-xs text-zinc-500 mb-4">
+        <p className="text-xs text-zinc-400 mb-4">
           Poné 0 en los dos plazos, o marcá &ldquo;0% interés&rdquo;, para que la categoría se anuncie
           como financiamiento sin interés.
         </p>
@@ -227,7 +227,7 @@ export default function FinanciamientoSettings({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-zinc-500 text-xs uppercase tracking-wide">
+              <tr className="text-zinc-400 text-xs uppercase tracking-wide">
                 <th className="text-left font-medium pb-2">Categoría</th>
                 {plazos.map((m) => (
                   <th key={m} className="text-center font-medium pb-2 w-28">{m} meses</th>
@@ -239,7 +239,7 @@ export default function FinanciamientoSettings({
               <tr>
                 <td className="py-2.5 text-zinc-300">
                   <span className="font-medium">Por defecto</span>
-                  <span className="block text-xs text-zinc-500">Categorías sin regla propia</span>
+                  <span className="block text-xs text-zinc-400">Categorías sin regla propia</span>
                 </td>
                 {plazos.map((m) => (
                   <td key={m} className="py-2.5 px-2">
@@ -309,7 +309,7 @@ export default function FinanciamientoSettings({
             />
           </label>
         </div>
-        <p className="text-xs text-zinc-500 mb-4">
+        <p className="text-xs text-zinc-400 mb-4">
           Calculado con el mismo código que usan la tablet y la web, a tasa {tasaCambio}. La tablet
           muestra cuota y total; la web, solo la cuota.
         </p>
@@ -326,7 +326,7 @@ export default function FinanciamientoSettings({
                 )}
               </div>
               {planes.length === 0 ? (
-                <p className="text-xs text-zinc-500 italic">
+                <p className="text-xs text-zinc-400 italic">
                   Sin cuotas (el precio no alcanza el mínimo de ${config.minUsd})
                 </p>
               ) : (
@@ -335,7 +335,7 @@ export default function FinanciamientoSettings({
                     <div key={p.meses} className="flex items-baseline justify-between text-xs">
                       <span className="text-zinc-400">{p.meses} cuotas de</span>
                       <span className="text-zinc-100 font-semibold">{cordobas(p.cuotaNio)}</span>
-                      <span className="text-zinc-500">
+                      <span className="text-zinc-400">
                         total {cordobas(p.totalNio)}
                         {p.sobrePrecioNio > 3 && (
                           <span className="text-amber-400/80"> (+{cordobas(p.sobrePrecioNio)})</span>

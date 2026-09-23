@@ -635,7 +635,7 @@ export default function PurchaseRegistration({
                             <div className="text-[10px] text-zinc-400">Cant: {item.quantity} × ${item.unitCost.toFixed(2)} = <span className="text-zinc-200 font-bold">${(item.quantity * item.unitCost).toFixed(2)}</span> {item.color && ` • Color: ${item.color}`} {item.estimatedWeight && ` • Peso: ${item.estimatedWeight}lbs`}</div>
                          </div>
                       </div>
-                      <button onClick={() => handleRemoveItem(item.draftId)} className="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-500">
+                      <button onClick={() => handleRemoveItem(item.draftId)} className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
                    </div>
@@ -648,13 +648,13 @@ export default function PurchaseRegistration({
                <div className="flex gap-2 mb-4">
                  <button
                    onClick={() => handleToggleProductMode(false)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                  >
                    Seleccionar Existente
                  </button>
                  <button
                    onClick={() => handleToggleProductMode(true)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                  >
                    Definir Nuevo Producto
                  </button>
@@ -738,7 +738,7 @@ export default function PurchaseRegistration({
                             </div>
                          ) : (
                             <div className="flex items-center justify-center w-full">
-                                <label className="flex flex-col items-center justify-center w-full h-20 border border-zinc-700 border-dashed rounded-xl cursor-pointer bg-zinc-800/50 hover:bg-zinc-800">
+                                <label className="flex flex-col items-center justify-center w-full h-20 border border-zinc-700 border-dashed rounded-xl cursor-pointer bg-zinc-800/50 hover:bg-zinc-800 focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                                     <span className="text-[10px] text-zinc-400">Click para subir foto</span>
                                     <input aria-label="Elegir una imagen para el artículo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
                                 </label>
@@ -825,7 +825,7 @@ export default function PurchaseRegistration({
          <button
            onClick={handleSubmit}
            disabled={isSubmitting || items.length === 0}
-           className="flex-1 bg-cyan-700 hover:bg-cyan-800 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+           className="flex-1 bg-cyan-700 hover:bg-cyan-800 disabled:bg-zinc-800 disabled:text-zinc-400 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
          >
            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
            {isSubmitting

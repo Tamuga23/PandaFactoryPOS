@@ -403,7 +403,7 @@ export default function SalesHistory() {
                   <div className={`p-3 rounded-lg flex-shrink-0 ${
                     estadoVenta === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
                     estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
-                    'bg-rose-500/10 text-rose-500'
+                    'bg-rose-500/10 text-rose-400'
                   }`}>
                      <FileText className="w-6 h-6" />
                   </div>
@@ -413,12 +413,12 @@ export default function SalesHistory() {
                        <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full ${
                         estadoVenta === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
                         estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
-                        'bg-rose-500/10 text-rose-500'
+                        'bg-rose-500/10 text-rose-400'
                        }`}>
                          {ESTADO_VENTA[estadoVenta] || estadoVenta}
                        </span>
                      </h4>
-                     <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
+                     <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
                         <Calendar className="w-3 h-3" /> {new Date(sale.date).toLocaleString()}
                      </p>
                   </div>
@@ -426,12 +426,12 @@ export default function SalesHistory() {
 
                <div className="flex-1 w-full lg:px-8 grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="text-xs space-y-1 min-w-0">
-                     <p className="text-zinc-500 font-bold uppercase">Cliente</p>
+                     <p className="text-zinc-400 font-bold uppercase">Cliente</p>
                      <p className="text-zinc-300 flex items-center gap-1 truncate"><User className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerName || 'N/A'}</span></p>
                      <p className="text-zinc-400 flex items-center gap-1 truncate"><Phone className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerPhone || '-'}</span></p>
                   </div>
                   <div className="text-xs space-y-1 hidden md:block min-w-0">
-                     <p className="text-zinc-500 font-bold uppercase">Dirección/Transp</p>
+                     <p className="text-zinc-400 font-bold uppercase">Dirección/Transp</p>
                      <p className="text-zinc-300 flex items-center gap-1 truncate"><MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerAddress || 'N/A'}</span></p>
                      <p className="text-cyan-500 font-bold uppercase truncate">{sale.transport}</p>
                   </div>
@@ -473,21 +473,21 @@ export default function SalesHistory() {
                     <button
                       onClick={() => setConfirmarEstado({ sale, nuevo: 'completed' })}
                       title="Marcar Completada (descuenta stock si venía anulada)"
-                      className={`p-1.5 rounded ${estadoVenta === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-500 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className={`p-1.5 rounded ${estadoVenta === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <CheckCircle className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setConfirmarEstado({ sale, nuevo: 'returned' })}
                       title="Marcar Devuelta (repone stock)"
-                      className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                      className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-400 hover:text-amber-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setConfirmarEstado({ sale, nuevo: 'cancelled' })}
                       title="Marcar Cancelada (repone stock)"
-                      className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-500 hover:text-rose-400'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
+                      className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-rose-400'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
@@ -557,7 +557,7 @@ export default function SalesHistory() {
         })}
 
         {filteredSales.length === 0 && (
-          <div className="p-20 text-center text-zinc-500 flex flex-col items-center gap-4">
+          <div className="p-20 text-center text-zinc-400 flex flex-col items-center gap-4">
              <FileText className="w-12 h-12 opacity-20" />
              <p className="italic">Ninguna venta coincide con la búsqueda.</p>
           </div>

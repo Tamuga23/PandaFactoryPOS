@@ -180,14 +180,14 @@ export default function Customers() {
     }
   };
 
-  if (loading) return <div className="text-zinc-500 p-8">Cargando clientes…</div>;
+  if (loading) return <div className="text-zinc-400 p-8">Cargando clientes…</div>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div>
           <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Clientes (CRM)</h2>
-          <p className="text-xs text-zinc-500">Directorio de clientes, contactos e historial de compras.</p>
+          <p className="text-xs text-zinc-400">Directorio de clientes, contactos e historial de compras.</p>
         </div>
         <div className="flex flex-col md:flex-row w-full md:w-auto gap-3">
           <div className="relative w-full md:w-64">
@@ -283,7 +283,7 @@ export default function Customers() {
           </div>
         ))}
         {filteredCustomers.length === 0 && (
-          <div className="col-span-1 md:col-span-2 lg:col-span-3 p-20 text-center text-zinc-500 flex flex-col items-center gap-4 bg-zinc-900 border border-zinc-800 border-dashed rounded-xl">
+          <div className="col-span-1 md:col-span-2 lg:col-span-3 p-20 text-center text-zinc-400 flex flex-col items-center gap-4 bg-zinc-900 border border-zinc-800 border-dashed rounded-xl">
              <User className="w-12 h-12 opacity-20" />
              <p className="italic">Sin clientes todavía. ¡Creá el primero!</p>
           </div>
@@ -347,11 +347,11 @@ export default function Customers() {
 
             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
               {loadingHistory ? (
-                <div className="p-10 text-center text-zinc-500 flex justify-center items-center gap-2">
+                <div className="p-10 text-center text-zinc-400 flex justify-center items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" /> Cargando historial…
                 </div>
               ) : customerSales.length === 0 ? (
-                <div className="p-10 text-center text-zinc-500 italic text-sm">Este cliente no tiene ventas asociadas todavía.</div>
+                <div className="p-10 text-center text-zinc-400 italic text-sm">Este cliente no tiene ventas asociadas todavía.</div>
               ) : (
                 customerSales.map(sale => (
                   <div key={sale.id} className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg p-3 flex items-center justify-between gap-3">
@@ -362,7 +362,7 @@ export default function Customers() {
                         <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded-full ${
                           sale.documentType === 'PROFORMA' ? 'bg-zinc-700 text-zinc-300' :
                           (sale.status || 'completed') === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
-                          sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-500'
+                          sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-400'
                         }`}>
                           {sale.documentType === 'PROFORMA' ? 'Proforma' : etiquetaVenta(sale.status)}
                         </span>

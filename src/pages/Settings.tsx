@@ -208,7 +208,7 @@ export default function Settings() {
     }
   };
 
-  if (loading) return <div className="text-zinc-500 p-8">Cargando configuración...</div>;
+  if (loading) return <div className="text-zinc-400 p-8">Cargando configuración...</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 relative">
@@ -218,7 +218,7 @@ export default function Settings() {
         </div>
         <div>
           <h2 className="text-xl font-bold text-zinc-100">Configuración de la Empresa</h2>
-          <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Personaliza los datos que aparecen en tus facturas</p>
+          <p className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Personaliza los datos que aparecen en tus facturas</p>
         </div>
       </div>
 
@@ -335,20 +335,20 @@ export default function Settings() {
                   {formData.logoBase64 ? (
                     <img src={formData.logoBase64} alt="Preview" className="w-full h-full object-contain p-2" />
                   ) : (
-                    <Building2 className="w-12 h-12 text-zinc-600" />
+                    <Building2 className="w-12 h-12 text-zinc-500" />
                   )}
-                  <label className="absolute inset-0 bg-zinc-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
+                  <label className="absolute inset-0 bg-zinc-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                     <Upload className="w-6 h-6 text-white" />
                     <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-2">
                   <p className="text-sm text-zinc-300 font-medium">Sube el logo de tu tienda</p>
-                  <p className="text-xs text-zinc-500 leading-relaxed">
+                  <p className="text-xs text-zinc-400 leading-relaxed">
                     Se recomienda una imagen en formato PNG o JPG con fondo transparente o blanco. 
                     El sistema comprimirá la imagen automáticamente para optimizar el rendimiento.
                   </p>
-                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer transition-all">
+                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                     <Upload className="w-3.5 h-3.5" /> Seleccionar Archivo
                     <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
                   </label>

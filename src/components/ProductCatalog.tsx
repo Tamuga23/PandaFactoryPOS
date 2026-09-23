@@ -807,7 +807,7 @@ export default function ProductCatalog({
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">Imagen del Producto (Opcional)</label>
             <div className="flex items-center gap-4">
-              <label className="flex items-center justify-center w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-cyan-500 cursor-pointer transition-colors group relative overflow-hidden shrink-0">
+              <label className="flex items-center justify-center w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-cyan-500 cursor-pointer transition-colors group relative overflow-hidden shrink-0 focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                 {(() => {
                    const existingImg = isEditing && formData.id ? catalog.find(p => p.id === formData.id)?.imageUrl : null;
                    const previewUrl = formData.imageFile ? URL.createObjectURL(formData.imageFile) : existingImg;
@@ -838,7 +838,7 @@ export default function ProductCatalog({
                   <span>Subir nueva imagen (PNG, JPG)</span>
                 )}
                 {isEditing && !formData.imageFile && catalog.find(p => p.id === formData.id)?.imageUrl && (
-                  <p className="text-xs text-zinc-500 mt-1">Mantendrá la imagen actual si no selecciona otra.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Mantendrá la imagen actual si no selecciona otra.</p>
                 )}
               </div>
             </div>
@@ -863,7 +863,7 @@ export default function ProductCatalog({
                   className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-8 pr-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
                 />
               </div>
-              <p className="text-xs text-zinc-500 mt-1">Las compras lo recalculan (costo promedio).</p>
+              <p className="text-xs text-zinc-400 mt-1">Las compras lo recalculan (costo promedio).</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
@@ -877,7 +877,7 @@ export default function ProductCatalog({
                 placeholder="0"
                 className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              {isEditing && <p className="text-xs text-zinc-500 mt-1">Ajustalo desde Inventario (queda en el kardex con motivo).</p>}
+              {isEditing && <p className="text-xs text-zinc-400 mt-1">Ajustalo desde Inventario (queda en el kardex con motivo).</p>}
             </div>
             <div>
               <label htmlFor="producto-alerta-de-stock-minimo" className="block text-sm font-medium text-zinc-300 mb-2">Alerta de stock mínimo</label>
@@ -988,7 +988,7 @@ export default function ProductCatalog({
                 <option value="sin-interes">Forzar 0% interés en este producto</option>
                 <option value="sin-cuotas">Sin cuotas para este producto</option>
               </select>
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-xs text-zinc-400 mt-1">
                 {formData.financiamiento === 'categoria'
                   ? 'Usa el recargo de su categoría. Se edita en Configuración → Financiamiento a plazos.'
                   : formData.financiamiento === 'sin-interes'
@@ -1004,17 +1004,17 @@ export default function ProductCatalog({
           <div className="flex items-baseline justify-between mb-1 gap-4">
             <h4 className="text-base font-medium text-cyan-400">Ficha Técnica</h4>
             {specFields.length > 0 && (
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-zinc-400">
                 Campos de <b className="text-zinc-400">{specCategoryLabel}</b> · {specsCargadas} de {specFields.length} cargados
               </span>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mb-4">
+          <p className="text-xs text-zinc-400 mb-4">
             Se muestra en la tablet y en la web tal como se escribe acá. Los campos vacíos no se muestran.
           </p>
 
           {specFields.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic">
+            <p className="text-xs text-zinc-400 italic">
               {formData.category
                 ? `La categoría "${formData.category}" todavía no tiene ficha técnica definida. Agregala en src/lib/categorySpecs.ts (y copiá el archivo a PandaLink y PandaWEB).`
                 : 'Elegí una categoría para ver los campos de su ficha técnica.'}
@@ -1035,7 +1035,7 @@ export default function ProductCatalog({
                       />
                       <span>
                         <span className="block text-sm text-zinc-300">{campo.label}</span>
-                        {campo.help && <span className="block text-xs text-zinc-500 mt-0.5">{campo.help}</span>}
+                        {campo.help && <span className="block text-xs text-zinc-400 mt-0.5">{campo.help}</span>}
                       </span>
                     </label>
                   );
@@ -1045,7 +1045,7 @@ export default function ProductCatalog({
                   <div key={campo.key}>
                     <label className="block text-sm text-zinc-400 mb-1">
                       {campo.label}
-                      {campo.unit && <span className="text-zinc-600"> ({campo.unit})</span>}
+                      {campo.unit && <span className="text-zinc-400"> ({campo.unit})</span>}
                     </label>
 
                     {campo.type === 'select' ? (
@@ -1071,7 +1071,7 @@ export default function ProductCatalog({
                       />
                     )}
 
-                    {campo.help && <p className="text-xs text-zinc-500 mt-1">{campo.help}</p>}
+                    {campo.help && <p className="text-xs text-zinc-400 mt-1">{campo.help}</p>}
                   </div>
                 );
               })}
@@ -1096,12 +1096,12 @@ export default function ProductCatalog({
               <Plus className="w-3 h-3" /> Agregar Bullet
             </button>
           </div>
-          <p className="text-xs text-zinc-500 -mt-2 mb-4">
+          <p className="text-xs text-zinc-400 -mt-2 mb-4">
             Lo que el asesor le dice al cliente. Se muestran en este orden en la tablet y en la web.
             La etiqueta es opcional: es el título corto arriba del bullet en la tablet.
           </p>
           {formData.bullets.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic">
+            <p className="text-xs text-zinc-400 italic">
               No hay bullets configurados. Sin bullets, la ficha de la tablet y la sección
               &ldquo;Por qué te sirve&rdquo; de la web quedan vacías.
             </p>
@@ -1115,7 +1115,7 @@ export default function ProductCatalog({
                       onClick={() => handleBulletMove(idx, -1)}
                       disabled={idx === 0}
                       title="Subir"
-                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                      className="p-1 text-zinc-400 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-400 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
                     >
                       <ChevronUp className="w-3.5 h-3.5" />
                     </button>
@@ -1124,7 +1124,7 @@ export default function ProductCatalog({
                       onClick={() => handleBulletMove(idx, 1)}
                       disabled={idx === formData.bullets.length - 1}
                       title="Bajar"
-                      className="p-1 text-zinc-500 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-500 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                      className="p-1 text-zinc-400 hover:text-cyan-400 disabled:opacity-25 disabled:hover:text-zinc-400 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
                     >
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>
@@ -1147,7 +1147,7 @@ export default function ProductCatalog({
                     className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none"
                     required
                   />
-                  <button type="button" onClick={() => handleBulletRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500">
+                  <button type="button" onClick={() => handleBulletRemove(idx)} className="p-2 text-zinc-400 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -1165,7 +1165,7 @@ export default function ProductCatalog({
             </button>
           </div>
           {formData.objecionesOverride.length === 0 ? (
-            <p className="text-xs text-zinc-500 italic">No hay objeciones configuradas para este producto.</p>
+            <p className="text-xs text-zinc-400 italic">No hay objeciones configuradas para este producto.</p>
           ) : (
             <div className="space-y-3">
               {formData.objecionesOverride.map((obj, idx) => (
@@ -1202,7 +1202,7 @@ export default function ProductCatalog({
                     </select>
                     <textarea aria-label={`Respuesta a la objeción ${idx + 1}`} value={obj.respuesta} onChange={(e) => handleObjChange(idx, 'respuesta', e.target.value)} placeholder="Respuesta específica para el cliente..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none resize-none" required />
                   </div>
-                  <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-500 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                  <button type="button" onClick={() => handleObjRemove(idx)} className="p-2 text-zinc-400 hover:text-rose-400 bg-zinc-800 rounded-lg hover:bg-rose-500/10 transition-colors mt-1 focus:outline-none focus:ring-2 focus:ring-rose-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -1222,14 +1222,14 @@ export default function ProductCatalog({
             <div>
               <label htmlFor="producto-video-promocional-url-solo-youtube" className="block text-sm text-zinc-400 mb-1">Video Promocional (URL — solo YouTube)</label>
               <input id="producto-video-promocional-url-solo-youtube" type="url" value={formData.media.videoUrl} onChange={(e) => handleMediaChange('videoUrl', e.target.value)} placeholder="https://youtube.com/..." className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-cyan-500 outline-none" />
-              <p className="text-xs text-zinc-500 mt-1">La tablet solo reproduce YouTube; otras fuentes muestran la foto.</p>
+              <p className="text-xs text-zinc-400 mt-1">La tablet solo reproduce YouTube; otras fuentes muestran la foto.</p>
             </div>
           </div>
 
           {/* Fotos complementarias para el modo Demo de la tablet */}
           <div className="mt-4">
             <label className="block text-sm text-zinc-400 mb-1">Fotos complementarias (Demo de la tablet)</label>
-            <p className="text-xs text-zinc-500 mb-2">Hasta 2 fotos extra con etiqueta corta. Ej. proyector: "A oscuras" y "Con luz".</p>
+            <p className="text-xs text-zinc-400 mb-2">Hasta 2 fotos extra con etiqueta corta. Ej. proyector: "A oscuras" y "Con luz".</p>
             <div className="space-y-2">
               {(formData.media.gallery ?? []).map((g: { url: string; label: string }, i: number) => (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-2">

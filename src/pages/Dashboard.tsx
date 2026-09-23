@@ -150,7 +150,7 @@ export default function Dashboard() {
                       <td className="px-4 py-3 text-zinc-400">{item.sku}</td>
                       <td className="px-4 py-3 text-right text-rose-400">{item.stock} / {item.minStockAlert}</td>
                       <td className="px-4 py-3 text-right">
-                        <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[10px]">Bajo Stock</span>
+                        <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[10px]">Bajo Stock</span>
                       </td>
                     </tr>
                   ))}

@@ -936,7 +936,7 @@ export default function POS() {
           <h3 className="font-semibold text-zinc-200">Catálogo</h3>
           <div className="relative w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-zinc-500" />
+              <Search className="h-4 w-4 text-zinc-400" />
             </div>
             <input
               type="text"
@@ -1012,7 +1012,7 @@ export default function POS() {
                   </div>
                 ) : (
                   <div className={`h-24 w-full rounded-lg bg-zinc-800 mb-3 border border-zinc-700 flex items-center justify-center ${product.stock > 0 ? '' : 'opacity-40'}`}>
-                    <Package className="h-8 w-8 text-zinc-500" aria-hidden="true" />
+                    <Package className="h-8 w-8 text-zinc-400" aria-hidden="true" />
                   </div>
                 )}
                 <span className="block text-sm font-medium text-zinc-200 line-clamp-2 leading-tight">{product.name}</span>
@@ -1028,7 +1028,7 @@ export default function POS() {
                       </span>
                     )}
                   </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}`}>
                     Stock: {product.stock}
                   </span>
                 </div>

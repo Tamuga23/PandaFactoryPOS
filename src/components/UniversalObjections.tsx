@@ -153,7 +153,7 @@ export default function UniversalObjections() {
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   ID <span className="text-rose-400">*</span>
-                  {editingId && <span className="ml-1 text-zinc-600">(no editable)</span>}
+                  {editingId && <span className="ml-1 text-zinc-400">(no editable)</span>}
                 </label>
                 <input aria-label="ID"
                   type="text"
@@ -275,14 +275,14 @@ export default function UniversalObjections() {
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-500 text-sm">
+                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-400 text-sm">
                     No hay objeciones generales. Crea la primera con el botón de arriba.
                   </td>
                 </tr>
               ) : (
                 sorted.map((obj) => (
                   <tr key={obj.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
-                    <td className="px-4 py-3 text-zinc-500 text-xs">{obj.order ?? '—'}</td>
+                    <td className="px-4 py-3 text-zinc-400 text-xs">{obj.order ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs bg-zinc-800 text-cyan-400 px-2 py-0.5 rounded">
                         {obj.id}

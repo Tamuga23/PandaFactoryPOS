@@ -467,7 +467,7 @@ export default function Purchases() {
       .sort((a, b) => b.date - a.date);
   }, [purchases, busqueda, filtroEstado, suppliers]);
 
-  if (loading) return <div className="text-zinc-500">Cargando compras…</div>;
+  if (loading) return <div className="text-zinc-400">Cargando compras…</div>;
 
   return (
     <div className="space-y-6">
@@ -503,7 +503,7 @@ export default function Purchases() {
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por orden, proveedor, id o tracking…"
             aria-label="Buscar ordenes de compra"
-            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-lg pl-9 pr-3 py-2.5 text-sm placeholder-zinc-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-lg pl-9 pr-3 py-2.5 text-sm placeholder-zinc-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
           />
         </div>
         <div className="flex gap-2 flex-wrap" role="group" aria-label="Filtrar por estado">
@@ -593,7 +593,7 @@ export default function Purchases() {
                     <td className="px-6 py-4 text-xs whitespace-nowrap">
                       <div className="space-y-1.5 flex flex-col items-start w-fit">
                          <div className="flex items-center gap-2 w-full justify-between">
-                            <span className="text-zinc-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> Orden:</span> 
+                            <span className="text-zinc-400 flex items-center gap-1"><Calendar className="w-3 h-3"/> Orden:</span> 
                             <span className="text-zinc-200 font-medium">{new Date(p.date).toLocaleDateString()}</span>
                          </div>
                       </div>
@@ -604,7 +604,7 @@ export default function Purchases() {
                     </td>
                     <td className="px-6 py-4 text-xs">
                       <div className="text-zinc-300">{p.items.length} ítems</div>
-                      <div className="text-zinc-500 line-clamp-1 max-w-[150px]" title={p.items.map(i=>i.name).join(', ')}>
+                      <div className="text-zinc-400 line-clamp-1 max-w-[150px]" title={p.items.map(i=>i.name).join(', ')}>
                         {p.items[0]?.name}
                       </div>
                     </td>
@@ -613,7 +613,7 @@ export default function Purchases() {
                     </td>
                     <td className="px-6 py-4 text-center">
                        {isCancelled ? (
-                         <span className="text-xs text-zinc-600 italic">—</span>
+                         <span className="text-xs text-zinc-400 italic">—</span>
                        ) : (
                        <button
                          onClick={() => openTrackingModal(p)}
@@ -630,7 +630,7 @@ export default function Purchases() {
                           <button
                             onClick={() => openOrderEdit(p)}
                             title="Editar orden (ítems, costos, landed cost)"
-                            className="p-1.5 text-zinc-500 hover:text-cyan-400 hover:bg-zinc-800 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="p-1.5 text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -640,7 +640,7 @@ export default function Purchases() {
                           <button
                             onClick={() => handleCancelOrder(p)}
                             title="Cancelar orden (no elimina el registro)"
-                            className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingCancel === p.id ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-amber-400 hover:bg-zinc-800'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                            className={`p-1.5 rounded transition-colors text-xs font-bold ${confirmingCancel === p.id ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-400 hover:text-amber-400 hover:bg-zinc-800'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                           >
                             {confirmingCancel === p.id ? '¿Cancelar?' : <Ban className="w-4 h-4" />}
                           </button>
@@ -651,7 +651,7 @@ export default function Purchases() {
                             ? 'No se puede borrar: tiene cajas recibidas'
                             : 'Eliminar la orden de compra'}
                           aria-label={`Eliminar la orden de compra de ${supplierName(p.supplier)}`}
-                          className="p-1.5 rounded transition-colors text-xs font-bold text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                          className="p-1.5 rounded transition-colors text-xs font-bold text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -676,7 +676,7 @@ export default function Purchases() {
               )}
               {purchases.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-zinc-500 italic">Sin compras registradas todavía.</td>
+                  <td colSpan={7} className="px-6 py-10 text-center text-zinc-400 italic">Sin compras registradas todavía.</td>
                 </tr>
               )}
             </tbody>
@@ -778,7 +778,7 @@ export default function Purchases() {
                               if (orderForm.items.length <= 1) { toast.error('La orden debe tener al menos un artículo.'); return; }
                               setOrderForm((prev: any) => ({ ...prev, items: prev.items.filter((x: any) => x.id !== it.id) }));
                             }}
-                            className="p-1 text-zinc-500 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded"
+                            className="p-1 text-zinc-400 hover:text-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-500 rounded"
                             title="Quitar artículo de la orden"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -907,7 +907,7 @@ export default function Purchases() {
                                 <span className="flex items-center gap-1 text-cyan-400/80">
                                   <Truck className="w-3 h-3" />
                                   {t.isReceived ? 'Tránsito total:' : 'En tránsito:'} <b>{days} día{days === 1 ? '' : 's'}</b>
-                                  {!t.agentDeliveryDate && <span className="text-zinc-500">(desde la orden)</span>}
+                                  {!t.agentDeliveryDate && <span className="text-zinc-400">(desde la orden)</span>}
                                 </span>
                               );
                             })()}
@@ -962,8 +962,8 @@ export default function Purchases() {
                      ))}
                      {(trackingModalPurchase.trackings || []).length === 0 && (
                        <div className="text-center p-8 bg-zinc-800/50 border border-zinc-700 border-dashed rounded-xl">
-                         <Navigation className="w-10 h-10 text-zinc-600 mx-auto mb-2" />
-                         <p className="text-sm text-zinc-500">No hay trackings logísticos asociados.</p>
+                         <Navigation className="w-10 h-10 text-zinc-500 mx-auto mb-2" />
+                         <p className="text-sm text-zinc-400">No hay trackings logísticos asociados.</p>
                        </div>
                      )}
                    </div>
@@ -974,7 +974,7 @@ export default function Purchases() {
                      <h4 className="text-sm font-bold text-cyan-400 flex items-center gap-2">
                        {editingTracking ? 'Actualizar Status de Caja' : 'Nuevo Envío/Tracking'}
                      </h4>
-                     <button type="button" onClick={closeTrackingForm} className="text-xs text-zinc-500 hover:text-white bg-zinc-800 px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500">Cancelar</button>
+                     <button type="button" onClick={closeTrackingForm} className="text-xs text-zinc-400 hover:text-white bg-zinc-800 px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500">Cancelar</button>
                    </div>
                    
                    <div className="grid grid-cols-2 gap-4">
