@@ -73,11 +73,59 @@ tocado), y que ya está arreglado:
   tipo. **Nada se rompe si no se despliega.**
 - Rotar el service account (ver P0.2 arriba).
 
+## Estado al 2026-09-23 — critique del Catálogo Maestro
+
+**`npm run lint` no verificaba la interfaz, y ahora sí.** `@types/react` y
+`@types/react-dom` no estaban instalados. Como el `tsconfig.json` no tiene
+`strict`, `noImplicitAny` está apagado y un import sin tipos resuelve a `any`
+EN SILENCIO — sin error ni warning. O sea que `useState` era `any`, el estado de
+todos los componentes era `any`, y ninguna propiedad de ninguna pantalla se
+verificaba. Se descubrió con un control positivo: una propiedad inventada
+inyectada en `ProductCatalog` no producía ningún error, y la misma propiedad en
+un `.tsx` suelto sí.
+
+Instalados los dos paquetes aparecieron **exactamente dos errores en todo el
+repo**, y los dos eran el mismo bug tapado (`SalesBullet` sin `etiqueta`, que el
+formulario escribe y Zod valida). **Si agregás un control positivo antes de
+confiar en una verificación, lo vas a agradecer.**
+
+Los nueve hallazgos del critique del Catálogo Maestro, arreglados:
+
+- **La foto subida no le llegaba nunca al cliente.** `imageBase64` lo leen sólo
+  el POS, el Inventario y la factura; a la tablet sólo viaja `media.heroImage`,
+  una URL que había que pegar 500 líneas más abajo. Ahora se deriva de la foto
+  subida (400×400, ~30 KB) cuando no hay URL, y los dos campos están juntos.
+  **Los productos que ya existen la generan la primera vez que se guarden.**
+- **El campo "Descripción del Producto" era el NOMBRE**, y el `description` real
+  quedaba congelado con el nombre original — y sí viajaba a la tablet. Ahora son
+  dos campos distintos y editables.
+- **Cuatro caminos tiraban el formulario sin preguntar** (las dos pestañas de
+  modo, "Cancelar / Limpiar" y elegir otro producto en el buscador). Ahora hay
+  detección de cambios sin guardar con comparación estable de claves ordenadas.
+- **No se podía quitar una foto**, sólo reemplazarla. `imageBase64` entró en
+  `CLEARABLE`.
+- **El SKU se mostraba en mayúsculas por CSS y se guardaba como se tipeó.**
+  Ahora el formulario convierte el valor y el hook normaliza.
+- **Los datos de ficha técnica de una categoría anterior** se preservan a
+  propósito pero viajaban al espejo sin que el operador pudiera verlos.
+- `aria-label` repetido en las fotos complementarias; "Override" en pantalla.
+
+**Nota para el próximo:** `buildPublicCatalogDoc` en `src/lib/validations.ts`
+es **código muerto** — nadie lo llama. El espejo lo escribe sólo
+`scripts/backfill_catalogo_publico.mjs`, que tiene su propia copia de la
+derivación a mano. Las dos ya divergieron (la del backfill emite un campo
+`specs` que no existe en `Product`). Unificarlas es trabajo pendiente y choca
+con el principio 2 de PRODUCT.md.
+
 ## Reglas de trabajo para el agente
 
 - **NUNCA** leas, muevas, copies ni pegues en el chat el JSON del service account. La rotación de la llave la hace el usuario a mano en Google Cloud Console.
 - No refactorices `src/hooks/useStoreData.ts` sin leer sus comentarios: `recordSale`, `changeSaleStatus`, `updatePurchase` y `revertTrackingReception` son transacciones con invariantes de stock/WAC deliberadas.
-- Después de cada cambio: `npm run lint` (es `tsc --noEmit`). Hay tres suites de pruebas de lógica pura, sin framework: `npm run costo:test` (costo promedio ponderado y su reversión), `npm run financiamiento:cuotas` y `npm run financiamiento:test`. Las de reglas corren con `npm run test:rules` (requiere emulador). Si tocás una fórmula que decide plata, extraela a `src/lib/` y escribile su test — es lo que se hizo con `costoPromedio.ts`.
+- Después de cada cambio: `npm run lint` (es `tsc --noEmit`). **Verifica la UI
+  sólo porque `@types/react` está instalado**: sin él, y con `strict` apagado
+  como está, todo React resuelve a `any` y el typecheck no ve nada de las
+  pantallas. Si alguna vez `npm run lint` pasa sospechosamente limpio, poné un
+  control positivo —una propiedad inventada— antes de creerle. Hay tres suites de pruebas de lógica pura, sin framework: `npm run costo:test` (costo promedio ponderado y su reversión), `npm run financiamiento:cuotas` y `npm run financiamiento:test`. Las de reglas corren con `npm run test:rules` (requiere emulador). Si tocás una fórmula que decide plata, extraela a `src/lib/` y escribile su test — es lo que se hizo con `costoPromedio.ts`.
 - Toda escritura nueva a Firestore debe pasar por Zod (`src/lib/validations.ts`) Y estar permitida en `firestore.rules` (validación por whitelist de campos — si agregás un campo, tocá tipo + schema + regla).
 - El proyecto se queda en plan **Spark**: no despliegues Cloud Functions ni sugieras Blaze salvo pedido explícito. `catalogo_publico` se sincroniza con `npm run backfill`.
 - No borres los `.md` de revisiones; actualizá su sección ESTADO cuando apliques algo.
