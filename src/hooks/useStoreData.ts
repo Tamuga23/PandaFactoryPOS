@@ -262,8 +262,22 @@ export function useStoreData() {
     try {
       const fullProduct: any = { ...product, ownerId: 'shared_store' };
       Object.keys(fullProduct).forEach(key => fullProduct[key] === undefined && delete fullProduct[key]);
+      /*
+        El SKU se guarda NORMALIZADO, en mayúsculas y sin espacios al borde.
+
+        El campo del Catálogo Maestro tenía la clase `uppercase`, que es
+        `text-transform` — puro CSS. Escribías `proy-001`, veías `PROY-001`, y
+        se guardaba `proy-001`: después el Inventario y la factura mostraban la
+        minúscula y la pantalla donde lo cargaste quedaba como la única que
+        decía otra cosa.
+
+        La unicidad ya se comparaba sin distinguir mayúsculas, así que esto no
+        cambia qué se considera duplicado; lo que hace es que lo guardado
+        coincida con lo que se mostró al escribirlo.
+      */
+      fullProduct.sku = String(fullProduct.sku || '').trim().toUpperCase();
       // P3.5: SKU único (case-insensitive) — antes se podían crear duplicados en silencio.
-      const skuNorm = String(fullProduct.sku || '').trim().toLowerCase();
+      const skuNorm = fullProduct.sku.toLowerCase();
       if (skuNorm && products.some(p => (p.sku || '').trim().toLowerCase() === skuNorm)) {
         throw new Error(`Ya existe un producto con el SKU "${fullProduct.sku}". Usá otro SKU.`);
       }
@@ -279,8 +293,9 @@ export function useStoreData() {
   const updateProduct = async (product: Product) => {
     if (!user) return;
     try {
-      // P3.5: SKU único también al editar.
-      const skuNorm = String(product.sku || '').trim().toLowerCase();
+      // P3.5: SKU único también al editar. Se normaliza igual que al crear.
+      product = { ...product, sku: String(product.sku || '').trim().toUpperCase() };
+      const skuNorm = product.sku.toLowerCase();
       if (skuNorm && products.some(p => p.id !== product.id && (p.sku || '').trim().toLowerCase() === skuNorm)) {
         throw new Error(`Ya existe otro producto con el SKU "${product.sku}".`);
       }

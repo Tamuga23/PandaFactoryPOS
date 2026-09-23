@@ -787,10 +787,16 @@ export default function ProductCatalog({
               type="text"
               name="sku"
               value={formData.sku}
-              onChange={handleInputChange}
+              /*
+                Antes esto era `handleInputChange` con la clase `uppercase` en
+                el className: la mayúscula era CSS y el valor guardado era el
+                tipeado. Ahora el valor SE convierte, así que lo que se ve es
+                lo que se guarda.
+              */
+              onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
               required
               placeholder="Ej. PROY-001"
-              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none uppercase"
+              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
             />
           </div>
 
