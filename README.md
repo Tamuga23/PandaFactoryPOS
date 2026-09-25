@@ -1,56 +1,105 @@
-# PandaFactory POS (PandaStoreOS)
+<div align="center">
+  <h1>🐼 PandaFactory POS (PandaStoreOS)</h1>
+  <p><strong>Sistema Avanzado de Punto de Venta, Inventario y Logística de Importación para Panda Store (Nicaragua)</strong></p>
+</div>
 
-Sistema de punto de venta e inventario para Panda Store (Nicaragua). Registra productos, ventas, compras con logística de importación (trackings, landed cost, costo promedio ponderado), clientes, proveedores y objeciones de venta. Alimenta a **PandaLink**, la PWA de tablet para el piso de venta, a través de la colección `catalogo_publico`.
+---
 
-## Stack
+**PandaFactory POS** es el corazón operativo de Panda Store. Un sistema integral diseñado a medida para gestionar desde la venta al mostrador hasta la complejidad logística de importar productos, calcular costos exactos (Landed Cost) y mantener sincronizado el catálogo público para el piso de ventas.
 
-Vite + React 19 + TypeScript + Tailwind v4. Firebase Auth (**email/password** con custom claim `admin`; el proveedor anónimo sigue habilitado a propósito para la tablet PandaLink y PandaWEB, que sin el claim no leen nada sensible) y Firestore con **base de datos nombrada** (`firebase-applet-config.json` → `firestoreDatabaseId`). Plan **Spark** (gratuito): no hay Cloud Functions desplegadas; la sincronización del catálogo público se hace con el script de backfill (abajo).
+## ✨ Características Principales
 
-## Comandos
+*   **🛒 Punto de Venta (POS) Ágil:** Interfaz optimizada para facturación rápida, manejo de proformas, múltiples métodos de pago y soporte bi-monetario (NIO/USD).
+*   **📦 Gestión de Inventario Avanzada:** Control estricto de existencias, cálculo automático de costo promedio ponderado y alertas de stock bajo.
+*   **🚢 Logística de Importación (Landed Cost):** Registro de compras, trackings, fletes marítimos/aéreos y prorrateo automático de gastos aduaneros para obtener el costo real del producto puesto en tienda.
+*   **🤝 CRM Integrado:** Gestión de clientes y proveedores, historial de ventas y seguimientos.
+*   **📱 Ecosistema Omnicanal:** Alimenta directamente a **PandaLink** (la PWA utilizada en las tablets del piso de venta) proyectando catálogos, fichas técnicas y manejo de objeciones comerciales.
 
-```bash
-npm install
-npm run dev            # http://localhost:3000
-npm run build          # produce dist/
-npm run lint           # tsc --noEmit (typecheck)
-npm run test:rules     # tests de firestore.rules (requiere firebase-tools y emulador)
-npm run backfill:dry   # simula la sincronización de catalogo_publico
-npm run backfill       # sincroniza catalogo_publico desde products
-```
+---
 
-## Sincronización del catálogo de la tablet (plan Spark)
+## 🛠️ Stack Tecnológico
 
-`catalogo_publico/{id}` es una proyección de `products/{id}` **sin `cost`** que consume PandaLink. Como el plan Spark no permite Cloud Functions, el espejo se actualiza manualmente:
+El proyecto está construido con un enfoque moderno, priorizando la velocidad y el bajo costo de infraestructura:
 
-1. Credenciales admin: `GOOGLE_APPLICATION_CREDENTIALS` apuntando al JSON del service account (guardalo FUERA de esta carpeta) o `gcloud auth application-default login`.
-2. `npm run backfill:dry` para revisar qué escribiría.
-3. `npm run backfill` para sincronizar.
+*   **Frontend:** React 19, Vite, TypeScript, Tailwind CSS v4.
+*   **Backend & Base de Datos:** Firebase Firestore (Base de datos nombrada).
+*   **Autenticación:** Firebase Auth (Email/Password con *custom claim* `admin` para staff).
+*   **Infraestructura:** Desplegado en Vercel, operando 100% serverless en el plan Spark (gratuito) de Firebase.
 
-Correlo cada vez que cambies precios, stock relevante, o campos de tablet (`publicar`, `precioPromo`, `descEfectivoPct`, `bullets`, etc.). Las objeciones (`objeciones_universales`, `objeciones_categoria`) NO necesitan backfill: la tablet las lee directo.
+---
 
-En `functions/` hay una Cloud Function (`onProductWritten`) que automatizaría esto si algún día se pasa al plan Blaze. Hoy no está desplegada.
+## 🚀 Instalación y Entorno de Desarrollo
 
-## Estructura
+### Requisitos Previos
+*   [Node.js](https://nodejs.org/) (versión 20+ recomendada).
+*   Una cuenta de Firebase con el proyecto configurado.
 
-- `src/pages/` — POS, Inventory, Catalog, Purchases, Sales History, Customers, Reports, Settings, Dashboard.
-- `src/hooks/useStoreData.ts` — capa de datos (suscripciones onSnapshot + writes; ventas y recepciones de compra usan transacciones).
-- `src/lib/validations.ts` — schemas Zod + `buildPublicCatalogDoc` (la derivación del espejo; el backfill la replica).
-- `firestore.rules` — validación por colección. Desplegar con `firebase deploy --only firestore:rules`.
-- `scripts/` — backfill y seeds (usan firebase-admin local).
+### Configuración Rápida
 
-## Documentos internos
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/Tamuga23/PandaFactoryPOS.git
+   cd PandaFactoryPOS
+   ```
 
-- `CATALOGO_TABLET_RESUMEN.md` — diseño del feature de catálogo público.
-- `REVISION_2026-07.md` — revisión de código y plan de mejoras (histórico; su Fase 2 de seguridad ya se implementó).
-- `security_spec.md` — invariantes de seguridad. Implementados el 2026-09-10: las reglas exigen el claim `admin` (`isStaff()`), no una sesión cualquiera.
-- `REVISION_2026-07-07_MEJORAS.md` — revisión vigente con el ESTADO de lo aplicado (P1, P2.5–P2.8, P3.1, P3.5).
-- `DESIGN.md` — el sistema de diseño, derivado de lo que está embarcado. Tiene sidecar en `.impeccable/design.json`.
-- `PRODUCT.md` — qué es el producto y qué se le prometió al usuario.
-- `AGENTS.md` — guía para agentes de IA que trabajen en este repo.
-- La fuente de verdad del modelo de datos es `src/types.ts` + `firestore.rules` (el viejo `firebase-blueprint.json` se eliminó por obsoleto; las fichas Magcubic viven en `docs/`).
+2. **Instalar dependencias:**
+   ```bash
+   npm install
+   ```
 
-## Pendiente importante
+3. **Variables de entorno:**
+   Duplica el archivo `.env.example`, renómbralo a `.env` y configura tus variables de Firebase.
 
-**Rotar el service account** (`gen-lang-client-*.json`, en la raíz). Se auditó el historial de git sobre un clon completo el 2026-09-10 y la llave NUNCA se commiteó, así que no hay que reescribir historia; falta rotarla por higiene. Al rotar: **borrá el JSON viejo de la raíz ANTES de revocar la clave en la consola**, porque seis scripts eligen credencial con `existsSync`, que mira si el archivo existe y no si sirve — una llave revocada pero presente en disco los hace fallar con `invalid_grant` aunque `GOOGLE_APPLICATION_CREDENTIALS` esté bien puesta.
+4. **Levantar el entorno local:**
+   ```bash
+   npm run dev
+   ```
+   El sistema estará disponible en `http://localhost:3000`.
 
-La Fase 2 de seguridad ya no está pendiente: se implementó el 2026-09-10 (commit `e029765`), verificada con 26 tests de reglas y contra Firestore real con un token anónimo.
+### Comandos Útiles
+
+| Comando | Descripción |
+| :--- | :--- |
+| `npm run dev` | Inicia el servidor de desarrollo local. |
+| `npm run build` | Compila la aplicación para producción en la carpeta `dist/`. |
+| `npm run lint` | Ejecuta TypeScript (`tsc --noEmit`) para validar tipos de datos. |
+| `npm run test:rules` | Ejecuta las pruebas de seguridad de Firestore (requiere Emulador). |
+
+---
+
+## 🔄 Sincronización con PandaLink (Backfill)
+
+La colección `catalogo_publico` es una proyección segura de `products` (omitiendo costos sensibles) consumida por la tablet de ventas. Como operamos en el plan **Spark**, no utilizamos Cloud Functions, por lo que el catálogo se sincroniza mediante un script local:
+
+1. **Autenticación:** Asegúrate de tener la variable `GOOGLE_APPLICATION_CREDENTIALS` apuntando a tu `service account` de Firebase (¡Mantenlo fuera de git!).
+2. **Simular:** `npm run backfill:dry` (Muestra qué cambios se harían sin afectar la BD).
+3. **Ejecutar:** `npm run backfill` (Aplica la sincronización).
+
+*Nota: Ejecuta esto cada vez que cambies precios, descripciones o visibilidad de productos para la tablet.*
+
+---
+
+## 📂 Arquitectura y Estructura
+
+*   `/src/pages/` — Rutas principales (POS, Inventario, Compras, CRM, Reportes, Dashboard).
+*   `/src/hooks/useStoreData.ts` — Capa de datos y suscripciones en tiempo real a Firestore. Transacciones seguras.
+*   `/src/lib/validations.ts` — Esquemas de validación estrictos usando **Zod**.
+*   `/firestore.rules` — Reglas de seguridad de la base de datos (Fase 2 de seguridad completada).
+*   `/scripts/` — Scripts de mantenimiento y backfill (usan `firebase-admin`).
+
+---
+
+## 📖 Documentación Interna para Desarrolladores
+
+Si te unes al proyecto o eres un Agente de IA trabajando en este repositorio, **es obligatorio leer estos documentos**:
+
+*   [**AGENTS.md**](./AGENTS.md): Reglas estrictas y estado del arte para agentes IA.
+*   [**PRODUCT.md**](./PRODUCT.md): Promesa de producto y visión funcional.
+*   [**DESIGN.md**](./DESIGN.md): Sistema de diseño UI/UX (Basado en Tailwind v4).
+*   [**REVISION_2026-07-07_MEJORAS.md**](./REVISION_2026-07-07_MEJORAS.md): Historial de mejoras y backlog vigente.
+*   [**security_spec.md**](./security_spec.md): Invariantes de seguridad e implementación de Claims.
+
+---
+
+> **⚠️ Pendiente Administrativo (Seguridad):** 
+> Es necesario rotar el *Service Account* (`gen-lang-client-*.json`). La llave **nunca ha estado en el historial de Git** (confirmado), pero requiere rotación por higiene. **Importante:** Borra el JSON viejo del disco antes de revocar la clave en la consola de Google Cloud para evitar errores de autenticación en los scripts.
