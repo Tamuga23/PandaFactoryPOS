@@ -1,49 +1,76 @@
-import React, { useState } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import React from 'react';
+import { useLocation } from 'react-router-dom';
+import { useStore } from '../context/StoreContext';
 import ProductCatalog, { CatalogProduct } from '../components/ProductCatalog';
-import { fileToBase64, compressImage } from '../lib/utils';
+import { fileToBase64, compressImage, MEDIDA_FOTO_TABLET } from '../lib/utils';
 import { v4 as uuidv4 } from 'uuid';
-import { DownloadCloud, Loader2 } from 'lucide-react';
 
-const PRESET_DATA = [
-  { sku: '1004', name: 'Amazon Fire TV HD', category: 'SmartTV Device', price: 50.02 },
-  { sku: '1014', name: 'Amazon Fire TV Stick 4K', category: 'SmartTV Device', price: 55.02 },
-  { sku: '1062', name: 'MagCubic Proyector Portatil', category: 'Projector', price: 110.01 },
-  { sku: '1097', name: '70mai Dash Cam M310 1296P', category: 'Security Cam', price: 65.00 },
-  { sku: '1110', name: 'Amazon Echo Show 5', category: 'SmartHome', price: 85.00 },
-  { sku: '1112', name: 'MagCubic Proyector Portatil L018 650 ANSI', category: 'Projector', price: 125.05 },
-  { sku: '1132', name: 'Redmi Watch 5', category: 'SmartWatch', price: 115.00 },
-  { sku: '1138', name: 'Xiaomi Mi TV Box S, 3a Generación', category: 'SmartHome', price: 85.00 },
-  { sku: '1139', name: 'TP-Link - Cámara de seguridad inalámbrica para exteriores, 1080P', category: 'Security Cam', price: 65.00 },
-  { sku: '1142', name: 'MagCubic Proyector Portatil HY450 900 ANSI', category: 'Projector', price: 175.00 },
-  { sku: '1145', name: 'Amazfit Bip 6', category: 'SmartWatch', price: 102.94 },
-  { sku: '1153', name: 'Amazfit Active 2 Premium Version', category: 'SmartWatch', price: 143.89 },
-  { sku: '1154', name: 'Amazfit Active 2', category: 'SmartWatch', price: 122.05 },
-  { sku: '1164', name: 'MagCubic Proyector Portatil HY310 330 ANSI', category: 'Projector', price: 92.02 },
-  { sku: '1169', name: 'Xiaomi Mi Band 10', category: 'SmartWatch', price: 64.71 },
-  { sku: '1174', name: 'MagCubic Proyector Portatil HY350MAX 900 ANSI', category: 'Projector', price: 141.16 },
-  { sku: '1179', name: 'Amazfit Active 2 Premium Square Version', category: 'SmartWatch', price: 171.20 },
-  { sku: '1185', name: '70mai Dash Cam A800S 4K', category: 'Security Cam', price: 113.86 },
-  { sku: '1187', name: 'XGODY N6 Pro 4K Projector Netflix Officially 700 ANSI', category: 'Projector', price: 146.62 },
-  { sku: '1188', name: 'MagCubic Proyector Portatil X7 1000 ANSI', category: 'Projector', price: 190.31 },
-  { sku: '1198', name: 'MagCubic Proyector Portatil HY450MAX 1100 ANSI', category: 'Projector', price: 198.50 },
-  { sku: '1199', name: 'MagCubic Proyector Portatil HY310X 420 ANSI', category: 'Projector', price: 94.75 },
-  { sku: '1203', name: 'MagCubic Proyector Portatil HY300 Pro + 260 ANSI', category: 'Projector', price: 53.79 },
-  { sku: '1204', name: 'MagCubic Proyector Portatil HY300 Max 400 ANSI', category: 'Projector', price: 78.36 }
-];
+
+/*
+  Una sola foto para las tres superficies.
+
+  Antes eran dos y había que mantenerlas a mano: la que se sube va a
+  `imageBase64`, que leen el POS, el Inventario y la factura, y NO viaja al
+  espejo `catalogo_publico` — ni `buildPublicCatalogDoc` ni el backfill la
+  copian. Lo único que le llega a la tablet es `media.heroImage`, una URL que
+  había que pegar quinientas líneas más abajo en el formulario, bajo un título
+  que decía «(URLs)». El operador hacía lo obvio —subir la foto, verla en la
+  vista previa— y el cliente parado en el mostrador veía un hueco.
+
+  Es justo lo que el principio 2 de PRODUCT.md prohíbe: «cualquier feature que
+  obligue a mantener el mismo dato en dos lados está mal planteada».
+
+  Ahora `media.heroImage` significa una sola cosa: LA IMAGEN QUE VE EL CLIENTE.
+  Si se pegó una URL de alta calidad, esa manda. Si no, se deriva de la foto
+  subida, reducida a la medida de tablet. PandaLink no se entera: un data URI
+  entra en un `<img src>` igual que una URL, y ni el schema (`heroImage` es
+  `z.string()`) ni las reglas (`media is map`) piden que sea una URL.
+*/
+const fotoParaLaTablet = async (
+  urlPegada: string | undefined,
+  fotoDelProducto: string | undefined,
+): Promise<string | undefined> => {
+  const url = (urlPegada || '').trim();
+  // Una URL pegada por el operador gana siempre: es la de alta calidad.
+  if (url && !url.startsWith('data:')) return url;
+  if (!fotoDelProducto) return undefined;
+  const { ancho, alto, calidad } = MEDIDA_FOTO_TABLET;
+  return compressImage(fotoDelProducto, ancho, alto, calidad);
+};
+
+/** `media` con su `heroImage` ya resuelto. Devuelve `undefined` si queda vacío. */
+const conFotoDeTablet = async (media: any, fotoDelProducto?: string) => {
+  const hero = await fotoParaLaTablet(media?.heroImage, fotoDelProducto);
+  const resultado = { ...(media || {}) };
+  if (hero) resultado.heroImage = hero;
+  else delete resultado.heroImage;
+  return Object.keys(resultado).length > 0 ? resultado : undefined;
+};
 
 export default function Catalog() {
-  const { products, addProduct, updateProduct, loading, companyInfo } = useStoreData();
-  const [isImporting, setIsImporting] = useState(false);
+  const { products, addProduct, updateProduct, loading, companyInfo, universalObjections } = useStore();
+  /*
+    Entrada directa desde Inventario. El Catálogo es donde vive la ficha
+    completa, pero el Inventario es donde se BUSCA: tiene buscador, filtro por
+    categoría y orden por columna. Antes había que encontrar el producto acá,
+    de memoria y en una lista.
+  */
+  const { state } = useLocation();
+  const editarId = (state as { editarId?: string } | null)?.editarId ?? null;
 
   if (loading) {
-    return <div className="text-zinc-500">Cargando catálogo...</div>;
+    return <div className="text-zinc-400">Cargando catálogo...</div>;
   }
 
   // Preparamos los datos para que el componente ProductCatalog los entienda
   const catalogForComponent: CatalogProduct[] = products.map((p) => ({
     id: p.id,
-    description: p.name, // Usamos el nombre del producto como descripcion principal
+    sku: p.sku,
+    cost: p.cost,
+    stock: p.stock,
+    minStockAlert: p.minStockAlert,
+    nombre: p.name,
+    descripcion: p.description || '',
     priceUSD: p.price,
     category: p.category,
     status: p.activo === false ? 'Inactivo' : 'Activo',
@@ -58,6 +85,7 @@ export default function Catalog() {
     objecionesOverride: p.objecionesOverride,
     specsProyector: p.specsProyector,
     media: p.media,
+    financiamientoOverride: p.financiamientoOverride,
   }));
 
   const handleAddProduct = async (productData: any) => {
@@ -68,15 +96,17 @@ export default function Catalog() {
     }
     
     // Convertir de formato ProductCatalog a Formato Product BD
+    // P3.5: id SIEMPRE uuid (adiós al riesgo de charset del SKU tipeado, A4);
+    // el SKU es un campo con check de unicidad en el hook.
     const newProduct = {
-      id: productData.id || uuidv4(),
-      sku: productData.id || uuidv4(), // Usamos el ID como SKU también
-      name: productData.description,
-      description: productData.description,
+      id: uuidv4(),
+      sku: (productData.sku || '').trim(),
+      name: productData.nombre,
+      description: productData.descripcion || undefined,
       price: Number(productData.priceUSD), // We store USD as base now
-      cost: 0, // Costo base (lo manejaría compras)
-      stock: 0, // Stock inicia en 0 (lo manejaría compras)
-      minStockAlert: 5,
+      cost: productData.cost !== undefined ? Number(productData.cost) : 0,
+      stock: productData.stock !== undefined ? Number(productData.stock) : 0,
+      minStockAlert: productData.minStockAlert !== undefined ? Number(productData.minStockAlert) : 5,
       category: productData.category,
       imageBase64: imageBase64,
       publicar: productData.publicar !== false,
@@ -88,7 +118,8 @@ export default function Catalog() {
       bullets: productData.bullets,
       objecionesOverride: productData.objecionesOverride,
       specsProyector: productData.specsProyector,
-      media: productData.media,
+      media: await conFotoDeTablet(productData.media, imageBase64),
+      financiamientoOverride: productData.financiamientoOverride,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -101,17 +132,35 @@ export default function Catalog() {
     const originalProduct = products.find(p => p.id === id);
     if (!originalProduct) throw new Error('Producto no encontrado');
 
-    let imageBase64 = originalProduct.imageBase64;
-    // Si subió un archivo nuevo, reemplazar imagen
+    /*
+      Tres casos, y antes sólo existían dos: se sube una foto nueva, se deja la
+      que estaba... y ahora también se la puede QUITAR. `undefined` es lo que
+      `updateProduct` traduce a `deleteField()` — ver su lista `CLEARABLE`.
+    */
+    let imageBase64: string | undefined = originalProduct.imageBase64;
     if (productData.imageFile) {
        const rawBase64 = await fileToBase64(productData.imageFile);
        imageBase64 = await compressImage(rawBase64);
+    } else if (productData.quitarImagen) {
+       imageBase64 = undefined;
     }
 
     const updatedProduct = {
       ...originalProduct,
-      name: productData.description,
-      // A3: no pisar `description` con el nombre al editar; se preserva la original.
+      // P3.5: SKU editable (unicidad verificada en el hook); stock NO se toca
+      // desde este form (los ajustes van por Inventario → kardex).
+      sku: (productData.sku || '').trim() || originalProduct.sku,
+      cost: productData.cost !== undefined ? Number(productData.cost) : originalProduct.cost,
+      minStockAlert: productData.minStockAlert !== undefined ? Number(productData.minStockAlert) : originalProduct.minStockAlert,
+      name: productData.nombre,
+      /*
+        `description` ya es un campo propio y editable, no una copia del nombre.
+        Antes se preservaba la original a proposito (A3) para no pisarla con el
+        nombre — pero como al crear se grababa IGUAL al nombre y despues no se
+        podia tocar, lo que se preservaba era el nombre viejo, y eso es lo que
+        la tablet mostraba como descripcion.
+      */
+      description: productData.descripcion || undefined,
       price: Number(productData.priceUSD), // We store USD as base now
       category: productData.category,
       imageBase64: imageBase64,
@@ -124,70 +173,47 @@ export default function Catalog() {
       bullets: productData.bullets,
       objecionesOverride: productData.objecionesOverride,
       specsProyector: productData.specsProyector,
-      media: productData.media,
+      // La foto de la tablet se rederiva en CADA guardado, no solo cuando se
+      // sube una nueva: si el operador borra la URL de alta calidad, tiene que
+      // volver a valer la foto del producto, y si cambia la foto, la de la
+      // tablet tiene que cambiar con ella.
+      media: await conFotoDeTablet(productData.media, imageBase64),
+      financiamientoOverride: productData.financiamientoOverride,
       updatedAt: Date.now(),
     };
 
     await updateProduct(updatedProduct);
   };
 
-  const importPresets = async () => {
-    setIsImporting(true);
-    let imported = 0;
-    
-    try {
-      for (const preset of PRESET_DATA) {
-        if (products.some(p => p.sku === preset.sku || p.name === preset.name)) {
-          continue;
-        }
-        
-        const newProduct = {
-          id: uuidv4(),
-          sku: preset.sku,
-          name: preset.name,
-          description: preset.name,
-          price: preset.price, // Store as USD directly
-          cost: preset.price * 0.6, // placeholder cost in USD
-          stock: 0,
-          minStockAlert: 5,
-          category: preset.category,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        
-        await addProduct(newProduct);
-        imported++;
-      }
-      
-      console.log(`Importación completada. Se importaron ${imported} productos nuevos.`);
-    } catch (e: any) {
-      console.error("Error importando:", e);
-    } finally {
-      setIsImporting(false);
-    }
-  };
 
+
+  /*
+    Acá había dos cosas que se fueron:
+
+    1. Un <h1> que decía "Gestor de Catálogo" mientras el menú y el encabezado
+       decían "Catálogo Maestro" — dos nombres para la misma pantalla. Y estaba
+       escrito `text-gray-900 dark:text-zinc-100`: en Tailwind v4 `dark:`
+       compila como `prefers-color-scheme`, así que con el Windows del operador
+       en modo CLARO el título caía a gris casi negro sobre el fondo casi negro
+       de la app — 1.12:1, invisible. El nombre de la pantalla ya lo pone el
+       encabezado del Layout, en un solo lugar y para las once pantallas.
+
+    2. "Importar Preset (Masivo)": 24 productos con SKU, nombre, categoría y
+       precio escritos a mano en el código fuente, de la siembra inicial. Ya no
+       se usa —el catálogo real tiene sus productos cargados— y traía dos
+       problemas: escribía en la base sin decir NADA (éxito y error iban los dos
+       a la consola, que nadie mira), y fabricaba el costo como el 60% del
+       precio. Ese costo inventado alimenta el WAC y el margen de Reportes.
+       Decisión del usuario el 2026-09-21: quitarlo.
+  */
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-100">Gestor de Catálogo</h1>
-        <button 
-          onClick={importPresets}
-          disabled={isImporting}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg transition-colors border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
-          Importar Preset (Masivo)
-        </button>
-      </div>
-      
-      <ProductCatalog 
+      <ProductCatalog
+        productoInicialId={editarId}
+        objecionesDisponibles={universalObjections.map((o) => ({ id: o.id, titulo: o.titulo }))}
         catalog={catalogForComponent}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
-        onSuccess={() => {
-           console.log("Catálogo actualizado");
-        }}
       />
     </div>
   );

@@ -1,7 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useStore } from '../context/StoreContext';
+import { Sale } from '../types';
 import { formatCurrency } from '../lib/utils';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, subDays } from 'date-fns';
+// El eje del grafico mensual decia "Sep 2026" en ingles.
+import { es } from 'date-fns/locale';
 import {
   AreaChart,
   Area,
@@ -14,20 +17,88 @@ import {
   ResponsiveContainer,
   ComposedChart
 } from 'recharts';
-import { Sparkles, TrendingUp, DollarSign, Percent, Package } from 'lucide-react';
+import { Sparkles, TrendingUp, DollarSign, Percent, Package, Download } from 'lucide-react';
+import { toCsv, downloadCsv } from '../lib/csv';
+import { toast } from '../components/Toast';
+
+const todayStr = () => format(new Date(), 'yyyy-MM-dd');
 
 export default function Reports() {
-  const { sales, products, loading } = useStoreData();
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const { products, loading, user, fetchSalesInRange } = useStore();
+  // P1.4: default = mes en curso. Los datos se consultan por rango directo a
+  // Firestore (sin el límite de 100 de la ventana en vivo).
+  const [dateRange, setDateRange] = useState({
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: todayStr(),
+  });
+  const [rangeSales, setRangeSales] = useState<Sale[]>([]);
+  const [loadingSales, setLoadingSales] = useState(true);
 
+  useEffect(() => {
+    if (!user || !dateRange.start || !dateRange.end) return;
+    let cancelled = false;
+    setLoadingSales(true);
+    const endMs = parseISO(dateRange.end).getTime() + 86399999; // fin de día inclusive
+    fetchSalesInRange(parseISO(dateRange.start).getTime(), endMs)
+      .then(data => { if (!cancelled) setRangeSales(data); })
+      .catch(() => { if (!cancelled) setRangeSales([]); })
+      .finally(() => { if (!cancelled) setLoadingSales(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, dateRange.start, dateRange.end]);
+
+  // P1.3: solo ventas COMPLETADAS cuentan como ingreso (excluye proformas,
+  // canceladas y devueltas — antes se sumaban al total).
   const filteredSales = useMemo(() => {
-    return sales.filter(s => {
-      if (s.documentType === 'PROFORMA') return false;
-      if (dateRange.start && s.date < parseISO(dateRange.start).getTime()) return false;
-      if (dateRange.end && s.date > parseISO(dateRange.end).getTime() + 86400000) return false;
-      return true;
+    return rangeSales.filter(s =>
+      s.documentType !== 'PROFORMA' && (s.status || 'completed') === 'completed'
+    );
+  }, [rangeSales]);
+
+  const setPreset = (preset: 'hoy' | '7d' | 'mes' | '90d') => {
+    const end = todayStr();
+    if (preset === 'hoy') setDateRange({ start: end, end });
+    if (preset === '7d') setDateRange({ start: format(subDays(new Date(), 6), 'yyyy-MM-dd'), end });
+    if (preset === 'mes') setDateRange({ start: format(startOfMonth(new Date()), 'yyyy-MM-dd'), end });
+    if (preset === '90d') setDateRange({ start: format(subDays(new Date(), 89), 'yyyy-MM-dd'), end });
+  };
+
+  // P2.7: export CSV de las ventas del período (para el contador).
+  const exportSalesCsv = () => {
+    if (filteredSales.length === 0) {
+      toast.info('No hay ventas completadas en el período seleccionado.');
+      return;
+    }
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const rows = filteredSales.map(s => {
+      let costo = 0;
+      s.items.forEach(item => {
+        const p = products.find(prod => prod.id === item.id);
+        costo += (item.cost ?? p?.cost ?? 0) * item.quantity;
+      });
+      return {
+        fecha: format(new Date(s.date), 'yyyy-MM-dd HH:mm'),
+        factura: s.invoiceNumber,
+        cliente: s.customerName || '',
+        metodo: s.paymentMethod || '',
+        unidades: s.items.reduce((a, i) => a + i.quantity, 0),
+        subtotalUSD: r2(s.subtotal),
+        descuentoNIO: s.discount || 0,
+        envioNIO: s.shipping || 0,
+        totalUSD: r2(s.total),
+        costoUSD: r2(costo),
+        utilidadUSD: r2(s.total - costo),
+      };
     });
-  }, [sales, dateRange]);
+    downloadCsv(`ventas_${dateRange.start}_a_${dateRange.end}`, toCsv(rows, [
+      ['fecha', 'Fecha'], ['factura', 'Factura'], ['cliente', 'Cliente'],
+      ['metodo', 'Método de pago'], ['unidades', 'Unidades'],
+      ['subtotalUSD', 'Subtotal USD'], ['descuentoNIO', 'Descuento C$'],
+      ['envioNIO', 'Envío C$'], ['totalUSD', 'Total USD'],
+      ['costoUSD', 'Costo USD'], ['utilidadUSD', 'Utilidad USD'],
+    ]));
+    toast.success(`Exportadas ${rows.length} ventas del período.`);
+  };
 
   const metrics = useMemo(() => {
     let totalRevenue = 0;
@@ -51,7 +122,7 @@ export default function Reports() {
   const areaData = useMemo(() => {
     const monthlyData = filteredSales.reduce((acc, sale) => {
       const dateStr = format(new Date(sale.date), 'yyyy-MM');
-      if (!acc[dateStr]) acc[dateStr] = { dateStr, month: format(new Date(sale.date), 'MMM yyyy'), Revenue: 0, Cost: 0 };
+      if (!acc[dateStr]) acc[dateStr] = { dateStr, month: format(new Date(sale.date), 'MMM yyyy', { locale: es }), Revenue: 0, Cost: 0 };
       
       acc[dateStr].Revenue += sale.total;
       
@@ -113,7 +184,7 @@ export default function Reports() {
     }).sort((a, b) => b.revenue - a.revenue);
   }, [filteredSales, products]);
 
-  if (loading) return <div className="text-zinc-500 p-6 font-mono">Loading data model...</div>;
+  if (loading) return <div className="text-zinc-400 p-6">Cargando reportes…</div>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -122,65 +193,89 @@ export default function Reports() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
         <div>
           <h2 className="text-2xl font-bold text-zinc-100 uppercase tracking-tight italic flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-sky-400" /> Financial Dashboard
+            <TrendingUp className="w-6 h-6 text-cyan-400" /> Panel Financiero
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">Advanced BI interface for analyzing Gross Profit and Margins.</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            Ganancia bruta y márgenes por período. Solo ventas completadas (excluye proformas, canceladas y devueltas).
+            {loadingSales && <span className="text-cyan-400 ml-2 animate-pulse">Cargando ventas…</span>}
+          </p>
         </div>
-        
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        {/* P2.7: export CSV del período */}
+        <button
+          onClick={exportSalesCsv}
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-600 text-zinc-300 hover:text-white text-xs font-bold rounded-xl transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        >
+          <Download className="w-3.5 h-3.5" /> Exportar CSV
+        </button>
+        <div className="flex items-center gap-1 bg-zinc-950 p-1.5 rounded-xl border border-zinc-800">
+          {([['hoy', 'Hoy'], ['7d', '7 días'], ['mes', 'Este mes'], ['90d', '90 días']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setPreset(key)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-3 bg-zinc-950 p-2 rounded-xl border border-zinc-800">
            <div className="flex items-center gap-2 px-2">
-              <span className="text-[10px] uppercase font-bold text-zinc-500">From</span>
-              <input 
+              <span className="text-[10px] uppercase font-bold text-zinc-400">Desde</span>
+              <input aria-label="Desde" 
                 type="date" 
                 value={dateRange.start}
                 onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-sky-400" 
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" 
               />
            </div>
            <div className="h-6 w-px bg-zinc-800"></div>
            <div className="flex items-center gap-2 px-2">
-              <span className="text-[10px] uppercase font-bold text-zinc-500">To</span>
-              <input 
-                type="date" 
+              <span className="text-[10px] uppercase font-bold text-zinc-400">Hasta</span>
+              <input aria-label="Hasta"
+                type="date"
                 value={dateRange.end}
                 onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))}
-                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-sky-400" 
+                className="bg-transparent text-sm text-zinc-200 outline-none focus:text-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               />
            </div>
+        </div>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl"></div>
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4"/> Total Ventas</div>
-            <div className="text-3xl font-bold text-emerald-400 font-mono relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><DollarSign className="w-4 h-4" aria-hidden="true"/> Total Ventas</div>
+            <div className="text-3xl font-bold text-emerald-400 tabular-nums relative z-10">{formatCurrency(metrics.totalRevenue)}</div>
          </div>
          
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-rose-500/10 rounded-full blur-2xl"></div>
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4"/> Costo de Ventas</div>
-            <div className="text-3xl font-bold text-rose-400 font-mono relative z-10">{formatCurrency(metrics.totalCost)}</div>
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Package className="w-4 h-4" aria-hidden="true"/> Costo de Ventas</div>
+            <div className="text-3xl font-bold text-rose-400 tabular-nums relative z-10">{formatCurrency(metrics.totalCost)}</div>
          </div>
 
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl"></div>
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4"/> Utilidad Bruta</div>
-            <div className="text-3xl font-bold text-cyan-400 font-mono relative z-10">{formatCurrency(metrics.grossProfit)}</div>
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><TrendingUp className="w-4 h-4" aria-hidden="true"/> Utilidad Bruta</div>
+            <div className="text-3xl font-bold text-cyan-400 tabular-nums relative z-10">{formatCurrency(metrics.grossProfit)}</div>
          </div>
 
-         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-fuchsia-500/10 rounded-full blur-2xl"></div>
-            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Percent className="w-4 h-4"/> Margen %</div>
-            <div className="text-3xl font-bold text-fuchsia-400 font-mono relative z-10">{metrics.margin.toFixed(1)}%</div>
+         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
+            <div className="text-[11px] uppercase font-bold text-zinc-400 flex items-center gap-1.5 mb-2 relative z-10"><Percent className="w-4 h-4" aria-hidden="true"/> Margen %</div>
+            {/* Era fucsia, un sexto color que la paleta no tiene. La Regla de
+                la Luz Única reserva el turquesa para el dinero, y el margen es
+                dinero. Y `font-mono` cambia la familia tipográfica: el sistema
+                prescribe `tabular-nums`, que alinea los dígitos conservando
+                Inter. */}
+            <div className="text-3xl font-bold text-cyan-400 tabular-nums relative z-10">{metrics.margin.toFixed(1)}%</div>
          </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
-           <h3 className="text-sm font-bold text-zinc-100 mb-6">Revenue vs Cost (Tendencia Mensual)</h3>
+        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+           <h3 className="text-sm font-bold text-zinc-100 mb-6">Ingresos contra costo, mes a mes</h3>
            <div className="h-72">
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={areaData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
@@ -209,7 +304,7 @@ export default function Reports() {
         </div>
 
         {/* Categories BarChart */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg flex flex-col">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col">
            <h3 className="text-sm font-bold text-zinc-100 mb-6">Top Categorías por Ingreso</h3>
            <div className="flex-1 min-h-[16rem]">
              <ResponsiveContainer width="100%" height="100%">
@@ -229,9 +324,9 @@ export default function Reports() {
       </div>
 
       {/* Product Performance Table */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800">
-           <h3 className="text-sm font-bold text-zinc-100">Performance de Productos (Detallado)</h3>
+           <h3 className="text-sm font-bold text-zinc-100">Rendimiento por producto</h3>
         </div>
         <div className="overflow-x-auto text-sm text-left custom-scrollbar">
            <table className="w-full">
@@ -241,7 +336,14 @@ export default function Reports() {
                     <th className="px-6 py-4 text-center">Cant. Vendida</th>
                     <th className="px-6 py-4 text-right">Ingresos</th>
                     <th className="px-6 py-4 text-right">Costo Total</th>
-                    <th className="px-6 py-4 text-right text-cyan-400 hover:bg-cyan-500/5 cursor-pointer">Utilidad Bruta</th>
+                    {/*
+                      Tenía `cursor-pointer` y realce al pasar el mouse, como
+                      las cabeceras ordenables de Inventario, y NINGÚN `onClick`.
+                      Una afordancia sin acción es peor que no tener afordancia:
+                      el operador hace clic, no pasa nada, y concluye que la app
+                      está trabada. La tabla ya viene ordenada por ingreso.
+                    */}
+                    <th className="px-6 py-4 text-right text-cyan-400">Utilidad Bruta</th>
                     <th className="px-6 py-4 text-left w-32 border-l border-zinc-800">Margen %</th>
                  </tr>
               </thead>
@@ -262,22 +364,22 @@ export default function Reports() {
                                <span className="font-medium text-zinc-200 line-clamp-1 max-w-[200px]" title={product.name}>{product.name}</span>
                             </div>
                          </td>
-                         <td className="px-6 py-3 text-center font-mono text-zinc-400">
+                         <td className="px-6 py-3 text-center tabular-nums text-zinc-400">
                             {product.quantity}
                          </td>
-                         <td className="px-6 py-3 text-right font-mono text-zinc-300">
+                         <td className="px-6 py-3 text-right tabular-nums text-zinc-300">
                             {formatCurrency(product.revenue)}
                          </td>
-                         <td className="px-6 py-3 text-right font-mono text-rose-400">
+                         <td className="px-6 py-3 text-right tabular-nums text-rose-400">
                             {formatCurrency(product.cost)}
                          </td>
-                         <td className="px-6 py-3 text-right font-mono font-bold text-cyan-400">
+                         <td className="px-6 py-3 text-right tabular-nums font-bold text-cyan-400">
                             {formatCurrency(product.grossProfit)}
                          </td>
                          <td className="p-0 border-l border-zinc-800 relative group h-full align-middle">
                             {/* Data Bar Effect */}
                             <div className="absolute inset-y-0 left-0 bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors pointer-events-none" style={{ width: `${Math.max(0, Math.min(100, product.margin))}%` }}></div>
-                            <div className="relative z-10 px-6 py-3 font-mono font-bold text-emerald-400">
+                            <div className="relative z-10 px-6 py-3 tabular-nums font-bold text-emerald-400">
                                {product.margin.toFixed(1)}%
                             </div>
                          </td>
@@ -286,7 +388,7 @@ export default function Reports() {
                  })}
                  {productPerf.length === 0 && (
                    <tr>
-                     <td colSpan={6} className="px-6 py-10 text-center text-zinc-500 italic">No hay ventas registradas en este periodo.</td>
+                     <td colSpan={6} className="px-6 py-10 text-center text-zinc-400 italic">No hay ventas registradas en este periodo.</td>
                    </tr>
                  )}
               </tbody>

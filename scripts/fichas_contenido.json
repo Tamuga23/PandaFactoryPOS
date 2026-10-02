@@ -1,0 +1,1057 @@
+{
+  "_note": "Generado desde Magcubic_Fichas_Productos.xlsx. Editar el Excel y regenerar, o editar aquí.",
+  "categoryObjections": {
+    "proyector": [
+      {
+        "id": "manta",
+        "pregunta": "¿Incluye manta / pantalla?",
+        "respuesta": "No necesita manta: una pared blanca y lisa funciona muy bien. Hay mantas reflectivas para mejorar el contraste, pero solo se nota de frente y por ahora van por encargo.",
+        "isNew": false
+      },
+      {
+        "id": "apps",
+        "pregunta": "¿Sirve con Netflix / YouTube / HBO?",
+        "respuesta": "Netflix viene preinstalado y YouTube funciona. HBO Max y otras apps se descargan desde la tienda de aplicaciones.",
+        "isNew": false
+      },
+      {
+        "id": "conexion",
+        "pregunta": "¿Cómo conecto mi celular o laptop?",
+        "respuesta": "Por pantalla inalámbrica o cable HDMI; al iPhone con adaptador. Y por Bluetooth conecta bocinas o teatro en casa.",
+        "isNew": false
+      },
+      {
+        "id": "luz",
+        "pregunta": "¿Con cuánta luz se ve bien?",
+        "respuesta": "Depende del modelo: los de menor ANSI rinden en cuarto oscuro; los de mayor ANSI aguantan luz ambiental. Consultanos y te orientamos según el espacio.",
+        "isNew": false
+      },
+      {
+        "id": "enfoque",
+        "pregunta": "¿Tiene autofoco?",
+        "respuesta": "La mayoría tiene autofoco que se ajusta automáticamente al encender. Los modelos de entrada usan enfoque manual con perilla.",
+        "isNew": false
+      },
+      {
+        "id": "sonido",
+        "pregunta": "¿El parlante alcanza / se escucha bien?",
+        "respuesta": "Todos traen parlante integrado; los MAX (HY350/HY450) rinden 12W para sala. Los demás traen 3-5W para un cuarto y, según el modelo, salida AUX/audio o Bluetooth para sumar bocina.",
+        "isNew": true,
+        "orden": 6
+      },
+      {
+        "id": "fluidez",
+        "pregunta": "¿Se pone lento o se llena la memoria?",
+        "respuesta": "Los de 2GB/16GB (HY350/HY450/X7) corren varias apps con fluidez; los de 1GB rinden bien para streaming. Se pueden cerrar apps o usar microSD para más espacio.",
+        "isNew": true,
+        "orden": 7
+      },
+      {
+        "id": "tiro",
+        "pregunta": "¿Sirve en un cuarto pequeño? ¿Qué distancia necesita?",
+        "respuesta": "Los de tiro corto (HY310X, HY300 Max: 0.8:1) logran pantalla grande a poca distancia. Los de 1.0-1.2:1 necesitan algo más de espacio; consultanos la distancia para el tamaño que querés.",
+        "isNew": true,
+        "orden": 8
+      },
+      {
+        "id": "portabilidad",
+        "pregunta": "¿Es portátil / funciona sin toma de corriente?",
+        "respuesta": "Los HY300 y HY310X son compactos y funcionan con 12V (aptos para power bank compatible). Los HY350/HY450/X7/L018 son para toma de corriente (AC). Ninguno trae batería interna.",
+        "isNew": true,
+        "orden": 9
+      },
+      {
+        "id": "nitidez",
+        "pregunta": "¿En HD 720p se ve bien?",
+        "respuesta": "Los 720p (HY300 Pro+/Max) se ven muy bien para películas y series en penumbra a tamaño moderado. Si querés Full HD nativo, desde el HY310X en adelante.",
+        "isNew": true,
+        "orden": 10
+      },
+      {
+        "id": "precio",
+        "pregunta": "¿Por qué este precio / hay algo más barato?",
+        "respuesta": "El precio sube con el brillo, la memoria y el sonido. Decinos tu espacio y presupuesto y te ubicamos el modelo justo: desde el HY300 Pro+ (entrada) hasta el HY450 Max (tope).",
+        "isNew": true,
+        "orden": 11
+      }
+    ],
+    "dashcam": [
+      {
+        "id": "resolucion",
+        "pregunta": "¿Qué tan nítido graba?",
+        "respuesta": "Graba en alta definición; según el modelo, hasta 4K. La placa de los vehículos se lee con claridad.",
+        "isNew": false
+      },
+      {
+        "id": "nocturno",
+        "pregunta": "¿Graba bien de noche?",
+        "respuesta": "Sí, tiene visión nocturna: ajusta automáticamente para grabar con claridad en poca luz.",
+        "isNew": false
+      },
+      {
+        "id": "memoria",
+        "pregunta": "¿Incluye memoria?",
+        "respuesta": "Usa tarjeta microSD. Te recomendamos la capacidad según cuántas horas querés guardar; consultanos y te orientamos.",
+        "isNew": false
+      },
+      {
+        "id": "instalacion",
+        "pregunta": "¿Es difícil de instalar?",
+        "respuesta": "Es sencilla: se conecta al encendedor o se cablea oculto. Te explicamos el proceso y queda lista en minutos.",
+        "isNew": false
+      },
+      {
+        "id": "estacionamiento",
+        "pregunta": "¿Graba estacionado?",
+        "respuesta": "Según el modelo tiene modo estacionamiento: detecta movimiento o golpes y graba aunque el carro esté apagado.",
+        "isNew": false
+      },
+      {
+        "id": "doble",
+        "pregunta": "¿Graba adelante y atrás?",
+        "respuesta": "Los sets con cámara trasera graban adelante y atrás a la vez; el resto solo frontal. Consultanos si el modelo incluye la trasera.",
+        "isNew": true,
+        "orden": 6
+      },
+      {
+        "id": "wifi",
+        "pregunta": "¿Cómo paso los videos al celular?",
+        "respuesta": "Por Wi-Fi a la app del fabricante, sin sacar la tarjeta: ves en vivo, reproducís, ajustás y actualizás el firmware.",
+        "isNew": true,
+        "orden": 7
+      },
+      {
+        "id": "remoto4g",
+        "pregunta": "¿Puedo verla a distancia?",
+        "respuesta": "Los modelos con 4G permiten ver en vivo y rastrear la ubicación desde la app. Suele requerir un kit 4G aparte.",
+        "isNew": true,
+        "orden": 8
+      },
+      {
+        "id": "gps",
+        "pregunta": "¿Marca velocidad y recorrido?",
+        "respuesta": "Los modelos con GPS registran velocidad, ruta y ubicación para la reproducción.",
+        "isNew": true,
+        "orden": 9
+      },
+      {
+        "id": "voz",
+        "pregunta": "¿Se maneja sin tocarla?",
+        "respuesta": "Los modelos con control por voz permiten operarla manos libres para no distraerte al manejar.",
+        "isNew": true,
+        "orden": 10
+      },
+      {
+        "id": "calor",
+        "pregunta": "¿Aguanta el calor del carro?",
+        "respuesta": "Los modelos con supercondensador resisten mejor el calor que los de batería, con más vida útil en temperaturas extremas.",
+        "isNew": true,
+        "orden": 11
+      },
+      {
+        "id": "vehiculos",
+        "pregunta": "¿Sirve para mi tipo de vehículo?",
+        "respuesta": "Sirve para autos, camionetas, buses, camiones, tractores y flotas; ideal para uso diario, viajes y conductores de plataformas.",
+        "isNew": true,
+        "orden": 12
+      }
+    ],
+    "smartwatch": [
+      {
+        "id": "compatibilidad",
+        "orden": 1,
+        "pregunta": "¿Sirve con iPhone y Android?",
+        "respuesta": "Sí, es compatible con ambos. Se vincula con una app gratuita que descargás desde tu tienda de aplicaciones."
+      },
+      {
+        "id": "llamadas",
+        "orden": 2,
+        "pregunta": "¿Puedo contestar llamadas?",
+        "respuesta": "Según el modelo, sí: tiene Bluetooth para contestar y hacer llamadas desde el reloj."
+      },
+      {
+        "id": "salud",
+        "orden": 3,
+        "pregunta": "¿Mide ritmo cardíaco, oxígeno y sueño?",
+        "respuesta": "Sí, monitorea ritmo cardíaco, oxígeno y sueño, además de pasos. Son datos de referencia, no de uso médico."
+      },
+      {
+        "id": "bateria",
+        "orden": 4,
+        "pregunta": "¿Cuánto dura la batería?",
+        "respuesta": "Varía por modelo y uso, normalmente varios días con una carga. Carga rápido por imán."
+      },
+      {
+        "id": "agua",
+        "orden": 5,
+        "pregunta": "¿Resiste agua?",
+        "respuesta": "Resiste salpicaduras y sudor para uso diario. No recomendado para nadar ni sumergir, salvo que el modelo lo indique."
+      }
+    ],
+    "smarthome": [
+      {
+        "id": "sh_sonido",
+        "orden": 1,
+        "pregunta": "¿Se escucha bien / suena fuerte?",
+        "respuesta": "Sí, rinden buen volumen para su tamaño. Según el modelo llenan una sala o acompañan una salida; consultanos según el espacio."
+      },
+      {
+        "id": "sh_conexion",
+        "orden": 2,
+        "pregunta": "¿Cómo le pongo música?",
+        "respuesta": "Según el modelo, por Bluetooth desde tu celular o por voz. Consultanos y te decimos cómo conecta el que te interesa."
+      },
+      {
+        "id": "sh_internet",
+        "orden": 3,
+        "pregunta": "¿Necesita internet o WiFi?",
+        "respuesta": "Depende del modelo: los parlantes Bluetooth no necesitan internet; los parlantes inteligentes con asistente sí usan WiFi."
+      },
+      {
+        "id": "sh_agua",
+        "orden": 4,
+        "pregunta": "¿Resiste agua / lo puedo usar afuera?",
+        "respuesta": "Depende del modelo: algunos son resistentes al agua para exteriores y otros son para uso interior. Consultanos según dónde lo vas a usar."
+      },
+      {
+        "id": "sh_energia",
+        "orden": 5,
+        "pregunta": "¿Funciona con batería o va enchufado?",
+        "respuesta": "Depende del modelo: los portátiles traen batería recargable; los de casa van enchufados. Consultanos el que te interesa."
+      }
+    ]
+  },
+  "productContent": [
+    {
+      "label": "HY450MAX (HOT)",
+      "matchBy": {
+        "id": "9b7b26de-ac11-4c4a-bdba-83b3e1ce5e66"
+      },
+      "beneficio": "El más potente y brillante: imagen grande y nítida incluso con luz.",
+      "description": "Tope de la línea Full HD de Magcubic. Con 1100 ANSI es el proyector más brillante del catálogo, así que rinde incluso en salas con luz encendida, y suma parlante de 12W, 2GB/16GB y funciones inteligentes: autofoco, detección de obstáculos y reconocimiento de pantalla. Para quien quiere la mejor imagen sin hacer concesiones.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo con HDR10+ (archivos hasta 8K@24fps)",
+          "order": 1
+        },
+        {
+          "text": "Brillo 1100 ANSI: el más brillante de la línea, se ve con luz",
+          "order": 2
+        },
+        {
+          "text": "Sonido potente: parlante integrado de 12W",
+          "order": 3
+        },
+        {
+          "text": "Inteligente: autofoco + evita obstáculos + reconoce pantalla",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 2GB/16GB · Wi-Fi 6 doble banda · BT 5.4 · 2.37kg",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "1100 ANSI: el más brillante de la línea; se ve bien incluso con luz encendida."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 12W integrado: volumen de sobra para sala; podés sumar bocina por Bluetooth."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "2GB de RAM y 16GB: corre las apps con fluidez y hay espacio para instalar varias."
+        },
+        {
+          "objId": "precio",
+          "respuesta": "Es el tope de línea: máximo brillo (1100 ANSI), 2GB/16GB, parlante 12W y funciones inteligentes. Si querés lo mejor es este; si preferís ahorrar, el HY350 Max da el mejor equilibrio."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: se ajusta solo al encender y al mover el proyector."
+        }
+      ]
+    },
+    {
+      "label": "HY350MAX (HOT)",
+      "matchBy": {
+        "id": "28aeba65-5d25-4e30-9b6f-ba672b5debcf"
+      },
+      "beneficio": "El más vendido: mucho brillo, sonido potente y precio equilibrado.",
+      "description": "El equilibrio perfecto entre brillo, sonido y precio, y por eso el más vendido. Proyecta 1080p nativo con 900 ANSI (cómodo con luz ambiental) y trae parlante de 12W potente, 2GB/16GB y autofoco con detección de obstáculos y reconocimiento de pantalla. La opción segura para cine en casa.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo; HDR10+ y hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Brillo 900 ANSI: cómodo con luz ambiental",
+          "order": 2
+        },
+        {
+          "text": "Parlante de 12W potente, sin bocina extra",
+          "order": 3
+        },
+        {
+          "text": "Autofoco + detección de obstáculos + reconocimiento de pantalla",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 2GB/16GB · Wi-Fi 6 doble banda · BT 5.4 · 1.41kg",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "900 ANSI: se ve muy bien con luz ambiental; el equilibrio brillo/precio más elegido."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 12W potente: no necesitás bocina extra para una sala."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "2GB/16GB: apps fluidas y espacio para instalar lo que uses."
+        },
+        {
+          "objId": "precio",
+          "respuesta": "El más vendido por su equilibrio. Frente al HY450 Max la única diferencia real es el brillo (900 vs 1100 ANSI): si tu espacio no tiene mucha luz, rinde igual por menos."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco automático al encender."
+        }
+      ]
+    },
+    {
+      "label": "X7",
+      "matchBy": {
+        "id": "49a576b4-5231-43ef-bdc6-b1b85b61fa78"
+      },
+      "beneficio": "Brillo alto y compacto, con salida AUX para tu propio sonido.",
+      "description": "Proyector Full HD compacto y muy brillante (hasta 1000 ANSI), pensado para quien ya tiene equipo de sonido: incluye salida AUX para conectar tu bocina o teatro en casa. Suma autofoco, detección de obstáculos, reconocimiento de pantalla y 2GB/16GB en un cuerpo pequeño.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo; HDR10+ y compatibilidad 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Brillo alto: hasta 1000 ANSI en modo alta luz",
+          "order": 2
+        },
+        {
+          "text": "Salida AUX para tu equipo de sonido (parlante interno 5W)",
+          "order": 3
+        },
+        {
+          "text": "Autofoco inteligente, evita obstáculos y reconoce la pantalla",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 2GB/16GB · Wi-Fi 6 doble banda · BT 5.4 · con AUX",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "1000 ANSI: excelente con luz ambiental, incluso en lugares bien iluminados."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "El parlante interno es de 5W (algo justo para sala grande); por eso trae salida AUX para conectar tu bocina o teatro en casa."
+        },
+        {
+          "objId": "precio",
+          "respuesta": "Cuesta un poco más que el HY350 Max porque prioriza brillo alto (1000 ANSI) en cuerpo compacto y salida AUX. Si valorás más contraste y parlante, el HY350 Max; si ya tenés equipo de sonido, el X7."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "2GB/16GB: rendimiento fluido para streaming y varias apps."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: enfoca solo al encender y al reubicar el proyector."
+        }
+      ]
+    },
+    {
+      "label": "L018",
+      "matchBy": {
+        "id": "651ffc08-4c3c-44b7-adfa-e61139da807b"
+      },
+      "beneficio": "Full HD que ya se defiende con algo de luz, a buen precio.",
+      "description": "Full HD accesible que ya se defiende con algo de luz ambiental (650 ANSI en modo alto). Trae autofoco, keystone automático, detección de obstáculos y salida de audio para conectar tu bocina. Ideal para dar el salto a 1080p sin gastar de más.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo; HDR10+ y reproduce hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Brillo 650 ANSI (modo alto): aguanta algo de luz",
+          "order": 2
+        },
+        {
+          "text": "Parlante 3W + salida de audio para bocina externa",
+          "order": 3
+        },
+        {
+          "text": "Autofoco + keystone automático + evita obstáculos",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 1GB/16GB · Wi-Fi 6 doble banda · BT 5.4",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "650 ANSI (modo alto): ya rinde con algo de luz ambiental. Para máximo brillo, HY350 Max o HY450 Max."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 3W para cuarto; incluye salida de audio para conectar una bocina si querés más volumen."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "1GB de RAM y 16GB: bien para streaming; para multitarea pesada subí al HY350 Max (2GB)."
+        },
+        {
+          "objId": "tiro",
+          "respuesta": "Relación de tiro 1.2:1: necesita algo más de distancia. Para un cuarto muy chico, el HY310X (tiro corto) aprovecha mejor el espacio."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: se ajusta automáticamente al encender."
+        }
+      ]
+    },
+    {
+      "label": "HY310X",
+      "matchBy": {
+        "id": "5311256c-fa23-40b2-9c2e-155abb6a2a25"
+      },
+      "beneficio": "Full HD de tiro corto: imagen nítida y grande en espacios pequeños.",
+      "description": "El Full HD más económico del catálogo, con tiro corto 0.8:1 para llenar la pared en cuartos pequeños. Imagen 1080p nativa, autofoco y un cuerpo liviano (649g) que funciona con 12V. Perfecto para dormitorios y espacios reducidos.",
+      "bullets": [
+        {
+          "text": "Full HD 1080p nativo (el 1080p más económico)",
+          "order": 1
+        },
+        {
+          "text": "Tiro corto 0.8:1: pantalla grande a poca distancia",
+          "order": 2
+        },
+        {
+          "text": "Autofoco; keystone vertical automático",
+          "order": 3
+        },
+        {
+          "text": "Brillo 420 ANSI: ideal en penumbra",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · 1GB/8GB · Wi-Fi 6 doble banda · BT 5.4 · 649g",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "420 ANSI: mejor en penumbra. Si el lugar tiene bastante luz, subí al L018 o HY350 Max."
+        },
+        {
+          "objId": "tiro",
+          "respuesta": "Tiro corto 0.8:1: llena una pantalla grande a poca distancia, ideal para cuartos pequeños."
+        },
+        {
+          "objId": "portabilidad",
+          "respuesta": "Compacto y liviano (649g). Funciona con 12V; no trae batería interna, necesita toma de corriente o power bank compatible."
+        },
+        {
+          "objId": "fluidez",
+          "respuesta": "1GB/8GB: perfecto para Netflix y YouTube; no para muchas apps abiertas a la vez."
+        },
+        {
+          "objId": "nitidez",
+          "respuesta": "Es 1080p Full HD real, más nítido que los modelos 720p más económicos."
+        }
+      ]
+    },
+    {
+      "label": "HY300PRO+",
+      "matchBy": {
+        "id": "5a41ba3b-0e5f-434c-a5c6-89f429a7fe72"
+      },
+      "beneficio": "Tu primer cine en casa: compacto, económico y fácil de llevar.",
+      "description": "El modelo de entrada: el más económico y portátil (0.4kg), tu primer cine en casa para estrenar en cuarto oscuro. HD 720p con Android 14, Netflix y YouTube, enfoque manual y conexión Wi-Fi doble banda y Bluetooth. La puerta de entrada a la marca.",
+      "bullets": [
+        {
+          "text": "HD 720p; HDR10+ y compatible hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Ultraportátil: apenas 0.4kg, tu primer cine para llevar",
+          "order": 2
+        },
+        {
+          "text": "Enfoque manual con perilla; keystone vertical automático",
+          "order": 3
+        },
+        {
+          "text": "Brillo 260 ANSI: para cuarto oscuro",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · Netflix y YouTube · Wi-Fi 6 doble banda · BT 5.4",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "260 ANSI: pensado para cuarto oscuro. Para usar con algo de luz, subí a un Full HD brillante (HY310X o superior)."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "El enfoque es manual: se ajusta con la perilla del proyector."
+        },
+        {
+          "objId": "nitidez",
+          "respuesta": "Es HD 720p: se ve bien para películas y series a tamaño moderado en penumbra. Si querés Full HD real, el HY310X."
+        },
+        {
+          "objId": "apps",
+          "respuesta": "Netflix preinstalado y YouTube funcionan; en este modelo HBO Max no está confirmado."
+        },
+        {
+          "objId": "portabilidad",
+          "respuesta": "El más liviano (0.4kg): tu primer cine para llevar a cualquier cuarto. Funciona con 12V."
+        },
+        {
+          "objId": "sonido",
+          "respuesta": "Parlante de 3W para un cuarto; para más volumen conectá una bocina por Bluetooth."
+        }
+      ]
+    },
+    {
+      "label": "HY300MAX",
+      "matchBy": {
+        "id": "f5c6e608-3d3d-45bd-b9a1-6748b24b617b"
+      },
+      "beneficio": "Compacto con autofoco y tiro corto: pantalla grande en poco espacio.",
+      "description": "Compacto y portátil (575g) con autofoco y tiro corto 0.8:1: pantalla grande a poca distancia sin complicarte. Resolución HD 720p con Android 14; ideal como cine secundario o para llevar de un cuarto a otro. El salto lógico sobre el HY300 Pro+ por su enfoque automático.",
+      "bullets": [
+        {
+          "text": "HD 720p con HDR10+; reproduce hasta 8K@24fps",
+          "order": 1
+        },
+        {
+          "text": "Autofoco: se ajusta solo (ventaja sobre el HY300 Pro+)",
+          "order": 2
+        },
+        {
+          "text": "Tiro corto 0.8:1: pantalla grande en poco espacio",
+          "order": 3
+        },
+        {
+          "text": "Brillo 400 ANSI: ideal en penumbra · liviano (575g)",
+          "order": 4
+        },
+        {
+          "text": "Android 14 · Wi-Fi 6 doble banda · BT 5.4",
+          "order": 5
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "luz",
+          "respuesta": "400 ANSI: ideal en penumbra. Con mucha luz, subí al L018 o superior."
+        },
+        {
+          "objId": "enfoque",
+          "respuesta": "Autofoco: se ajusta solo (a diferencia del HY300 Pro+, que es manual)."
+        },
+        {
+          "objId": "tiro",
+          "respuesta": "Tiro corto 0.8:1: pantalla grande a poca distancia, ideal para cuartos chicos."
+        },
+        {
+          "objId": "nitidez",
+          "respuesta": "Es HD 720p con autofoco; si querés Full HD real, el HY310X."
+        },
+        {
+          "objId": "portabilidad",
+          "respuesta": "Compacto y liviano (575g). Funciona con 12V."
+        }
+      ]
+    },
+    {
+      "label": "70mai A810 Lite",
+      "matchBy": {
+        "id": null,
+        "nameContains": "A810",
+        "sku": null,
+        "category": "dashcam"
+      },
+      "beneficio": "Doble cámara 4K + 1080p con visión nocturna HDR, GPS y estacionamiento 24h.",
+      "description": "Cámara de tablero doble 70mai A810 Lite: graba el frente en 4K real (3840×2160) y atrás en 1080p con la cámara RC21 incluida, para leer matrículas y señales con evidencia clara de día y de noche. Suma visión nocturna HDR con apertura F1.55, GPS de 3 modos, control por voz y supercondensador que aguanta el calor mejor que una batería. Se instala en minutos detrás del retrovisor y trae microSD de 64GB lista para usar.",
+      "bullets": [
+        {
+          "text": "Doble grabación: 4K real adelante (3840×2160) + 1080p atrás (cámara RC21 incluida)",
+          "order": 1
+        },
+        {
+          "text": "Visión nocturna HDR con apertura F1.55: reduce el deslumbramiento de los faros",
+          "order": 2
+        },
+        {
+          "text": "GPS de 3 modos (GPS+GLONASS+BDS): registra velocidad, ruta y ubicación",
+          "order": 3
+        },
+        {
+          "text": "Wi-Fi 6 de 5 GHz: transferencia rápida (hasta 25 MB/s) sin sacar la tarjeta",
+          "order": 4
+        },
+        {
+          "text": "Control por voz manos libres + app 70mai (vista en vivo, reproducción, OTA)",
+          "order": 5
+        },
+        {
+          "text": "Modo estacionamiento 24h: sensor G + timelapse + bucle (requiere kit hardwire)",
+          "order": 6
+        },
+        {
+          "text": "Supercondensador (sin batería): aguanta mejor el calor · microSD 64GB incluida",
+          "order": 7
+        },
+        {
+          "text": "Campo de visión 140°, tamaño tarjeta de crédito, instalación en minutos",
+          "order": 8
+        },
+        {
+          "text": "4G LTE opcional: vista en vivo y rastreo remoto (requiere kit UP05)",
+          "order": 9
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "resolucion",
+          "respuesta": "Frontal 4K real (3840×2160) y trasera 1080p: se leen matrículas y señales con claridad, ideal como evidencia para seguros."
+        },
+        {
+          "objId": "doble",
+          "respuesta": "Sí, graba adelante y atrás a la vez: viene con la cámara trasera RC21 incluida (4K adelante + 1080p atrás)."
+        },
+        {
+          "objId": "nocturno",
+          "respuesta": "Muy bien de noche: visión nocturna con HDR y apertura F1.55; reduce el deslumbramiento de los faros y aclara zonas oscuras en túneles y lluvia."
+        },
+        {
+          "objId": "calor",
+          "respuesta": "Sí, aguanta el calor: usa supercondensador en lugar de batería, con mejor resistencia a altas temperaturas y más vida útil."
+        },
+        {
+          "objId": "estacionamiento",
+          "respuesta": "Sí, modo 24h: el sensor G graba y bloquea ante golpes y el timelapse hace monitoreo continuo de bajo consumo, con protección contra bajo voltaje. Requiere kit de cableado directo (UP03/UP05/UP06), que va aparte."
+        },
+        {
+          "objId": "wifi",
+          "respuesta": "Pasás los videos por Wi-Fi 6 de 5 GHz a la app 70mai (hasta 25 MB/s), sin sacar la tarjeta. Desde la app ves en vivo, reproducís, cambiás ajustes y actualizás el firmware."
+        },
+        {
+          "objId": "remoto4g",
+          "respuesta": "Sí, con soporte 4G LTE ves en vivo, rastreás la ubicación y recibís alertas estés donde estés. Requiere el kit 4G UP05 (va aparte)."
+        },
+        {
+          "objId": "gps",
+          "respuesta": "GPS de 3 modos (GPS+GLONASS+BDS): registra velocidad, ruta y ubicación para verlos en la reproducción."
+        },
+        {
+          "objId": "memoria",
+          "respuesta": "Ya incluye microSD de 64GB (U3) y usa grabación en bucle (sobrescribe lo más viejo). Si querés guardar más horas, admite una tarjeta de mayor capacidad."
+        },
+        {
+          "objId": "instalacion",
+          "respuesta": "Fácil: es del tamaño de una tarjeta de crédito, va detrás del retrovisor sin tapar la visión y queda lista en minutos."
+        }
+      ]
+    },
+    {
+      "label": "70mai M310 Plus (2K) [1208]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1208",
+        "category": "dashcam"
+      },
+      "beneficio": "Graba en 2K nítido, ve bien de noche y te protege estacionado. Fácil de instalar.",
+      "description": "Cámara frontal 2K 1440p con lente gran angular de 140°: las placas y señales se leen claras de día y de noche (apertura F1.55, WDR y reducción de ruido 3D). El sensor G detecta golpes y bloquea el video del incidente con pre-grabación, y el modo estacionamiento 24H vigila el carro apagado. Se controla por app WiFi (iOS/Android) y por voz, con instalación sencilla por Type-C. Tu respaldo ante cualquier reclamo.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Video 2K 1440p + gran angular 140°: lee placas y señales con claridad"
+        },
+        {
+          "order": 2,
+          "text": "Visión nocturna F1.55 con WDR: nítida en poca luz, túneles y lluvia"
+        },
+        {
+          "order": 3,
+          "text": "Sensor G + pre-grabación: bloquea el video del golpe (1–3 min antes)"
+        },
+        {
+          "order": 4,
+          "text": "Modo estacionamiento 24H + timelapse (requiere kit de cableado UP03/UP06)"
+        },
+        {
+          "order": 5,
+          "text": "App WiFi (iOS/Android) + control por voz: ver, descargar y compartir al toque"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "resolucion",
+          "titulo": "¿Qué tan nítido graba?",
+          "respuesta": "Graba en 2K 1440p reales con gran angular de 140°. Se leen bien placas y señales, mejor que una cámara 1080p."
+        },
+        {
+          "objId": "nocturno",
+          "titulo": "¿Graba bien de noche?",
+          "respuesta": "Sí: lente F1.55 + WDR + reducción de ruido 3D. Se ve claro de noche, en túneles y con lluvia, sin encandilarse con los faros."
+        },
+        {
+          "objId": "estacionamiento",
+          "titulo": "¿Graba estacionado?",
+          "respuesta": "Tiene modo estacionamiento 24H: graba y bloquea el clip si detecta un golpe, aun con el carro apagado. Requiere el kit de cableado UP03/UP06 (no incluido) y protege la batería (corta a 11.8V)."
+        },
+        {
+          "objId": "instalacion",
+          "titulo": "¿Es difícil de instalar?",
+          "respuesta": "Es sencilla: se pega sin dejar residuo y se alimenta por Type-C (cable de 3.5 m). Queda lista en minutos y podés pasarla de un carro a otro."
+        },
+        {
+          "objId": "memoria",
+          "titulo": "¿Incluye memoria?",
+          "respuesta": "Usa microSD y graba en bucle (sobrescribe lo más viejo). Te recomendamos la capacidad según las horas que querás guardar; consultanos."
+        },
+        {
+          "objId": "doble",
+          "titulo": "¿Graba adelante y atrás?",
+          "respuesta": "Este modelo es frontal (gran angular 140°). Si querés grabar también hacia atrás, consultanos un modelo de doble cámara."
+        },
+        {
+          "objId": "wifi",
+          "titulo": "¿Tiene WiFi y app?",
+          "respuesta": "Sí, trae WiFi: desde la app (iOS/Android) ves en vivo, descargás y compartís los videos, ideal para un reclamo de seguro."
+        },
+        {
+          "objId": "voz",
+          "titulo": "¿Tiene control por voz?",
+          "respuesta": "Tiene control por voz: podés bloquear un video, tomar foto o controlar el audio sin soltar el volante."
+        }
+      ]
+    },
+    {
+      "label": "Amazon Echo Dot Max [1212]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1212",
+        "category": "smarthome"
+      },
+      "beneficio": "El Echo Dot más potente: sonido que llena la sala, Alexa y centro de casa inteligente integrado.",
+      "description": "La nueva generación del Echo Dot con chip AZ3 y tecnología Omnisense: sonido más potente (casi 3× los bajos del Echo Dot 2022) que se adapta a tu espacio. Trae hub de casa inteligente integrado para controlar luces, cerraduras y miles de dispositivos con Alexa sin equipo extra, y con eero Built-in extiende tu WiFi hasta 1,000 pies². Escuchá Amazon Music, Spotify, Apple Music y más, creá rutinas y controlá todo por voz. Con botón para apagar los micrófonos.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Sonido potente que llena la sala: casi 3× los bajos del Echo Dot 2022"
+        },
+        {
+          "order": 2,
+          "text": "Alexa: música, clima, recordatorios y rutinas por voz"
+        },
+        {
+          "order": 3,
+          "text": "Hub de casa inteligente integrado: luces, cerraduras y +1000 dispositivos, sin hub extra"
+        },
+        {
+          "order": 4,
+          "text": "eero Built-in: extiende tu WiFi hasta 1,000 pies² (adiós interrupciones)"
+        },
+        {
+          "order": 5,
+          "text": "Privacidad: botón para apagar los micrófonos + chip AZ3 y Omnisense"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "sh_sonido",
+          "titulo": "¿Se escucha bien?",
+          "respuesta": "Suena fuerte y claro: casi 3× los bajos del Echo Dot 2022 y se adapta solo a tu espacio para llenar la sala."
+        },
+        {
+          "objId": "sh_conexion",
+          "titulo": "¿Cómo le pongo música?",
+          "respuesta": "Le pedís la música por voz a Alexa (Amazon Music, Spotify, Apple Music, SiriusXM). Podés vincular dos para estéreo o con un Fire TV para cine en casa."
+        },
+        {
+          "objId": "sh_internet",
+          "titulo": "¿Necesita internet o WiFi?",
+          "respuesta": "Sí necesita WiFi para Alexa y la casa inteligente. De hecho, con eero Built-in ayuda a extender tu WiFi hasta 1,000 pies²."
+        },
+        {
+          "objId": "sh_agua",
+          "titulo": "¿Resiste agua?",
+          "respuesta": "Es para uso interior; no es resistente al agua. Ideal para sala, cuarto o cocina."
+        },
+        {
+          "objId": "sh_energia",
+          "titulo": "¿Batería o enchufado?",
+          "respuesta": "Va enchufado (uso en casa), no tiene batería. Así queda siempre listo para escucharte y controlar la casa."
+        }
+      ]
+    },
+    {
+      "label": "Amazfit Active Max [1217]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1217",
+        "category": "smartwatch"
+      },
+      "beneficio": "Pantalla enorme y brillante (3000 nits), hasta 25 días de batería y mapas offline en la muñeca.",
+      "description": "Smartwatch con pantalla AMOLED de 1.5\" ultrabrillante (3000 nits) que se lee incluso bajo el sol fuerte, y hasta 25 días de batería. Trae 4 GB para tu música y mapas descargables con indicaciones giro a giro, GPS de 5 sistemas satelitales, más de 170 modos deportivos y planes con IA de Zepp Coach. El monitor de energía BioCharge te dice cuándo exigirte y cuándo descansar. Contestá llamadas por Bluetooth y respondé mensajes con la voz (Zepp Flow, requiere Android).",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Pantalla AMOLED 1.5\" a 3000 nits: se lee clarísima incluso bajo el sol"
+        },
+        {
+          "order": 2,
+          "text": "Hasta 25 días de batería: menos cargas, más uso"
+        },
+        {
+          "order": 3,
+          "text": "4 GB para música + mapas offline con indicaciones giro a giro"
+        },
+        {
+          "order": 4,
+          "text": "+170 modos deportivos y planes con IA (Zepp Coach) + energía BioCharge"
+        },
+        {
+          "order": 5,
+          "text": "Llamadas Bluetooth y respuestas por voz (Zepp Flow, requiere Android)"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "compatibilidad",
+          "titulo": "¿Sirve con iPhone y Android?",
+          "respuesta": "Funciona con iPhone y Android con la app gratuita Zepp. Las respuestas por voz (Zepp Flow) requieren Android."
+        },
+        {
+          "objId": "llamadas",
+          "titulo": "¿Puedo contestar llamadas?",
+          "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde la muñeca."
+        },
+        {
+          "objId": "salud",
+          "titulo": "¿Qué mide de salud?",
+          "respuesta": "Mide tu energía corporal (BioCharge) según entrenos y estrés, para saber cuándo exigirte y cuándo descansar, con +170 modos deportivos. Son datos de referencia, no de uso médico."
+        },
+        {
+          "objId": "bateria",
+          "titulo": "¿Cuánto dura la batería?",
+          "respuesta": "Rinde hasta 25 días con uso típico, así casi no dependés del cargador."
+        },
+        {
+          "objId": "agua",
+          "titulo": "¿Resiste agua?",
+          "respuesta": "Resistencia 5ATM (50 m): apto para salpicaduras, lluvia y hasta nadar. Para nadar usá correa de silicona y evitá agua caliente o sauna."
+        }
+      ]
+    },
+    {
+      "label": "Anker SoundCore 2 [1224]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1224",
+        "category": "smarthome"
+      },
+      "beneficio": "Parlante Bluetooth 12W con graves BassUp, a prueba de agua IPX7 y 24h de batería.",
+      "description": "Parlante Bluetooth portátil con 12W y graves reforzados (tecnología BassUp + puerto en espiral) para un sonido potente y sin distorsión a cualquier volumen. Resistencia al agua IPX7: aguanta salpicaduras, olas y lluvia, ideal para la playa, la piscina o el camping. Hasta 24 horas de batería (5,200 mAh), Bluetooth con tu celular y emparejamiento estéreo para unir dos parlantes. Compacto, con controles simples para llevar a todos lados.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "12W con graves BassUp: potente y sin distorsión a todo volumen"
+        },
+        {
+          "order": 2,
+          "text": "A prueba de agua IPX7: playa, piscina, lluvia y camping"
+        },
+        {
+          "order": 3,
+          "text": "Hasta 24h de batería (5,200 mAh): suena todo el día"
+        },
+        {
+          "order": 4,
+          "text": "Bluetooth + emparejamiento estéreo: uní dos para más sonido"
+        },
+        {
+          "order": 5,
+          "text": "Compacto y fácil de llevar, con controles simples"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "sh_sonido",
+          "titulo": "¿Se escucha bien / suena fuerte?",
+          "respuesta": "Rinde 12W con graves BassUp y cero distorsión a cualquier volumen: suena fuerte para su tamaño."
+        },
+        {
+          "objId": "sh_conexion",
+          "titulo": "¿Cómo le pongo música?",
+          "respuesta": "Se conecta por Bluetooth con tu celular. Podés emparejar dos SoundCore 2 en estéreo para más sonido."
+        },
+        {
+          "objId": "sh_internet",
+          "titulo": "¿Necesita internet o WiFi?",
+          "respuesta": "No necesita internet ni WiFi: es Bluetooth, funciona directo con tu teléfono."
+        },
+        {
+          "objId": "sh_agua",
+          "titulo": "¿Resiste agua / lo uso afuera?",
+          "respuesta": "Sí, es IPX7: aguanta salpicaduras, olas y lluvia. Perfecto para playa, piscina o camping (no lo dejes sumergido)."
+        },
+        {
+          "objId": "sh_energia",
+          "titulo": "¿Cuánto dura la batería?",
+          "respuesta": "Batería recargable de 5,200 mAh: hasta 24 horas de música con una carga."
+        }
+      ]
+    },
+    {
+      "label": "Amazfit Active 2 [1154]",
+      "matchBy": {
+        "id": null,
+        "nameContains": null,
+        "sku": "1154",
+        "category": "smartwatch"
+      },
+      "beneficio": "Acero inoxidable, AMOLED brillante, hasta 10 días de batería y 5ATM para nadar.",
+      "description": "Smartwatch con marco de acero inoxidable y pantalla AMOLED de 1.32\" que se lee bien al sol, con hasta 10 días de batería. Sensor BioTracker para ritmo cardíaco y sueño más precisos, más de 160 modos deportivos (incluye HYROX, fuerza, pádel y yoga) y resistencia 5ATM para nadar y esquiar. Trae mapas gratis con indicaciones giro a giro y GPS de 5 sistemas satelitales. La app Zepp es gratis, sin suscripciones ocultas y con protección de datos (AWS, RGPD).",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Marco de acero inoxidable + AMOLED 1.32\" brillante"
+        },
+        {
+          "order": 2,
+          "text": "Hasta 10 días de batería: olvidate de cargar cada noche"
+        },
+        {
+          "order": 3,
+          "text": "Ritmo cardíaco y sueño precisos con sensor BioTracker"
+        },
+        {
+          "order": 4,
+          "text": "+160 modos (HYROX, fuerza, pádel, yoga) + 5ATM: nadá y esquiá con confianza"
+        },
+        {
+          "order": 5,
+          "text": "Mapas gratis giro a giro + GPS de 5 sistemas satelitales"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "compatibilidad",
+          "titulo": "¿Sirve con iPhone y Android?",
+          "respuesta": "Funciona con iPhone y Android con la app gratuita Zepp, sin suscripciones ocultas y con protección de datos (AWS, RGPD)."
+        },
+        {
+          "objId": "salud",
+          "titulo": "¿Qué mide de salud?",
+          "respuesta": "El sensor BioTracker mide ritmo cardíaco y sueño con buena precisión, con +160 modos deportivos. Son datos de referencia, no de uso médico."
+        },
+        {
+          "objId": "bateria",
+          "titulo": "¿Cuánto dura la batería?",
+          "respuesta": "Rinde hasta 10 días con uso típico; carga por imán."
+        },
+        {
+          "objId": "agua",
+          "titulo": "¿Resiste agua / puedo nadar?",
+          "respuesta": "Resistencia 5ATM (50 m): podés nadar y hasta esquiar con confianza. Trae barómetro."
+        },
+        {
+          "objId": "llamadas",
+          "titulo": "¿Puedo contestar llamadas?",
+          "respuesta": "Sí: tiene altavoz y micrófono para contestar y hacer llamadas por Bluetooth desde el reloj (se activa en la app Zepp)."
+        }
+      ]
+    },
+    {
+      "label": "Amazfit BIP MAX [54e189fd]",
+      "matchBy": {
+        "id": "54e189fd-a64c-4c91-8550-44cec0e45c9e"
+      },
+      "beneficio": "Pantalla AMOLED enorme 2.07\", 20 días de batería, GPS + mapas offline y 150+ modos deportivos.",
+      "description": "Amazfit BIP MAX con pantalla AMOLED de 2.07\" y cuerpo de aleación de aluminio ligero. Hasta 20 días de batería con uso típico. Incluye 4 GB de almacenamiento para mapas offline descargados gratis desde Zepp, con indicaciones giro a giro respaldadas por 5 sistemas satelitales. Más de 150 modos deportivos (HYROX, fuerza, yoga), Zepp Coach con métricas avanzadas (VO₂ Max, carga de entrenamiento) y monitoreo BioCharge de recuperación diaria. App Zepp gratuita, sin suscripciones.",
+      "bullets": [
+        {
+          "order": 1,
+          "text": "Pantalla AMOLED 2.07\" enorme — la más grande de la línea Bip"
+        },
+        {
+          "order": 2,
+          "text": "20 días de batería: cargás cada 3 semanas, no cada noche"
+        },
+        {
+          "order": 3,
+          "text": "4 GB integrados: mapas offline y música sin llevar el celular"
+        },
+        {
+          "order": 4,
+          "text": "GPS de 5 sistemas + mapas gratis giro a giro desde la app Zepp"
+        },
+        {
+          "order": 5,
+          "text": "+150 modos deportivos, Zepp Coach y BioCharge de recuperación diaria"
+        }
+      ],
+      "objeciones": [
+        {
+          "objId": "compatibilidad",
+          "titulo": "¿Sirve con iPhone y Android?",
+          "respuesta": "Funciona con iPhone y Android con la app Zepp gratuita, sin suscripciones ocultas."
+        },
+        {
+          "objId": "bateria",
+          "titulo": "¿Cuánto dura la batería?",
+          "respuesta": "Hasta 20 días con uso típico — cargás una vez cada 3 semanas aproximadamente."
+        },
+        {
+          "objId": "salud",
+          "titulo": "¿Qué mide de salud?",
+          "respuesta": "Mide ritmo cardíaco, sueño, pasos, estrés y recuperación diaria con el score BioCharge. Son datos de referencia, no médicos."
+        },
+        {
+          "objId": "agua",
+          "titulo": "¿Resiste agua?",
+          "respuesta": "Tiene resistencia al agua para uso diario y lluvia. No está certificado para natación como el Active Max (5ATM)."
+        },
+        {
+          "objId": "llamadas",
+          "titulo": "¿Puedo contestar llamadas?",
+          "respuesta": "No tiene altavoz para llamadas directas, pero muestra notificaciones de llamadas desde el celular."
+        }
+      ]
+    }
+  ]
+}

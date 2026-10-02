@@ -6,6 +6,8 @@ import type { Product, PublicCatalogProduct } from '../types';
 // --- Sub-estructuras tablet / catálogo público ---
 export const SalesBulletSchema = z.object({
   text: z.string().min(1),
+  /** Etiqueta corta arriba del bullet en la tablet (ej. "BRILLO", "BATERÍA"). */
+  etiqueta: z.string().max(24).optional(),
   icon: z.string().optional(),
   order: z.number().optional(),
 });
@@ -16,7 +18,17 @@ export const ObjectionOverrideSchema = z.object({
   respuesta: z.string().min(1),
 });
 
+/**
+ * Ficha técnica de CUALQUIER categoría (el nombre es histórico; ver
+ * `src/lib/categorySpecs.ts`, que define qué campos aplican a cada categoría).
+ *
+ * Es a propósito PERMISIVO: las claves de proyector se validan con su tipo
+ * exacto porque ya hay datos en producción, y el resto pasa por `catchall`. Así
+ * agregar un campo nuevo al catálogo de categorías no obliga a tocar este
+ * schema ni las reglas de Firestore (que solo exigen `specsProyector is map`).
+ */
 export const ProjectorSpecsSchema = z.object({
+  // Claves históricas de proyector: tipo estricto, no renombrar.
   ansi: z.number().optional(),
   throwRatio: z.string().optional(),
   distMinEnfoque: z.string().optional(),
@@ -27,12 +39,52 @@ export const ProjectorSpecsSchema = z.object({
   conectividad: z.array(z.string()).optional(),
   garantiaMeses: z.number().optional(),
   extra: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+}).catchall(
+  z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]).optional(),
+);
+
+/** Foto complementaria de la galería (formato nuevo). */
+export const GalleryItemSchema = z.object({
+  url: z.string().min(1),
+  label: z.string().max(40).optional(),
 });
 
 export const TabletMediaSchema = z.object({
   heroImage: z.string().optional(),
-  gallery: z.array(z.string()).optional(),
+  /** Acepta strings (legacy) u objetos {url, label} (nuevo). */
+  gallery: z.array(z.union([z.string(), GalleryItemSchema])).optional(),
   videoUrl: z.string().optional(),
+});
+
+/**
+ * Excepción de financiamiento por producto. El recargo es un mapa
+ * meses→porcentaje (claves string porque así viajan en Firestore).
+ */
+export const FinanciamientoOverrideSchema = z.object({
+  sinInteres: z.boolean().optional(),
+  habilitado: z.boolean().optional(),
+  minUsd: z.number().min(0).optional(),
+  plazos: z.array(z.number().positive()).optional(),
+  recargo: z.record(z.string(), z.number().min(0).max(100)).optional(),
+});
+
+/** Reglas de financiamiento (doc `config/financiamiento`). */
+export const ConfigFinanciamientoSchema = z.object({
+  banco: z.string().min(1),
+  minUsd: z.number().min(0),
+  plazos: z.array(z.number().positive()).min(1),
+  recargoPorDefecto: z.record(z.string(), z.number().min(0).max(100)),
+  porCategoria: z
+    .record(
+      z.string(),
+      z.object({
+        recargo: z.record(z.string(), z.number().min(0).max(100)).optional(),
+        minUsd: z.number().min(0).optional(),
+        plazos: z.array(z.number().positive()).optional(),
+      }),
+    )
+    .optional(),
+  actualizadoEn: z.number().optional(),
 });
 
 /** Campos OPCIONALES de tablet que extienden a Product. */
@@ -47,6 +99,7 @@ export const ProductTabletFieldsSchema = z.object({
   specsProyector: ProjectorSpecsSchema.optional(),
   objecionesOverride: z.array(ObjectionOverrideSchema).optional(),
   media: TabletMediaSchema.optional(),
+  financiamientoOverride: FinanciamientoOverrideSchema.optional(),
 });
 
 export const ProductSchema = z.object({
@@ -60,6 +113,7 @@ export const ProductSchema = z.object({
   minStockAlert: z.number().min(0, "Min stock alert must be non-negative"),
   category: z.string().min(1, "Category is required"),
   imageBase64: z.string().optional(),
+  isReordering: z.boolean().optional(),
   activo: z.boolean().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
@@ -82,6 +136,56 @@ export const CartItemSchema = ProductSchema.extend({
   }
 );
 
+export const CustomerSchema = z.object({
+  id: z.string().min(1),
+  fullName: z.string().min(1),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  address: z.string().optional(),
+  documentType: z.string().optional(),
+  documentNumber: z.string().optional(),
+  createdAt: z.number(),
+  ownerId: z.string().min(1),
+});
+
+export const SupplierSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  contactName: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  createdAt: z.number(),
+  ownerId: z.string().min(1),
+});
+
+export const CompanyInfoSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(1),
+  address: z.string().min(1),
+  email: z.string().email(),
+  logoBase64: z.string().optional(),
+  ownerId: z.string().min(1),
+  defaultExchangeRate: z.number().min(0.01),
+});
+
+/**
+ * Plan de cuotas cobrado en una venta financiada. Montos en córdobas.
+ * `totalNio` tiene que ser exactamente `cuotaNio × plazoMeses`: si no cuadra,
+ * el número que se le mostró al cliente no era el que se cobró.
+ */
+export const VentaFinanciamientoSchema = z
+  .object({
+    plazoMeses: z.number().int().positive().max(60),
+    recargoPct: z.number().min(0).max(100),
+    cuotaNio: z.number().positive(),
+    totalNio: z.number().positive(),
+    banco: z.string().max(60).optional(),
+  })
+  .refine((f) => Math.abs(f.cuotaNio * f.plazoMeses - f.totalNio) < 1, {
+    message: 'totalNio debe ser cuotaNio × plazoMeses',
+    path: ['totalNio'],
+  });
+
 export const SaleSchema = z.object({
   id: z.string().min(1),
   date: z.number(),
@@ -95,6 +199,7 @@ export const SaleSchema = z.object({
   documentType: z.enum(['RECIBO_OFICIAL', 'PROFORMA']),
   clientDocumentType: z.enum(['CEDULA', 'RUC', 'PASAPORTE', 'NINGUNO']),
   clientDocumentNumber: z.string().optional(),
+  customerId: z.string().max(128).optional(),
   customerName: z.string().optional(),
   customerEmail: z.string().email().optional().or(z.literal('')),
   customerPhone: z.string().optional(),
@@ -104,9 +209,11 @@ export const SaleSchema = z.object({
   
   currency: z.enum(['NIO', 'USD']),
   exchangeRate: z.number().min(0.01),
-  paymentMethod: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']),
+  paymentMethod: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO', 'FINANCIAMIENTO']),
+  financiamiento: VentaFinanciamientoSchema.optional(),
   paymentReference: z.string().optional(),
-  
+  notes: z.string().optional(),
+
   ownerId: z.string().min(1),
   status: z.enum(['completed', 'returned', 'cancelled']),
 }).refine(
@@ -130,6 +237,9 @@ export const PurchaseItemSchema = z.object({
   sku: z.string().min(1),
   cost: z.number().min(0),
   quantity: z.number().int().min(1),
+  receivedQuantity: z.number().int().min(0),
+  color: z.string().optional(),
+  estimatedWeight: z.number().min(0).optional(),
   serialNumbers: z.array(z.string()).optional(),
 }).refine(
   (data) => {
@@ -144,17 +254,101 @@ export const PurchaseItemSchema = z.object({
   }
 );
 
+export const PurchaseTrackingSchema = z.object({
+  id: z.string().min(1),
+  trackingNumber: z.string().min(1),
+  status: z.string().min(1),
+  agentDeliveryDate: z.number().optional(),
+  receptionDate: z.number().optional(),
+  finalWeight: z.number().min(0).optional(),
+  isReceived: z.boolean(),
+  itemsInBox: z.array(
+    z.object({
+      itemId: z.string().min(1),
+      quantity: z.number().int().min(1),
+      // Ver `PurchaseTracking` en types.ts: el costo con el que entraron estas
+      // unidades y el promedio de antes y de después, para poder revertir el
+      // promedio ponderado sin adivinar.
+      costoUnitarioReal: z.number().min(0).optional(),
+      costoPrevio: z.number().min(0).optional(),
+      costoDespues: z.number().min(0).optional(),
+      stockDespues: z.number().optional(),
+    })
+  ),
+});
+
 export const PurchaseSchema = z.object({
   id: z.string().min(1),
   date: z.number(),
   supplier: z.string().min(1),
+  platform: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(PurchaseItemSchema).min(1),
   totalCost: z.number().min(0),
+  
+  shippingChannel: z.string().optional(),
+  // La UI permite modalidades custom además de Sea/Air Cargo, así que se
+  // valida como string (las reglas también aceptan cualquier string).
+  shippingModality: z.string().optional(),
+  orderNumber: z.string().optional(),
+  financing: z.string().optional(),
+  estimatedWeight: z.number().min(0).optional(),
+  shippingRatePerLb: z.number().min(0).optional(),
+  
+  freightCost: z.number().min(0).optional(),
+  customsTaxes: z.number().min(0).optional(),
+  insuranceCost: z.number().min(0).optional(),
+
+  trackings: z.array(PurchaseTrackingSchema),
+  status: z.enum(['OPEN', 'PARTIAL', 'CLOSED', 'CANCELLED']),
+  stockAdded: z.boolean(),
+  
   currency: z.enum(['NIO', 'USD']),
   exchangeRate: z.number().min(0.01),
   ownerId: z.string().min(1),
   invoiceNumber: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Kardex (P2.7)
+// ---------------------------------------------------------------------------
+
+export const MovimientoSchema = z.object({
+  id: z.string().optional(),
+  productId: z.string().min(1),
+  productName: z.string().optional(),
+  sku: z.string().optional(),
+  tipo: z.enum(['venta', 'devolucion', 'compra', 'reversion', 'ajuste']),
+  delta: z.number(),
+  stockDespues: z.number().optional(),
+  motivo: z.string().max(300).optional(),
+  refId: z.string().optional(),
+  fecha: z.number(),
+  ownerId: z.string().min(1),
+});
+
+// ---------------------------------------------------------------------------
+// Objeciones
+// ---------------------------------------------------------------------------
+
+export const UniversalObjectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  key: z.string().max(60).optional(),
+  titulo: z.string().min(1).max(120),
+  respuesta: z.string().min(1).max(2000),
+  categoria: z.string().max(60).optional(),
+  order: z.number().optional(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  ownerId: z.string().min(1),
+});
+
+export const CategoryObjectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  categorySlug: z.string().min(1).max(60),
+  pregunta: z.string().min(1).max(120),
+  respuesta: z.string().min(1).max(2000),
+  orden: z.number(),
 });
 
 // ---------------------------------------------------------------------------
@@ -188,13 +382,30 @@ export function slugify(input: string): string {
  *  - precio.efectivo = round2(actual*(1-desc/100))
  *  - categorySlug derivado con slugify
  */
+/**
+ * El precio al que HOY se vende un producto: la promo si existe, si no la lista.
+ *
+ * Vive acá, al lado de `buildPublicCatalogDoc`, y no en cada pantalla, porque
+ * el POS y el catálogo público TIENEN que dar el mismo número. Hasta ahora esta
+ * regla existía sólo adentro del builder del espejo público: PandaWEB y
+ * PandaLink mostraban `precioPromo`, el mostrador cobraba `price`, y el cliente
+ * llegaba con el número de la web en el celular a discutir con el operador —
+ * que además es el dueño, así que no hay a quién escalarle la discusión.
+ * Con una sola función las dos superficies no pueden divergir por construcción.
+ */
+export function precioVigente(product: Pick<Product, 'price' | 'precioPromo'>): number {
+  return typeof product.precioPromo === 'number' && product.precioPromo >= 0
+    ? product.precioPromo
+    : product.price;
+}
+
 export function buildPublicCatalogDoc(product: Product): PublicCatalogProduct {
   const lista = product.price;
   const promo =
     typeof product.precioPromo === 'number' && product.precioPromo >= 0
       ? product.precioPromo
       : undefined;
-  const actual = promo ?? lista;
+  const actual = precioVigente(product);
   const descEfectivoPct =
     typeof product.descEfectivoPct === 'number' && product.descEfectivoPct > 0
       ? product.descEfectivoPct
@@ -226,6 +437,10 @@ export function buildPublicCatalogDoc(product: Product): PublicCatalogProduct {
   if (product.specsProyector) doc.specsProyector = product.specsProyector;
   if (product.objecionesOverride) doc.objecionesOverride = product.objecionesOverride;
   if (product.media) doc.media = product.media;
+  // Excepción de financiamiento: es dato público (define la cuota que se
+  // muestra). El costo que cobra el banco NO se copia nunca al espejo.
+  if (product.financiamientoOverride) doc.financiamientoOverride = product.financiamientoOverride;
 
   return doc;
 }
+// (fin del archivo)

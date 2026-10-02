@@ -22,3 +22,80 @@ body {
   background-color: #27272a;
   border-radius: 20px;
 }
+
+
+/* ---------------------------------------------------------------------------
+   IMPRESIÓN
+
+   La aplicación no sabía imprimir: no existía `window.print()` ni una sola
+   regla `@media print` en todo el proyecto. El único camino era "Descargar
+   PDF" y después salir de la aplicación a buscar el archivo a Descargas,
+   abrirlo y hacer Ctrl+P — cuatro acciones fuera del sistema por cada venta,
+   con el cliente esperando el papel.
+
+   Se usa `visibility` y no `display:none` a propósito: ocultar con `display`
+   colapsa el layout de los ancestros y el A4 de 794×1123px pierde su caja.
+   Con `visibility` el documento conserva su geometría exacta, que es la misma
+   que ya calculó la paginación en pantalla — o sea que lo que se imprime es
+   idéntico a lo que el operador vio, sin un segundo motor de maquetado.
+
+   `.zona-impresion` la pone `InvoicePreview` sobre el contenedor de las
+   páginas. La etiqueta de envío NO entra acá: es de 4x6 pulgadas y tiene su
+   propio flujo por PDF.
+--------------------------------------------------------------------------- */
+@media print {
+  /* Nada de la consola se imprime: ni barra lateral, ni avisos, ni botonera. */
+  body * {
+    visibility: hidden;
+  }
+
+  .zona-impresion,
+  .zona-impresion * {
+    visibility: visible;
+  }
+
+  /* El A4 vive dentro de un modal `fixed inset-0 overflow-hidden` y de un
+     contenedor con scroll. En pantalla eso es lo correcto; en papel los dos
+     RECORTAN el documento a la altura de la ventana. Se neutralizan los dos
+     para que la hoja pueda medir lo que mide. */
+  .dialogo-impresion,
+  .scroll-impresion {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .zona-impresion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+    /* El modo presentación escala el A4 con `transform` para que entre en la
+       pantalla. En papel eso lo achicaría: se anula. */
+    transform: none !important;
+  }
+
+  .zona-impresion .invoice-page {
+    /* La sombra es un recurso de pantalla; en papel sale como una mancha gris. */
+    box-shadow: none !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .zona-impresion .invoice-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}

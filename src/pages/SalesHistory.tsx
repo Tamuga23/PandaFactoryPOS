@@ -1,36 +1,262 @@
-import React, { useState } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import React, { useRef, useState } from 'react';
+import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
-import { formatCurrency } from '../lib/utils';
-import { Calendar, User, Phone, MapPin, Trash2, Edit, CheckCircle, RotateCcw, XCircle, Search, FileText, Truck } from 'lucide-react';
+import { formatCurrency, formatCurrencyNIO, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
+import { Calendar, User, Phone, MapPin, Trash2, Edit, CheckCircle, RotateCcw, XCircle, Search, FileText, Truck, Printer, MessageCircle } from 'lucide-react';
+import { v5 as uuidv5 } from 'uuid';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
+import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
+import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
+import { ESTADO_VENTA } from '../lib/etiquetas';
+import ConfirmarBorrado from '../components/ConfirmarBorrado';
+import { toast } from '../components/Toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+
+/**
+ * Espacio de nombres fijo para derivar el id de la factura a partir del de la
+ * proforma. Es una constante arbitraria pero ESTABLE: si cambia, dos intentos
+ * de facturar la misma proforma dejan de reconocerse entre sí.
+ */
+const NS_PROFORMA_A_FACTURA = '7f1c0a5e-9b3d-4a2e-8c41-2f6d5b0e91a7';
+
+// P4.1: estados en español para los chips.
+// El diccionario vive en `src/lib/etiquetas.ts`: Clientes y Compras lo
+// necesitaban tambien, y cada pantalla tenia el suyo o ninguno.
+// P4.2: fecha yyyy-MM-dd a medianoche LOCAL.
+const localDayStart = (str: string) => {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
+};
 
 export default function SalesHistory() {
-  const { sales, deleteSale, updateSale, loading, companyInfo } = useStoreData();
+  const {
+    sales, deleteSale, updateSale, changeSaleStatus, recordSale, loading, companyInfo,
+    olderSales, hasMoreOlderSales, loadingOlderSales, loadMoreSales,
+  } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [labelData, setLabelData] = useState<Sale | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  // P2.5: pestaña Facturas/Proformas + reimprimir + facturar proforma.
+  const [docFilter, setDocFilter] = useState<'FACTURAS' | 'PROFORMAS'>('FACTURAS');
+  const [reprintData, setReprintData] = useState<InvoiceData | null>(null);
+  const [invoicingProformaId, setInvoicingProformaId] = useState<string | null>(null);
+  // P4.2: filtros de fecha / estado / método de pago.
+  const [fStart, setFStart] = useState('');
+  const [fEnd, setFEnd] = useState('');
+  const [fStatus, setFStatus] = useState('todos');
+  const [fMethod, setFMethod] = useState('todos');
+  // P4.5: modal de confirmación de borrado (reemplaza el doble-clic).
+  const [deleteModalSale, setDeleteModalSale] = useState<Sale | null>(null);
+  /*
+    Cambiar el estado de una venta REPONE O DESCUENTA STOCK y escribe en el
+    kardex, y era un clic en un ícono de 28px. Sin pregunta, sin resumen.
+    Mientras tanto, BORRAR una venta ya anulada —lo menos consecuente que se
+    puede hacer en esta pantalla— exige un modal con detalle y la frase "no se
+    puede deshacer".
 
-  const filteredSales = sales.filter(s => 
-    s.documentType !== 'PROFORMA' &&
+    La fricción estaba invertida: la acción que mueve inventario tenía menos
+    resistencia que la que no lo mueve. Y el ícono vive pegado al de reimprimir,
+    así que un pixel de más anulaba una venta.
+  */
+  const [confirmarEstado, setConfirmarEstado] = useState<{ sale: Sale; nuevo: Sale['status'] } | null>(null);
+
+  // P4.7: ESC cierra el modal de más arriba.
+  // `deleteModalSale` ya no está en esta lista: su ESC y su trampa de foco los
+  // trae `ConfirmarBorrado`, que es el diálogo que ahora comparten las cuatro
+  // pantallas que borran algo.
+  useEscapeKey(isEditModalOpen || !!labelData || !!reprintData || !!confirmarEstado, () => {
+    if (reprintData) setReprintData(null);
+    else if (labelData) setLabelData(null);
+    else if (confirmarEstado) setConfirmarEstado(null);
+    else setIsEditModalOpen(false);
+  });
+
+  /*
+    Los dos diálogos de esta pantalla dejaban escapar el Tab. `useFocusTrap`
+    estaba importado desde P4.6 y nunca se llamaba, así que el import era
+    decorativo.
+
+    Importa más acá que en ningún otro lado: tabulando desde "Eliminar
+    definitivamente" se llegaba a los botones de las filas que están TAPADAS
+    por el velo, y se podía disparar la acción de otra venta sin verla. Son las
+    dos escrituras más destructivas de la aplicación.
+  */
+  const estadoModalRef = useRef<HTMLDivElement>(null);
+  const editarModalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(!!confirmarEstado, estadoModalRef);
+  useFocusTrap(isEditModalOpen && !!editingSale, editarModalRef);
+
+  // P1.4: ventana en vivo (100) + páginas viejas cargadas bajo demanda.
+  const allSales = React.useMemo(() => {
+    const seen = new Set(sales.map(s => s.id));
+    return [...sales, ...olderSales.filter(s => !seen.has(s.id))];
+  }, [sales, olderSales]);
+
+  const filteredSales = allSales.filter(s =>
+    (docFilter === 'PROFORMAS' ? s.documentType === 'PROFORMA' : s.documentType !== 'PROFORMA') &&
     (s.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.customerName?.toLowerCase().includes(searchTerm.toLowerCase()))
+    s.customerName?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    // P4.2: filtros de estado, método y rango de fechas.
+    (fStatus === 'todos' || (s.status || 'completed') === fStatus) &&
+    (fMethod === 'todos' || (s.paymentMethod || 'EFECTIVO') === fMethod) &&
+    (!fStart || s.date >= localDayStart(fStart)) &&
+    (!fEnd || s.date <= localDayStart(fEnd) + 86399999)
   ).sort((a, b) => b.date - a.date);
 
-  const handleDeleteClick = (id: string) => {
-    if (confirmingDelete === id) {
-      deleteSale(id);
-      setConfirmingDelete(null);
-    } else {
-      setConfirmingDelete(id);
-      setTimeout(() => setConfirmingDelete(null), 3000);
+  // P2.5: reimprimir factura/proforma desde los datos guardados. El preview
+  // incluye "Enviar por WhatsApp" (comparte el PDF) si hay teléfono.
+  const [reprintWa, setReprintWa] = useState<{ text: string; link: string | null } | null>(null);
+  const handleReprint = (sale: Sale) => {
+    const rate = sale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
+    setReprintWa(sale.customerPhone ? buildWhatsAppMessage(sale, formatCurrencyNIO(sale.total * rate)) : null);
+    setReprintData(buildInvoiceDataFromSale(sale, companyInfo));
+  };
+
+  // P2.6: el botón de WhatsApp abre el preview con el envío listo (el PDF se
+  // comparte desde ahí; wa.me solo no puede adjuntar archivos).
+  const handleWhatsApp = (sale: Sale) => {
+    if (!sale.customerPhone) {
+      toast.error('El cliente no tiene un teléfono registrado.');
+      return;
+    }
+    handleReprint(sale);
+  };
+
+  /**
+   * P2.5: convertir proforma en factura (verifica stock en la transacción).
+   *
+   * Son DOS escrituras y hay que tratarlas por separado, porque la segunda
+   * puede fallar cuando la primera ya ocurrió.
+   *
+   * Antes las dos vivían en un solo `try`, así que si `updateSale` fallaba
+   * —permisos, red, cuota de Spark— el `catch` se comía el ÉXITO de
+   * `recordSale` y mostraba "No se pudo facturar la proforma". La factura
+   * existía, el stock ya había bajado y el correlativo ya se había consumido,
+   * pero la pantalla decía lo contrario: la proforma seguía en verde y el único
+   * botón disponible creaba una SEGUNDA factura y volvía a descontar stock. El
+   * mensaje decía lo opuesto de lo que pasó y la única acción a mano empeoraba
+   * el daño.
+   */
+  const handleInvoiceProforma = async (p: Sale) => {
+    if (invoicingProformaId) return;
+    setInvoicingProformaId(p.id);
+
+    /*
+      El id de la factura se DERIVA de la proforma, no se sortea al azar.
+      Así, si el operador reintenta después de un fallo ambiguo, cae sobre el
+      MISMO documento y la guarda de idempotencia de `recordSale` devuelve el
+      número ya asignado sin volver a tocar stock ni contador. Con un uuid al
+      azar cada reintento era una venta nueva, que es justo lo que no se quiere.
+    */
+    const newSale: Sale = {
+      ...p,
+      id: uuidv5(p.id, NS_PROFORMA_A_FACTURA),
+      date: Date.now(),
+      documentType: 'RECIBO_OFICIAL',
+      invoiceNumber: 'POR ASIGNAR',
+      status: 'completed',
+      paymentMethod: p.paymentMethod || 'EFECTIVO',
+      notes: `${p.notes ? p.notes + ' · ' : ''}Origen: proforma ${p.invoiceNumber}`,
+    };
+
+    let num: string;
+    try {
+      num = await recordSale(newSale);
+    } catch (e: any) {
+      // Acá la factura NO se creó: el stock y el correlativo están intactos.
+      toast.error(e?.message || 'No se pudo facturar la proforma. Verificá el stock.');
+      setInvoicingProformaId(null);
+      return;
+    }
+
+    // A partir de esta línea la factura EXISTE. Nada de lo que siga puede
+    // volver a decir que no se pudo facturar.
+    try {
+      await updateSale({
+        ...p,
+        status: 'cancelled',
+        notes: `${p.notes ? p.notes + ' · ' : ''}Facturada como ${num}`,
+      });
+      toast.success(`Proforma facturada como ${num} — stock descontado.`);
+    } catch {
+      toast.error(
+        `La factura ${num} SÍ se creó y el stock ya se descontó. Lo que no pude ` +
+        `es marcar la proforma como facturada: NO la vuelvas a facturar. ` +
+        `Cancelala a mano desde el Historial.`,
+      );
+    }
+
+    const finalSale = { ...newSale, invoiceNumber: num };
+    const rate = finalSale.exchangeRate || companyInfo?.defaultExchangeRate || 36.6243;
+    setReprintWa(finalSale.customerPhone ? buildWhatsAppMessage(finalSale, formatCurrencyNIO(finalSale.total * rate)) : null);
+    setReprintData(buildInvoiceDataFromSale(finalSale, companyInfo));
+    setInvoicingProformaId(null);
+  };
+
+  // P1.2 + P4.5: no se borran ventas completadas; el resto pasa por un modal
+  // de confirmación con resumen (adiós al doble-clic accidental).
+  const handleDeleteClick = (sale: Sale) => {
+    if ((sale.status || 'completed') === 'completed' && sale.documentType !== 'PROFORMA') {
+      toast.error('Marcá la venta como Devuelta o Cancelada antes de eliminarla (así el stock se repone).');
+      return;
+    }
+    setDeleteModalSale(sale);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModalSale) return;
+    try {
+      await deleteSale(deleteModalSale.id);
+      toast.success(`${deleteModalSale.documentType === 'PROFORMA' ? 'Proforma' : 'Venta'} ${deleteModalSale.invoiceNumber} eliminada.`);
+    } catch (e: any) {
+      // Sin el `e`, `db.ts` humaniza el error de permisos, de cuota o de red y
+      // acá se tiraba a la basura para decir "no se pudo".
+      toast.error(e?.message || 'No se pudo eliminar el registro.');
+    } finally {
+      setDeleteModalSale(null);
     }
   };
 
+  // P1.2: el cambio de estado ajusta stock en transacción (changeSaleStatus).
   const handleStatusChange = async (sale: Sale, newStatus: Sale['status']) => {
-    await updateSale({ ...sale, status: newStatus });
+    const prevStatus = sale.status || 'completed';
+    if (prevStatus === newStatus) return;
+    try {
+      const { borrados, topeados } = await changeSaleStatus(sale, newStatus);
+
+      if (sale.documentType !== 'PROFORMA' && prevStatus === 'completed' && newStatus !== 'completed') {
+        toast.success('Estado actualizado — stock repuesto al inventario.');
+      } else if (sale.documentType !== 'PROFORMA' && prevStatus !== 'completed' && newStatus === 'completed') {
+        toast.success('Estado actualizado — stock descontado nuevamente.');
+      } else {
+        toast.success('Estado actualizado.');
+      }
+
+      /*
+        El ajuste de stock puede aplicarse A MEDIAS, por dos motivos que están
+        documentados como deliberados en `changeSaleStatus`: un producto que ya
+        no existe se saltea, y el descuento tiene piso en 0. Los dos son
+        correctos; lo que no lo era es que la pantalla dijera "stock repuesto"
+        sin más y el operador creyera que recuperó tres unidades cuando
+        recuperó dos.
+      */
+      if (borrados.length > 0) {
+        toast.error(
+          `${borrados.length === 1 ? 'Este producto ya no existe' : 'Estos productos ya no existen'} ` +
+          `y su stock NO se ajustó: ${borrados.join(', ')}.`,
+        );
+      }
+      if (topeados.length > 0) {
+        toast.error(
+          `No había stock suficiente para descontar del todo: ${topeados.join(', ')}. ` +
+          `Quedaron en 0 — revisá el inventario, porque el kardex registra el movimiento completo.`,
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo actualizar el estado de la venta.');
+    }
   };
 
   const handleEdit = (sale: Sale) => {
@@ -52,42 +278,132 @@ export default function SalesHistory() {
       notes: (formData.get('notes') as string) || editingSale.notes || '',
     } as any; // Cast for custom fields if any
 
-    await updateSale(updatedSale);
-    setIsEditModalOpen(false);
-    setEditingSale(null);
-    alert('Sale record updated!');
+    /*
+      Sin try/catch, y `updateSale` SÍ lanza: su manejador siempre relanza. Con
+      un fallo el rechazo quedaba sin manejar, las tres líneas de abajo no
+      corrían y el modal se quedaba abierto sin una palabra. El operador veía su
+      edición en pantalla —porque el formulario conserva lo tipeado— y se iba
+      creyendo que había guardado.
+
+      Es una venta YA EMITIDA: lo que se edita acá son los datos que van
+      impresos en la factura y en la etiqueta de envío.
+    */
+    try {
+      await updateSale(updatedSale);
+      setIsEditModalOpen(false);
+      setEditingSale(null);
+      toast.success(`Venta ${editingSale.invoiceNumber} actualizada.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo guardar la edición de la venta.');
+    }
   };
 
-  if (loading) return <div className="text-zinc-500 p-8">Loading history...</div>;
+  if (loading) return <div className="text-zinc-400 p-8">Cargando historial…</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div>
-          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Sales Management (CRUD)</h2>
-          <p className="text-xs text-zinc-500">Edit, delete or manage sales and returns.</p>
+          {/* Decía "Gestión de Ventas" mientras el menú y el encabezado dicen
+              "Historial de Ventas": dos nombres para la misma pantalla. Y el
+              subtítulo trataba de usted en una interfaz que vosea. */}
+          <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight italic">Historial de Ventas</h2>
+          <p className="text-xs text-zinc-400">Revisá, editá o anulá ventas, cotizaciones y devoluciones.</p>
+        </div>
+        {/* P2.5: pestaña Facturas / Proformas */}
+        <div className="flex bg-zinc-800 rounded-lg p-1 text-xs font-bold">
+          <button
+            onClick={() => setDocFilter('FACTURAS')}
+            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'FACTURAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+          >
+            Facturas
+          </button>
+          <button
+            onClick={() => setDocFilter('PROFORMAS')}
+            className={`px-4 py-1.5 rounded-md transition-colors ${docFilter === 'PROFORMAS' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+          >
+            Proformas
+          </button>
         </div>
         <div className="relative w-full md:w-64">
            <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
-           <input 
-            type="text" 
-            placeholder="Invoice # or Customer..." 
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200"
+           <input aria-label="N° de factura o cliente…"
+            type="text"
+            placeholder="N° de factura o cliente…"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 h-10 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
            />
         </div>
       </div>
 
+      {/* P4.2: filtros de fecha / estado / método (sobre las ventas cargadas) */}
+      <div className="flex flex-wrap items-end gap-3 bg-zinc-900 border border-zinc-800 p-3 rounded-xl">
+        <div className="space-y-1">
+          <label htmlFor="hist-desde" className="text-[10px] uppercase text-zinc-400 font-bold">Desde</label>
+          <input id="hist-desde" type="date" value={fStart} onChange={e => setFStart(e.target.value)}
+            className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="hist-hasta" className="text-[10px] uppercase text-zinc-400 font-bold">Hasta</label>
+          <input id="hist-hasta" type="date" value={fEnd} onChange={e => setFEnd(e.target.value)}
+            className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500" />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="hist-estado" className="text-[10px] uppercase text-zinc-400 font-bold">Estado</label>
+          <select id="hist-estado" value={fStatus} onChange={e => setFStatus(e.target.value)}
+            className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer">
+            <option value="todos">Todos</option>
+            <option value="completed">Completada</option>
+            <option value="returned">Devuelta</option>
+            <option value="cancelled">Cancelada</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="hist-metodo-de-pago" className="text-[10px] uppercase text-zinc-400 font-bold">Método de pago</label>
+          <select id="hist-metodo-de-pago" value={fMethod} onChange={e => setFMethod(e.target.value)}
+            className="block bg-zinc-800 border border-zinc-700 rounded-lg px-3 h-9 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer">
+            <option value="todos">Todos</option>
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="TRANSFERENCIA">Transferencia</option>
+            <option value="TARJETA">Tarjeta (pago único)</option>
+            <option value="FINANCIAMIENTO">Financiamiento (cuotas)</option>
+            <option value="CREDITO">Crédito</option>
+          </select>
+        </div>
+        {(fStart || fEnd || fStatus !== 'todos' || fMethod !== 'todos') && (
+          <button
+            onClick={() => { setFStart(''); setFEnd(''); setFStatus('todos'); setFMethod('todos'); }}
+            className="h-9 px-3 text-xs font-bold text-zinc-400 hover:text-rose-400 transition-colors focus:outline-none focus:ring-1 focus:ring-rose-500 rounded"
+          >
+            Limpiar filtros
+          </button>
+        )}
+        <span className="ml-auto text-[10px] text-zinc-400 self-center">{filteredSales.length} resultado(s) en lo cargado</span>
+      </div>
+
       <div className="grid gap-4">
-        {filteredSales.map(sale => (
-          <div key={sale.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg group">
+        {filteredSales.map(sale => {
+          /*
+            Las ventas viejas se guardaron ANTES de que existiera el campo
+            `status`. El texto del chip ya aplicaba el fallback
+            (`sale.status || 'completed'`), pero el COLOR del chip, el del ícono
+            y el estado activo de los tres botones comparaban `sale.status`
+            crudo — así que una venta sin campo caía al `else` y se pintaba en
+            ROSA, el color que este sistema reserva para lo destructivo,
+            mientras el texto de adentro decía "Completada". El color contradecía
+            a la palabra que tenía al lado, y ninguno de los tres botones se veía
+            activo, así que la fila no decía en qué estado estaba.
+          */
+          const estadoVenta = sale.status || 'completed';
+          return (
+          <div key={sale.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden group">
             <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-zinc-800/50">
                <div className="flex items-center gap-4 w-full lg:w-auto">
                   <div className={`p-3 rounded-lg flex-shrink-0 ${
-                    sale.status === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
-                    sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' :
-                    'bg-rose-500/10 text-rose-500'
+                    estadoVenta === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
+                    estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
+                    'bg-rose-500/10 text-rose-400'
                   }`}>
                      <FileText className="w-6 h-6" />
                   </div>
@@ -95,14 +411,14 @@ export default function SalesHistory() {
                      <h4 className="font-bold text-zinc-100 flex items-center gap-2 flex-wrap">
                        {sale.invoiceNumber}
                        <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full ${
-                        sale.status === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
-                        sale.status === 'returned' ? 'bg-amber-500/10 text-amber-500' :
-                        'bg-rose-500/10 text-rose-500'
+                        estadoVenta === 'completed' ? 'bg-cyan-500/10 text-cyan-500' :
+                        estadoVenta === 'returned' ? 'bg-amber-500/10 text-amber-500' :
+                        'bg-rose-500/10 text-rose-400'
                        }`}>
-                         {sale.status || 'completed'}
+                         {ESTADO_VENTA[estadoVenta] || estadoVenta}
                        </span>
                      </h4>
-                     <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
+                     <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
                         <Calendar className="w-3 h-3" /> {new Date(sale.date).toLocaleString()}
                      </p>
                   </div>
@@ -110,87 +426,157 @@ export default function SalesHistory() {
 
                <div className="flex-1 w-full lg:px-8 grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="text-xs space-y-1 min-w-0">
-                     <p className="text-zinc-500 font-bold uppercase">Customer</p>
+                     <p className="text-zinc-400 font-bold uppercase">Cliente</p>
                      <p className="text-zinc-300 flex items-center gap-1 truncate"><User className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerName || 'N/A'}</span></p>
                      <p className="text-zinc-400 flex items-center gap-1 truncate"><Phone className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerPhone || '-'}</span></p>
                   </div>
                   <div className="text-xs space-y-1 hidden md:block min-w-0">
-                     <p className="text-zinc-500 font-bold uppercase">Location/Transp</p>
+                     <p className="text-zinc-400 font-bold uppercase">Dirección/Transp</p>
                      <p className="text-zinc-300 flex items-center gap-1 truncate"><MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customerAddress || 'N/A'}</span></p>
                      <p className="text-cyan-500 font-bold uppercase truncate">{sale.transport}</p>
                   </div>
                   <div className="text-left md:text-right flex flex-col justify-center">
-                     <p className="text-zinc-500 text-[10px] font-bold uppercase">Grand Total</p>
-                     <p className="text-xl font-bold text-cyan-400 truncate">{formatCurrency(sale.total)}</p>
+                     <p className="text-zinc-400 text-[10px] font-bold uppercase">Total</p>
+                     <p className="text-xl font-bold text-cyan-400 truncate tabular-nums">{formatCurrency(sale.total)}</p>
+                     {/* Venta financiada: el plazo y la cuota reales que se cobraron. */}
+                     {sale.financiamiento && (
+                       <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+                         {sale.financiamiento.plazoMeses} cuotas de{' '}
+                         {formatCurrency(sale.financiamiento.cuotaNio, 'NIO')}
+                         {sale.financiamiento.recargoPct > 0
+                           ? ` · +${sale.financiamiento.recargoPct}%`
+                           : ' · 0%'}
+                       </p>
+                     )}
                   </div>
                </div>
 
-               <div className="flex items-center gap-2 w-full lg:w-auto justify-end mt-2 lg:mt-0">
-                  {/* Status Actions */}
+               <div className="flex items-center gap-2 w-full lg:w-auto justify-end mt-2 lg:mt-0 flex-wrap">
+                  {/* P2.5: proformas → botón FACTURAR; facturas → acciones de estado */}
+                  {sale.documentType === 'PROFORMA' ? (
+                    (sale.status || 'completed') === 'completed' ? (
+                      <button
+                        onClick={() => handleInvoiceProforma(sale)}
+                        disabled={!!invoicingProformaId}
+                        title="Convierte esta proforma en factura (verifica y descuenta stock)"
+                        className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        {invoicingProformaId === sale.id ? 'Facturando…' : 'FACTURAR'}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-zinc-400 italic px-2">
+                        {sale.notes?.includes('Facturada como') ? sale.notes.split('·').pop()?.trim() : 'Anulada'}
+                      </span>
+                    )
+                  ) : (
                   <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                    <button 
-                      onClick={() => handleStatusChange(sale, 'completed')}
-                      title="Set as Completed"
-                      className={`p-1.5 rounded ${sale.status === 'completed' ? 'bg-cyan-600 text-white' : 'text-zinc-500 hover:text-cyan-400'}`}
+                    <button
+                      onClick={() => setConfirmarEstado({ sale, nuevo: 'completed' })}
+                      title="Marcar Completada (descuenta stock si venía anulada)"
+                      className={`p-1.5 rounded ${estadoVenta === 'completed' ? 'bg-cyan-700 text-white' : 'text-zinc-400 hover:text-cyan-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <CheckCircle className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => handleStatusChange(sale, 'returned')}
-                      title="Set as Returned"
-                      className={`p-1.5 rounded ${sale.status === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-500 hover:text-amber-400'}`}
+                    <button
+                      onClick={() => setConfirmarEstado({ sale, nuevo: 'returned' })}
+                      title="Marcar Devuelta (repone stock)"
+                      className={`p-1.5 rounded ${estadoVenta === 'returned' ? 'bg-amber-600 text-white' : 'text-zinc-400 hover:text-amber-400'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => handleStatusChange(sale, 'cancelled')}
-                      title="Set as Cancelled"
-                      className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-500 hover:text-rose-400'}`}
+                    <button
+                      onClick={() => setConfirmarEstado({ sale, nuevo: 'cancelled' })}
+                      title="Marcar Cancelada (repone stock)"
+                      className={`p-1.5 rounded ${sale.status === 'cancelled' ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-rose-400'} focus:outline-none focus:ring-2 focus:ring-rose-500`}
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
                   </div>
-                  
-                  <button onClick={() => handleEdit(sale)} className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-sky-400 rounded-lg transition-colors">
-                    <Edit className="w-4 h-4" />
+                  )}
+
+                  {/* P2.5: reimprimir PDF con los datos guardados */}
+                  <button
+                    onClick={() => handleReprint(sale)}
+                    title="Reimprimir / descargar PDF"
+                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <Printer className="w-4 h-4" />
                   </button>
-                  {['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(sale.transport || '') && (
-                    <button 
-                      onClick={() => setLabelData(sale)} 
-                      title="Print Shipping Label"
-                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-orange-400 rounded-lg transition-colors"
+                  {/* P2.6: compartir por WhatsApp */}
+                  {sale.customerPhone && (
+                    <button
+                      onClick={() => handleWhatsApp(sale)}
+                      title="Enviar resumen por WhatsApp"
+                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-500 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <Truck className="w-4 h-4" />
+                      <MessageCircle className="w-4 h-4" />
                     </button>
                   )}
-                  <button 
-                    onClick={() => handleDeleteClick(sale.id)} 
-                    className={`p-2 transition-colors rounded-lg ${confirmingDelete === sale.id ? 'bg-rose-500/20 text-rose-500 font-bold text-xs' : 'text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500'}`}
+
+                  {/* Era el unico boton de la fila sin `title`: un lector de
+                      pantalla lo anunciaba como "boton" a secas, entre otros
+                      cinco botones identicos. */}
+                  <button
+                    onClick={() => handleEdit(sale)}
+                    title="Editar venta"
+                    aria-label={`Editar la venta ${sale.invoiceNumber}`}
+                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
-                    {confirmingDelete === sale.id ? 'Delete?' : <Trash2 className="w-4 h-4" />}
+                    <Edit className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                  {/* Rotulo en ingles en una app que es toda en espanol, y
+                      naranja, que no esta en la paleta. Los dos corregidos. */}
+                  {['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'].includes(sale.transport || '') && (
+                    <button
+                      onClick={() => setLabelData(sale)}
+                      title="Etiqueta de envío"
+                      aria-label={`Ver la etiqueta de envío de la venta ${sale.invoiceNumber}`}
+                      className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <Truck className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteClick(sale)}
+                    title="Eliminar registro"
+                    className="p-2 transition-colors rounded-lg text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </button>
                </div>
             </div>
             
             {/* Expanded items view */}
-            <div className="px-4 py-2 bg-zinc-800/20 text-[10px] text-zinc-500 flex flex-wrap gap-x-4">
+            <div className="px-4 py-2 bg-zinc-800/20 text-[10px] text-zinc-400 flex flex-wrap gap-x-4">
                {sale.items.map(item => (
                  <span key={item.id}>• {item.quantity}x {item.name}</span>
                ))}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {filteredSales.length === 0 && (
-          <div className="p-20 text-center text-zinc-500 flex flex-col items-center gap-4">
+          <div className="p-20 text-center text-zinc-400 flex flex-col items-center gap-4">
              <FileText className="w-12 h-12 opacity-20" />
-             <p className="italic">No sale records match your criteria.</p>
+             <p className="italic">Ninguna venta coincide con la búsqueda.</p>
           </div>
+        )}
+
+        {/* P1.4: paginación hacia atrás (más allá de las 100 en vivo) */}
+        {sales.length >= 100 && hasMoreOlderSales && (
+          <button
+            onClick={loadMoreSales}
+            disabled={loadingOlderSales}
+            className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          >
+            {loadingOlderSales ? 'Cargando…' : 'Cargar ventas anteriores'}
+          </button>
         )}
       </div>
 
       {labelData && (
-        <ShippingLabelPreview 
+        <ShippingLabelPreview
           sale={labelData}
           isOpen={!!labelData}
           onClose={() => setLabelData(null)}
@@ -199,35 +585,182 @@ export default function SalesHistory() {
         />
       )}
 
+      {/* P2.5: reimpresión (modo descarga, sin confirmar) */}
+      {reprintData && (
+        <InvoicePreview
+          data={reprintData}
+          isOpen={!!reprintData}
+          onClose={() => { setReprintData(null); setReprintWa(null); }}
+          whatsApp={reprintWa}
+        />
+      )}
+
+      {/* P4.5: confirmación de borrado con resumen y consecuencias */}
+      {/*
+        Confirmación del cambio de estado. Antes esto era un clic directo en un
+        ícono de 28px pegado al de reimprimir: un pixel de más anulaba la venta,
+        reponía el stock y escribía el kardex, y el único rastro era un aviso
+        describiendo algo que el operador no había pedido.
+
+        El modal dice QUÉ unidades se mueven y en qué dirección, porque eso es
+        lo que el operador necesita para decidir — no basta con "¿estás seguro?".
+      */}
+      {confirmarEstado && (() => {
+        const { sale, nuevo } = confirmarEstado;
+        const previo = sale.status || 'completed';
+        const esProforma = sale.documentType === 'PROFORMA';
+        // Misma aritmética que `changeSaleStatus`: +1 repone, -1 vuelve a
+        // descontar, 0 no toca stock.
+        const direccion = esProforma ? 0
+          : previo === 'completed' && nuevo !== 'completed' ? 1
+          : previo !== 'completed' && nuevo === 'completed' ? -1
+          : 0;
+        const unidades = (sale.items || []).reduce((a, i) => a + i.quantity, 0);
+        return (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+              onClick={() => setConfirmarEstado(null)}
+              aria-hidden="true"
+            ></div>
+            <div
+              ref={estadoModalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="titulo-cambiar-estado"
+              tabIndex={-1}
+              autoFocus
+              className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4"
+            >
+              <h3 id="titulo-cambiar-estado" className="text-lg font-bold text-zinc-100">
+                Marcar como {ESTADO_VENTA[nuevo || 'completed']}
+              </h3>
+
+              <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 text-sm text-zinc-200">
+                <p className="font-bold">{sale.invoiceNumber} — {sale.customerName || 'Cliente final'}</p>
+                <p className="text-zinc-400 text-xs mt-1 tabular-nums">
+                  {new Date(sale.date).toLocaleDateString()} · {sale.items.length} línea(s) ·{' '}
+                  {formatCurrency(sale.total)}
+                </p>
+              </div>
+
+              {direccion === 1 && (
+                <p className="text-sm text-emerald-400 leading-relaxed">
+                  Se van a <strong>reponer {unidades} unidad(es)</strong> al inventario, y queda
+                  registrado en el kardex.
+                </p>
+              )}
+              {direccion === -1 && (
+                <p className="text-sm text-amber-400 leading-relaxed">
+                  Se van a <strong>descontar {unidades} unidad(es)</strong> del inventario. Si no hay
+                  stock suficiente, el descuento se aplica hasta donde alcanza y te lo aviso.
+                </p>
+              )}
+              {direccion === 0 && (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {esProforma
+                    ? 'Es una cotización: no toca stock.'
+                    : 'Este cambio no mueve stock.'}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  onClick={() => setConfirmarEstado(null)}
+                  className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmarEstado(null);
+                    handleStatusChange(sale, nuevo);
+                  }}
+                  className="px-5 py-2 bg-cyan-700 hover:bg-cyan-800 text-white text-sm font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900"
+                >
+                  Marcar como {ESTADO_VENTA[nuevo || 'completed']}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/*
+          Este modal era el bueno de los seis que había —resumen, consecuencia
+          por escrito, foco atrapado, ESC, `autoFocus` en el contenedor— y
+          protegía la acción MENOS grave de todas: borrar una venta ya anulada,
+          que no mueve stock. Las tres que sí movían inventario tenían un botón
+          que cambiaba a «¿Eliminar?» y se desarmaba solo a los 3 segundos.
+
+          Así que se generalizó éste y las cuatro pantallas lo usan.
+       */}
+      <ConfirmarBorrado
+        abierto={!!deleteModalSale}
+        titulo={`Eliminar ${deleteModalSale?.documentType === 'PROFORMA' ? 'proforma' : 'venta anulada'}`}
+        nombre={deleteModalSale ? `${deleteModalSale.invoiceNumber} — ${deleteModalSale.customerName || 'Cliente final'}` : ''}
+        detalle={deleteModalSale ? (
+          <>
+            {new Date(deleteModalSale.date).toLocaleDateString()} · {deleteModalSale.items.length} ítem(s) ·{' '}
+            {formatCurrency(deleteModalSale.total)}{' '}
+            ({formatCurrencyNIO(deleteModalSale.total * (deleteModalSale.exchangeRate || DEFAULT_EXCHANGE_RATE))})
+          </>
+        ) : null}
+        consecuencias={[
+          deleteModalSale?.documentType === 'PROFORMA'
+            ? { tono: 'neutro' as const, texto: 'Las cotizaciones no afectan el stock: no se mueve ninguna unidad.' }
+            : { tono: 'neutro' as const, texto: 'El stock ya se repuso al anular esta venta. Borrar elimina sólo el registro histórico.' },
+          { tono: 'aviso' as const, texto: 'El movimiento que quedó en el kardex NO se borra: el kardex es inmutable.' },
+        ]}
+        textoConfirmar="Eliminar el registro"
+        onConfirmar={confirmDelete}
+        onCancelar={() => setDeleteModalSale(null)}
+      />
+
       {isEditModalOpen && editingSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}></div>
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div
+            className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+            onClick={() => setIsEditModalOpen(false)}
+            aria-hidden="true"
+          ></div>
+          <div
+            ref={editarModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-editar-venta"
+            tabIndex={-1}
+            autoFocus
+            className="relative bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+          >
              <form onSubmit={saveEditedSale}>
                 <div className="p-6 border-b border-zinc-800">
-                   <h3 className="text-xl font-bold text-zinc-100 italic">Edit Invoice {editingSale.invoiceNumber}</h3>
+                   <h3 id="titulo-editar-venta" className="text-xl font-bold text-zinc-100 italic">Editar Factura {editingSale.invoiceNumber}</h3>
                 </div>
                 <div className="p-6 space-y-4">
+                   {/* Los cuatro rótulos eran `<label>` hermanos que no apuntaban
+                       a nada: un lector anunciaba "cuadro de edición" cuatro
+                       veces seguidas sin decir de qué. */}
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Customer Name</label>
-                      <input name="customerName" defaultValue={editingSale.customerName} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
+                      <label htmlFor="editar-venta-nombre" className="text-[10px] uppercase text-zinc-400 font-bold">Nombre del cliente</label>
+                      <input id="editar-venta-nombre" name="customerName" defaultValue={editingSale.customerName} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Phone</label>
-                      <input name="customerPhone" defaultValue={editingSale.customerPhone} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
+                      <label htmlFor="editar-venta-telefono" className="text-[10px] uppercase text-zinc-400 font-bold">Teléfono</label>
+                      <input id="editar-venta-telefono" name="customerPhone" defaultValue={editingSale.customerPhone} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Address</label>
-                      <textarea name="customerAddress" defaultValue={editingSale.customerAddress} rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200"></textarea>
+                      <label htmlFor="editar-venta-direccion" className="text-[10px] uppercase text-zinc-400 font-bold">Dirección</label>
+                      <textarea id="editar-venta-direccion" name="customerAddress" defaultValue={editingSale.customerAddress} rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"></textarea>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase text-zinc-500 font-bold">Transport</label>
-                      <input name="transport" defaultValue={editingSale.transport} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200" />
+                      <label htmlFor="editar-venta-transporte" className="text-[10px] uppercase text-zinc-400 font-bold">Transporte</label>
+                      <input id="editar-venta-transporte" name="transport" defaultValue={editingSale.transport} className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                    </div>
                 </div>
                 <div className="p-6 bg-zinc-800/30 flex justify-end gap-3">
-                   <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200">Cancel</button>
-                   <button type="submit" className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg transition-all">SAVE CHANGES</button>
+                   <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded">Cancelar</button>
+                   <button type="submit" className="px-6 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-zinc-900">GUARDAR CAMBIOS</button>
                 </div>
              </form>
           </div>

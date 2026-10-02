@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { useStoreData } from '../hooks/useStoreData';
+import { useStore } from '../context/StoreContext';
 import { CompanyInfo, Product } from '../types';
 import { fileToBase64, compressImage } from '../lib/utils';
 import { Settings as SettingsIcon, Save, Upload, Building2, Phone, Mail, MapPin, Eraser } from 'lucide-react';
 import { db } from '../lib/db';
-import { writeBatch, doc } from 'firebase/firestore';
+import { writeBatch, doc, getDoc, setDoc, collection, query, getDocs } from 'firebase/firestore';
+// El barrido vivia aca y ordenaba por `invoiceNumber`: las proformas P- se
+// ordenan por encima de TODAS las facturas A-, asi que con 30 proformas el
+// guard devolvia 0 y dejaba pasar cualquier numero. Ver src/lib/correlativos.ts.
+import { maximoFacturaEmitido } from '../lib/correlativos';
+import FinanciamientoSettings from '../components/FinanciamientoSettings';
+import { toast } from '../components/Toast';
 
 export default function Settings() {
-  const { companyInfo, updateCompanyInfo, loading, products } = useStoreData();
+  const { companyInfo, updateCompanyInfo, loading, products } = useStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
   const [isConfirmingClean, setIsConfirmingClean] = useState(false);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+
   const [formData, setFormData] = useState<Omit<CompanyInfo, 'ownerId'>>({
     name: 'PandaStore',
     phone: '+505 8372 5528',
@@ -21,9 +27,78 @@ export default function Settings() {
     defaultExchangeRate: 36.6243, // Pilar 4: Tasa congelada
   });
 
+  /*
+    Configuración tenía su PROPIO sistema de avisos: una barra fija de relleno
+    sólido, con su estado, su temporizador de 5 s y su paleta. Hacía exactamente
+    el mismo trabajo que el Toast global del sistema, en otro lenguaje visual y
+    en otra esquina. DESIGN.md ya lo llamaba "deuda, no patrón".
+
+    Ahora es un envoltorio del Toast, así que esta pantalla hereda gratis lo que
+    el canal global fue ganando: los errores no se autodestruyen (son el único
+    soporte que tiene el operador), se anuncian a un lector de pantalla con
+    `role="alert"`, y se cierran a mano.
+
+    La firma se conserva para no tocar `FinanciamientoSettings`, que la recibe
+    por prop.
+  */
   const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 5000);
+    toast[type](message);
+  };
+
+  // Numeración de facturas: leer/fijar el contador (counters/invoices).
+  // Útil para arrancar desde el máximo histórico (ej. A-001401).
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState('');
+  const [savingCounter, setSavingCounter] = useState(false);
+
+  useEffect(() => {
+    getDoc(doc(db, 'counters', 'invoices'))
+      .then(snap => {
+        const current = (snap.exists() ? (snap.data() as any).value : 0) || 0;
+        setNextInvoiceNumber(String(current + 1));
+      })
+      .catch(() => setNextInvoiceNumber(''));
+  }, []);
+
+
+  const handleSaveCounter = async () => {
+    const next = parseInt(nextInvoiceNumber, 10);
+    if (!next || next < 1) {
+      showNotification('Ingresá un número de factura válido (≥ 1).', 'error');
+      return;
+    }
+    setSavingCounter(true);
+    try {
+      /*
+        No se puede fijar el contador HACIA ATRÁS.
+
+        `recordSale` asigna el número haciendo `contador + 1` y no verifica si
+        ese número ya se usó: el documento de la venta se guarda bajo su uuid,
+        así que Firestore acepta sin chistar dos ventas con el mismo
+        `invoiceNumber`. Poner el contador por debajo del máximo ya facturado
+        producía correlativos REPETIDOS, en silencio, en un documento que se le
+        entrega al cliente y cuyo estatus fiscal todavía no está confirmado.
+
+        Este campo existe para SALTAR hacia adelante —arrancar desde el máximo
+        histórico de un negocio en marcha, que es para lo que se usó— así que
+        bloquear el retroceso no le quita nada.
+      */
+      const max = await maximoFacturaEmitido();
+      if (next <= max) {
+        showNotification(
+          `La factura A-${String(max).padStart(6, '0')} ya existe. El próximo número ` +
+          `tiene que ser mayor que ${max}, o se repetirían correlativos.`,
+          'error',
+        );
+        setSavingCounter(false);
+        return;
+      }
+      await setDoc(doc(db, 'counters', 'invoices'), { value: next - 1, updatedAt: Date.now() });
+      showNotification(`Listo: la próxima factura será A-${String(next).padStart(6, '0')}.`, 'success');
+    } catch (e: any) {
+      showNotification(e?.message || 'No se pudo guardar la numeración (¿reglas desplegadas?).', 'error');
+    } finally {
+      setSavingCounter(false);
+    }
   };
 
   useEffect(() => {
@@ -48,7 +123,8 @@ export default function Settings() {
         setFormData(prev => ({ ...prev, logoBase64: compressed }));
       } catch (error) {
         console.error('Error processing image:', error);
-        showNotification('Error processing image. Please try again.', 'error');
+        // Estaba en inglés, en una app que es toda en español.
+        showNotification('No se pudo procesar la imagen. Probá con otra.', 'error');
       }
     }
   };
@@ -67,74 +143,86 @@ export default function Settings() {
     }
   };
 
+  /**
+   * Análisis de duplicados por nombre, PREVIO a borrar nada.
+   *
+   * Esto vivía adentro del handler, así que la confirmación era un "¿Estás
+   * seguro? Esta acción no se puede deshacer" a ciegas: el operador no sabía
+   * cuántos productos, ni cuáles, ni si tenían stock. Apretaba y desaparecían.
+   *
+   * Dos criterios nuevos, los dos por la misma razón —un borrado en lote no
+   * puede destruir inventario en silencio:
+   *
+   * - De cada grupo se conserva el de MÁS stock (y ante empate, el más nuevo),
+   *   que es lo que ya hacía.
+   * - Los candidatos a borrar que TIENEN stock se excluyen del lote. Borrarlos
+   *   sacaría esas unidades del inventario sin pasar por el kardex. Se listan
+   *   aparte para que el operador los resuelva de a uno desde Inventario, que
+   *   es donde el borrado avisa cuántas unidades se pierden.
+   *
+   * Nota sobre el criterio en sí: "duplicado" acá significa MISMO NOMBRE. Desde
+   * P3.5 el SKU es único y el id es uuid, así que dos productos legítimamente
+   * distintos pueden compartir nombre (el mismo modelo en dos colores). Por eso
+   * la lista muestra el SKU: es lo único que los distingue a simple vista.
+   */
+  const duplicados = React.useMemo(() => {
+    const porNombre = new Map<string, Product[]>();
+    products.forEach((p) => {
+      const clave = p.name.trim().toLowerCase();
+      if (!porNombre.has(clave)) porNombre.set(clave, []);
+      porNombre.get(clave)!.push(p);
+    });
+
+    const borrables: Product[] = [];
+    const conStock: Product[] = [];
+    porNombre.forEach((grupo) => {
+      if (grupo.length < 2) return;
+      const orden = [...grupo].sort((a, b) => (b.stock - a.stock) || (b.createdAt - a.createdAt));
+      orden.slice(1).forEach((p) => (p.stock > 0 ? conStock : borrables).push(p));
+    });
+    return { borrables, conStock };
+  }, [products]);
+
   const handleCleanDuplicates = async () => {
+    const ids = duplicados.borrables.map((p) => p.id);
+    if (ids.length === 0) {
+      showNotification('No hay duplicados que se puedan borrar sin perder stock.', 'info');
+      setIsConfirmingClean(false);
+      return;
+    }
     setIsCleaning(true);
     try {
-      const nameMap = new Map<string, Product[]>();
-      products.forEach(p => {
-        const normName = p.name.trim().toLowerCase();
-        if (!nameMap.has(normName)) nameMap.set(normName, []);
-        nameMap.get(normName)!.push(p);
-      });
-
-      const toDeleteIds: string[] = [];
-      nameMap.forEach(dupes => {
-        if (dupes.length > 1) {
-          // Sort by stock descending, then by creation date descending
-          dupes.sort((a, b) => (b.stock - a.stock) || (b.createdAt - a.createdAt));
-          // Keep the first one, mark rest for deletion
-          const rest = dupes.slice(1);
-          rest.forEach(r => toDeleteIds.push(r.id));
-        }
-      });
-
-      if (toDeleteIds.length === 0) {
-        showNotification('No se encontraron productos duplicados basados en el nombre exacto.', 'info');
-        setIsCleaning(false);
-        setIsConfirmingClean(false);
-        return;
-      }
-
       const batch = writeBatch(db);
-      toDeleteIds.forEach(id => {
-        batch.delete(doc(db, 'products', id));
-      });
+      ids.forEach((id) => batch.delete(doc(db, 'products', id)));
       await batch.commit();
-
-      showNotification(`Se eliminaron ${toDeleteIds.length} productos duplicados exitosamente.`, 'success');
-    } catch (error) {
+      showNotification(
+        `${ids.length} ${ids.length === 1 ? 'producto duplicado eliminado' : 'productos duplicados eliminados'}.`,
+        'success',
+      );
+    } catch (error: any) {
       console.error('Error eliminando duplicados:', error);
-      showNotification('Ocurrió un error al limpiar los duplicados.', 'error');
+      showNotification(error?.message || 'No se pudieron eliminar los duplicados.', 'error');
     } finally {
       setIsCleaning(false);
       setIsConfirmingClean(false);
     }
   };
 
-  if (loading) return <div className="text-zinc-500 p-8">Cargando configuración...</div>;
+  if (loading) return <div className="text-zinc-400 p-8">Cargando configuración...</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 relative">
-      {notification && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg font-bold text-white shadow-xl transition-all ${
-          notification.type === 'success' ? 'bg-emerald-600' :
-          notification.type === 'error' ? 'bg-rose-600' : 'bg-sky-600'
-        }`}>
-          {notification.message}
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-lg">
-        <div className="p-2 bg-sky-500/10 rounded-lg">
-          <SettingsIcon className="w-6 h-6 text-sky-400" />
+      <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+        <div className="p-2 bg-cyan-500/10 rounded-lg">
+          <SettingsIcon className="w-6 h-6 text-cyan-400" />
         </div>
         <div>
           <h2 className="text-xl font-bold text-zinc-100">Configuración de la Empresa</h2>
-          <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Personaliza los datos que aparecen en tus facturas</p>
+          <p className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Personaliza los datos que aparecen en tus facturas</p>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
         <form onSubmit={handleSubmit} className="divide-y divide-zinc-800">
           <div className="p-8 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -142,12 +230,12 @@ export default function Settings() {
                 <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                   <Building2 className="w-3.5 h-3.5" /> Nombre de la Empresa
                 </label>
-                <input
+                <input aria-label="Nombre de la Empresa"
                   required
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                 />
               </div>
 
@@ -155,12 +243,12 @@ export default function Settings() {
                 <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5" /> Teléfono de Contacto
                 </label>
-                <input
+                <input aria-label="Teléfono de Contacto"
                   required
                   type="text"
                   value={formData.phone}
                   onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                 />
               </div>
             </div>
@@ -169,12 +257,12 @@ export default function Settings() {
               <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5" /> Dirección Fiscal
               </label>
-              <textarea
+              <textarea aria-label="Dirección Fiscal"
                 required
                 rows={3}
                 value={formData.address}
                 onChange={e => setFormData(p => ({ ...p, address: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
               />
             </div>
 
@@ -182,12 +270,12 @@ export default function Settings() {
               <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5" /> Correo Electrónico
               </label>
-              <input
+              <input aria-label="Correo Electrónico"
                 required
                 type="email"
                 value={formData.email}
                 onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
               />
             </div>
 
@@ -195,19 +283,47 @@ export default function Settings() {
               <label className="text-xs font-bold text-zinc-400 uppercase">Configuración Fiscal</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
+                  <label htmlFor="cfg-tasa-de-cambio-oficial-usd-a-nio" className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
                     Tasa de Cambio Oficial (USD a NIO)
                   </label>
-                  <input
+                  <input id="cfg-tasa-de-cambio-oficial-usd-a-nio"
                     required
                     type="number"
                     step="0.0001"
                     min="1"
                     value={formData.defaultExchangeRate}
                     onChange={e => setFormData(p => ({ ...p, defaultExchangeRate: parseFloat(e.target.value) || 0 }))}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-medium"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
                   />
-                  <p className="text-[10px] text-zinc-500">Tasa de cambio del BCN congelada por ley (Ej. 36.6243).</p>
+                  <p className="text-[10px] text-zinc-400">Tasa de cambio del BCN congelada por ley (Ej. 36.6243).</p>
+                </div>
+
+                {/* Numeración de facturas (contador correlativo) */}
+                <div className="space-y-2">
+                  <label htmlFor="cfg-proximo-numero-de-factura" className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2">
+                    Próximo número de factura
+                  </label>
+                  <div className="flex gap-2">
+                    <input id="cfg-proximo-numero-de-factura"
+                      type="number"
+                      min="1"
+                      value={nextInvoiceNumber}
+                      onChange={e => setNextInvoiceNumber(e.target.value)}
+                      placeholder="Ej. 1401"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-zinc-100 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveCounter}
+                      disabled={savingCounter}
+                      className="px-5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm font-bold text-cyan-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      {savingCounter ? 'Fijando…' : 'Fijar'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">
+                    Se emitirá como A-{String(parseInt(nextInvoiceNumber, 10) || 0).padStart(6, '0')}. Cuidado al bajarlo: podrías duplicar números ya usados.
+                  </p>
                 </div>
               </div>
             </div>
@@ -219,22 +335,22 @@ export default function Settings() {
                   {formData.logoBase64 ? (
                     <img src={formData.logoBase64} alt="Preview" className="w-full h-full object-contain p-2" />
                   ) : (
-                    <Building2 className="w-12 h-12 text-zinc-600" />
+                    <Building2 className="w-12 h-12 text-zinc-500" />
                   )}
-                  <label className="absolute inset-0 bg-zinc-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
+                  <label className="absolute inset-0 bg-zinc-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                     <Upload className="w-6 h-6 text-white" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-2">
                   <p className="text-sm text-zinc-300 font-medium">Sube el logo de tu tienda</p>
-                  <p className="text-xs text-zinc-500 leading-relaxed">
+                  <p className="text-xs text-zinc-400 leading-relaxed">
                     Se recomienda una imagen en formato PNG o JPG con fondo transparente o blanco. 
                     El sistema comprimirá la imagen automáticamente para optimizar el rendimiento.
                   </p>
-                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer transition-all">
+                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-200 hover:bg-zinc-700 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                     <Upload className="w-3.5 h-3.5" /> Seleccionar Archivo
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <input aria-label="Elegir el logo de la empresa" type="file" accept="image/*" className="sr-only" onChange={handleImageChange} />
                   </label>
                 </div>
               </div>
@@ -245,7 +361,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50"
+              className="flex items-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold px-8 py-3 rounded-xl transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {isSaving ? (
                 <>Procesando...</>
@@ -260,39 +376,84 @@ export default function Settings() {
         </form>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl overflow-hidden mt-8">
+      {/* Reglas de financiamiento a plazos: recargo por categoría. Vive en su
+          propio doc (`config/financiamiento`) porque lo leen la tablet y la web. */}
+      <div className="mt-8">
+        <FinanciamientoSettings
+          tasaCambio={formData.defaultExchangeRate || 36.6243}
+          notificar={showNotification}
+        />
+      </div>
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mt-8">
         <div className="p-8 space-y-4">
           <h3 className="text-sm font-bold text-rose-500 uppercase flex items-center gap-2">
             <Eraser className="w-4 h-4" /> Zona de Peligro - Limpieza de Datos
           </h3>
           <p className="text-xs text-zinc-400">
-            Si notas que tienes productos duplicados en tu catálogo maestro (mismo nombre exacto), puedes utilizar esta herramienta para consolidarlos. El sistema mantendrá la versión con mayor stock o más reciente y eliminará las copias. Los historiales de compra y venta se mantendrán intactos.
+            Busca productos con el <strong className="text-zinc-200">mismo nombre exacto</strong> y
+            conserva el de mayor stock. Los duplicados que tengan stock NO se borran acá:
+            se listan para que los revises de a uno desde Inventario.
           </p>
+
+          {duplicados.borrables.length === 0 && duplicados.conStock.length === 0 && (
+            <p className="text-xs text-emerald-400">No hay productos con el nombre repetido.</p>
+          )}
+
+          {duplicados.conStock.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1.5">
+              <p className="text-[11px] uppercase tracking-wider font-bold text-amber-400">
+                {duplicados.conStock.length} con stock · no se borran acá
+              </p>
+              <ul className="text-xs text-zinc-300 space-y-0.5 list-none">
+                {duplicados.conStock.map((p) => (
+                  <li key={p.id} className="flex justify-between gap-3">
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-zinc-400 shrink-0 tabular-nums">{p.sku} · {p.stock} en stock</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {!isConfirmingClean ? (
             <button
               type="button"
+              disabled={duplicados.borrables.length === 0}
               onClick={() => setIsConfirmingClean(true)}
-              className="flex items-center gap-2 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/30 text-rose-400 font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 text-sm"
+              className="flex items-center gap-2 bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/30 text-rose-400 font-bold px-6 py-2.5 rounded-lg transition-all disabled:opacity-50 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500"
             >
               Limpiar Productos Duplicados
             </button>
           ) : (
-            <div className="bg-rose-950/30 border border-rose-500/30 p-4 rounded-lg space-y-4 max-w-sm mt-4">
-              <p className="text-sm text-rose-200">¿Estás seguro? Esta acción no se puede deshacer.</p>
+            <div className="bg-rose-950/30 border border-rose-500/30 p-4 rounded-lg space-y-4 max-w-lg mt-4">
+              <p className="text-sm text-rose-200">
+                Se van a eliminar {duplicados.borrables.length}{' '}
+                {duplicados.borrables.length === 1 ? 'producto' : 'productos'}. No se puede deshacer.
+              </p>
+              {/* La lista exacta. Antes esto era un "¿Estás seguro?" a ciegas. */}
+              <ul className="text-xs text-zinc-300 space-y-0.5 max-h-48 overflow-y-auto list-none">
+                {duplicados.borrables.map((p) => (
+                  <li key={p.id} className="flex justify-between gap-3">
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-zinc-400 shrink-0 tabular-nums">{p.sku}</span>
+                  </li>
+                ))}
+              </ul>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleCleanDuplicates}
                   disabled={isCleaning}
-                  className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg flex items-center justify-center flex-1"
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
-                  {isCleaning ? 'Limpiando...' : 'Sí, Eliminar'}
+                  {isCleaning ? 'Limpiando...' : `Eliminar ${duplicados.borrables.length}`}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsConfirmingClean(false)}
                   disabled={isCleaning}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg font-bold text-sm transition-all flex-1 border border-zinc-700"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg font-bold text-sm transition-all flex-1 border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   Cancelar
                 </button>

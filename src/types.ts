@@ -1,3 +1,6 @@
+import type { FinanciamientoOverride } from './lib/financiamiento';
+export type { FinanciamientoOverride };
+
 export interface Product {
   id: string;
   sku: string;
@@ -34,6 +37,12 @@ export interface Product {
   objecionesOverride?: ObjectionOverride[];
   /** Recursos multimedia para la tablet. */
   media?: TabletMedia;
+  /**
+   * Excepción de financiamiento SOLO para este producto: fuerza 0%, cambia el
+   * recargo o le saca las cuotas. Si no está, manda la regla de su categoría
+   * (ver `config/financiamiento` y `src/lib/financiamiento.ts`).
+   */
+  financiamientoOverride?: FinanciamientoOverride;
 
   createdAt: number;
   updatedAt: number;
@@ -42,6 +51,14 @@ export interface Product {
 export interface CartItem extends Product {
   quantity: number;
   serialNumbers?: string[]; // Pilar 1: Seriales/IMEI para electrónicos
+  /** Solo UI del carrito: precio efectivo aplicado a esta línea (se limpia al guardar). */
+  efectivoApplied?: boolean;
+  /**
+   * Solo UI del carrito: el precio que la línea tenía justo ANTES de aplicarle
+   * el descuento de efectivo. Puede ser un precio negociado a mano, por eso no
+   * alcanza con releer el catálogo para revertir. Se limpia al guardar.
+   */
+  precioAntesEfectivo?: number;
 }
 
 export interface Customer {
@@ -54,6 +71,23 @@ export interface Customer {
   documentNumber?: string;
   createdAt: number;
   ownerId: string;
+}
+
+/**
+ * Foto del plan de cuotas cobrado en una venta financiada.
+ * Los montos van en CÓRDOBAS, que es la moneda en la que el banco cobra.
+ */
+export interface VentaFinanciamiento {
+  /** Plazo elegido por el cliente, en meses. */
+  plazoMeses: number;
+  /** Recargo aplicado, en %. 0 = se cobró sin interés. */
+  recargoPct: number;
+  /** Cuota mensual en córdobas. */
+  cuotaNio: number;
+  /** Total cobrado en córdobas = cuotaNio × plazoMeses. */
+  totalNio: number;
+  /** Banco que otorgó el crédito, como estaba configurado ese día. */
+  banco?: string;
 }
 
 export interface Sale {
@@ -81,8 +115,23 @@ export interface Sale {
   // Pilar 1: Moneda y Pagos
   currency: 'NIO' | 'USD';
   exchangeRate: number;
-  paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CREDITO';
+  /**
+   * `FINANCIAMIENTO` = cuotas con el banco. Se separó de `TARJETA` (que ahora
+   * significa pago único con tarjeta) porque sin esa distinción era imposible
+   * saber cuánto cuesta realmente el financiamiento: ver `financiamiento`.
+   */
+  paymentMethod: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CREDITO' | 'FINANCIAMIENTO';
   paymentReference?: string;
+  /**
+   * Plan de cuotas efectivamente cobrado. Solo cuando
+   * `paymentMethod === 'FINANCIAMIENTO'`.
+   *
+   * Es una FOTO del momento de la venta: guarda el recargo y el monto reales
+   * cobrados, no una referencia a la config. Si mañana cambiás las tasas, las
+   * ventas viejas siguen contando lo que de verdad pasó — y el reporte de margen
+   * pasa de estimar a medir.
+   */
+  financiamiento?: VentaFinanciamiento;
   notes?: string;
   
   ownerId: string;
@@ -111,7 +160,7 @@ export interface PurchaseItem {
   serialNumbers?: string[]; // Pilar 1: Seriales para ingresos
 }
 
-export type PurchaseStatus = 'OPEN' | 'PARTIAL' | 'CLOSED';
+export type PurchaseStatus = 'OPEN' | 'PARTIAL' | 'CLOSED' | 'CANCELLED';
 export type ShippingModality = 'Sea Cargo' | 'Air Cargo';
 
 export interface PurchaseTracking {
@@ -122,7 +171,22 @@ export interface PurchaseTracking {
   receptionDate?: number;
   finalWeight?: number;
   isReceived: boolean;
-  itemsInBox: { itemId: string; quantity: number }[];
+  itemsInBox: {
+    itemId: string;
+    quantity: number;
+    /**
+     * Costo unitario REAL con el que estas unidades entraron al inventario:
+     * costo de la línea más su parte del flete, la aduana y el seguro.
+     */
+    costoUnitarioReal?: number;
+    /** Costo promedio del producto ANTES de aplicar esta caja. */
+    costoPrevio?: number;
+    /** Costo promedio que quedó DESPUÉS de aplicar esta caja. */
+    costoDespues?: number;
+    /** Stock que quedó DESPUÉS de aplicar esta caja. Sirve para saber si entró
+     *  más mercadería desde entonces: una recepción siempre sube el stock. */
+    stockDespues?: number;
+  }[];
 }
 
 export interface Purchase {
@@ -171,12 +235,32 @@ export interface CompanyInfo {
   defaultExchangeRate: number; // Pilar 4: Tasa de cambio congelada (ej. 36.6243)
 }
 
+/** P2.7: movimiento de inventario (kardex). Colección `movimientos`, inmutable. */
+export interface Movimiento {
+  id?: string;
+  productId: string;
+  productName?: string;
+  sku?: string;
+  tipo: 'venta' | 'devolucion' | 'compra' | 'reversion' | 'ajuste';
+  /** Cambio de stock (+entra / -sale). */
+  delta: number;
+  /** Stock resultante después del movimiento (si se conoce). */
+  stockDespues?: number;
+  motivo?: string;
+  /** Id de la venta/compra que originó el movimiento. */
+  refId?: string;
+  fecha: number;
+  ownerId: string;
+}
+
 export interface DashboardStats {
   totalProducts: number;
   totalStockValue: number;
   lowStockItems: Product[];
   recentSales: Sale[];
   totalSalesValue: number;
+  /** Ventas completadas de HOY (ventana en vivo). */
+  todaySalesValue: number;
 }
 
 export interface ClientData {
@@ -195,6 +279,16 @@ export interface ClientData {
 /** Bullet / guion de venta mostrado en la tablet. */
 export interface SalesBullet {
   text: string;
+  /**
+   * Etiqueta corta arriba del bullet en la tablet (ej. "BRILLO", "BATERÍA").
+   *
+   * Faltaba acá aunque el formulario la escribe, `SalesBulletSchema` la valida
+   * (máximo 24) y las reglas la aceptan. No se notó porque `@types/react` no
+   * estaba instalado: sin él, `useState` resuelve a `any` y con `strict` apagado
+   * TypeScript no chista, así que TODO el estado de TODOS los componentes era
+   * `any` y `npm run lint` no podía ver este error ni ningún otro de la UI.
+   */
+  etiqueta?: string;
   icon?: string;
   order?: number;
 }
@@ -207,8 +301,21 @@ export interface ObjectionOverride {
   respuesta: string;
 }
 
-/** Ficha técnica proyectable (orientada a proyectores/electrónica, extensible). */
+/**
+ * Ficha técnica proyectable. El nombre es histórico (nació para proyectores);
+ * hoy sirve a TODAS las categorías: qué campos se editan y cómo se muestran lo
+ * decide `src/lib/categorySpecs.ts` según la categoría del producto.
+ *
+ * El campo en Firestore sigue llamándose `specsProyector` a propósito:
+ * firestore.rules, la Cloud Function `onProductWritten` y los normalizadores de
+ * PandaLink y PandaWEB ya lo soportan. Renombrarlo obligaría a deploy de reglas
+ * + functions + backfill sin ningún cambio visible.
+ *
+ * Las claves de proyector NO se renombran nunca: hay productos en producción
+ * con esos datos cargados.
+ */
 export interface ProjectorSpecs {
+  // --- Proyector (claves históricas, no renombrar) ---
   ansi?: number;
   throwRatio?: string;
   distMinEnfoque?: string;
@@ -218,14 +325,86 @@ export interface ProjectorSpecs {
   contraste?: string;
   conectividad?: string[];
   garantiaMeses?: number;
-  /** Specs adicionales clave→valor. */
+
+  // --- Transversales a varias categorías ---
+  /** Select ya redactado para el cliente, ej. "Apto para nadar (5 ATM)". */
+  resistenciaAgua?: string;
+  duracionBateria?: string;
+  almacenamiento?: string;
+  alimentacion?: string;
+  instalacion?: string;
+  campoVision?: string;
+  visionNocturna?: string;
+  memoria?: string;
+  sistema?: string;
+  carga?: string;
+  gps?: boolean;
+
+  // --- Smartwatch ---
+  tamanoPantalla?: string;
+  tipoPantalla?: string;
+  salud?: string[];
+  llamadas?: boolean;
+  deportes?: string;
+  compatibilidad?: string;
+  correa?: string;
+
+  // --- Cámara / dashcam ---
+  uso?: string;
+  deteccionMovimiento?: boolean;
+  audioDoble?: boolean;
+  sirena?: boolean;
+  camaras?: string;
+  modoEstacionamiento?: boolean;
+  pantalla?: string;
+  /** Cámara/dashcam/smart home: `string` (nombre de la app) o `boolean` (la tiene o no). */
+  app?: string | boolean;
+
+  // --- Parlante ---
+  potencia?: string;
+  tamano?: string;
+  microfono?: boolean;
+  luces?: boolean;
+  emparejamiento?: boolean;
+  manosLibres?: boolean;
+  audio?: string;
+
+  // --- Smart home ---
+  funcion?: string;
+  controlApp?: boolean;
+  asistentes?: string[];
+  rutinas?: boolean;
+
+  // --- Smart TV / streaming ---
+  apps?: string[];
+  control?: string;
+  espejo?: boolean;
+
+  /** Specs adicionales clave→valor. Se expanden como filas propias en la ficha. */
   extra?: Record<string, string | number | boolean>;
+
+  /** Un campo nuevo cargado desde el POS nunca rompe el tipado ni desaparece. */
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | string[]
+    | Record<string, string | number | boolean>
+    | undefined;
+}
+
+/** Foto complementaria de la galería de la tablet (ej. proyector a oscuras / con luz). */
+export interface GalleryItem {
+  url: string;
+  /** Etiqueta corta visible en la tablet (ej. "A oscuras", "Con luz"). Máx ~40 chars. */
+  label?: string;
 }
 
 /** Recursos multimedia para la tablet. */
 export interface TabletMedia {
   heroImage?: string;
-  gallery?: string[];
+  /** Fotos complementarias. Formato nuevo: {url, label?}; docs viejos pueden traer strings (la tablet normaliza ambos). */
+  gallery?: (string | GalleryItem)[];
   videoUrl?: string;
 }
 
@@ -260,7 +439,18 @@ export interface PublicCatalogProduct {
   specsProyector?: ProjectorSpecs;
   objecionesOverride?: ObjectionOverride[];
   media?: TabletMedia;
+  /** Excepción de financiamiento del producto. Define la cuota que ve el cliente. */
+  financiamientoOverride?: FinanciamientoOverride;
   updatedAt: number;
+}
+
+/** Objeción por categoría: aplica a todos los productos de un categorySlug. */
+export interface CategoryObjection {
+  id: string;
+  categorySlug: string;
+  pregunta: string;
+  respuesta: string;
+  orden: number;
 }
 
 /** Objeción universal global (garantía, factura, conexión, …). Editable desde el OS. */

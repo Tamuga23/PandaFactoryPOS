@@ -1,0 +1,13 @@
+# Finales de línea: LF en el repositorio, sea cual sea el sistema operativo.
+# Sin esto, editar desde Windows marca archivos enteros como modificados y
+# esconde los cambios de verdad en el ruido.
+* text=auto eol=lf
+
+# Binarios: que git no intente normalizarlos nunca.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.xlsx binary

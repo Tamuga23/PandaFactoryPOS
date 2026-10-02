@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signOut } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer, collection, query, writeBatch, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Product, Sale } from '../types';
@@ -13,43 +13,100 @@ export const db = initializeFirestore(app, {
 }, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
-export const loginAnonymouslyUser = () => signInAnonymously(auth);
+export const loginWithEmail = (email: string, password: string) =>
+  signInWithEmailAndPassword(auth, email.trim(), password);
 export const logout = () => signOut(auth);
 
-// Test Connection
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-testConnection();
+/**
+ * ¿Esta sesión es staff? Lo define el custom claim `admin`, que es exactamente
+ * lo que exige `isStaff()` en firestore.rules. Se setea a mano con
+ * `node scripts/set_admin_claim.mjs <email>`; ninguna sesión anónima ni
+ * ninguna cuenta auto-registrada lo tiene.
+ *
+ * Si el claim se acaba de otorgar, el token en mano todavía es viejo: por eso,
+ * cuando no aparece, se reintenta UNA vez forzando el refresco contra el
+ * servidor. Así el staff no tiene que esperar a que expire el token.
+ */
+export const tieneClaimStaff = async (user: User): Promise<boolean> => {
+  const token = await user.getIdTokenResult();
+  if (token.claims.admin === true) return true;
+  const fresco = await user.getIdTokenResult(true);
+  return fresco.claims.admin === true;
+};
 
-// Error handler helper
-export const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
-  const isMissingPermissions = error?.code === 'permission-denied' || (error instanceof Error && error.message.includes('Missing or insufficient permissions'));
-  
-  if (isMissingPermissions) {
-    const errorInfo = {
-      error: error.message || 'Permission denied',
-      operationType,
-      path,
-      authInfo: {
-        userId: auth.currentUser?.uid,
-        email: auth.currentUser?.email,
-        emailVerified: auth.currentUser?.emailVerified,
-        isAnonymous: auth.currentUser?.isAnonymous,
-        providerInfo: auth.currentUser?.providerData.map(p => ({
-          providerId: p.providerId,
-          displayName: p.displayName,
-          email: p.email
-        })) || []
-      }
-    };
-    throw new Error(JSON.stringify(errorInfo, null, 2));
+/** Mensaje humano para los errores de login de Firebase Auth. */
+export const mensajeErrorLogin = (code: string): string => {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'El correo no tiene un formato válido.';
+    case 'auth/user-disabled':
+      return 'Esta cuenta está deshabilitada.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Correo o contraseña incorrectos.';
+    case 'auth/too-many-requests':
+      return 'Demasiados intentos fallidos. Esperá unos minutos e intentá de nuevo.';
+    case 'auth/network-request-failed':
+      return 'Sin conexión. Verificá tu internet e intentá de nuevo.';
+    case 'auth/operation-not-allowed':
+      return 'El proveedor Email/Password no está habilitado en Firebase Console → Authentication → Sign-in method.';
+    default:
+      return 'No se pudo iniciar sesión. Intentá de nuevo.';
   }
-  throw error;
+};
+
+// P3.5: errores de Firestore con mensaje HUMANO (el detalle completo va a
+// console.error para depurar; antes el toast mostraba un JSON ilegible).
+const OP_LABEL: Record<string, string> = {
+  create: 'crear', update: 'actualizar', delete: 'eliminar',
+  list: 'leer', get: 'leer', write: 'guardar',
+};
+
+/**
+ * El mensaje humanizado de un error de Firestore, SIN lanzarlo.
+ *
+ * Existe porque `handleFirestoreError` siempre lanza, y eso está bien para las
+ * escrituras —quien las llama tiene un `catch`— pero es inservible en el
+ * callback de error de un `onSnapshot`: ahí no hay nadie que atrape, así que la
+ * excepción se pierde y el fallo queda mudo.
+ *
+ * Deja el detalle técnico completo en la consola, igual que antes.
+ */
+export const mensajeFirestore = (error: any, operationType: string, path: string | null): string => {
+  const code = error?.code || '';
+  const isMissingPermissions =
+    code === 'permission-denied' ||
+    (error instanceof Error && error.message.includes('Missing or insufficient permissions'));
+
+  // Detalle técnico completo, solo a consola.
+  console.error('[Firestore]', { code, operationType, path, message: error?.message,
+    uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous });
+
+  const op = OP_LABEL[operationType] || operationType;
+  if (isMissingPermissions) {
+    return `Sin permisos para ${op} en "${path}". Si acabás de actualizar la app, ` +
+      `probablemente falte desplegar las reglas (firebase deploy --only firestore:rules).`;
+  }
+  if (code === 'unavailable') {
+    return 'Sin conexión con la base de datos. Verificá tu internet e intentá de nuevo.';
+  }
+  if (code === 'not-found') {
+    return `No se pudo ${op}: el documento "${path}" ya no existe.`;
+  }
+  if (code === 'aborted' || code === 'failed-precondition') {
+    return 'Otro dispositivo modificó estos datos al mismo tiempo. Intentá de nuevo.';
+  }
+  if (code === 'resource-exhausted') {
+    return 'Se alcanzó la cuota diaria de Firestore (plan Spark). Intentá más tarde.';
+  }
+  return error?.message || 'Error de base de datos.';
+};
+
+export const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
+  const msg = mensajeFirestore(error, operationType, path);
+  // Se conserva el error original cuando no hubo nada que humanizar, para no
+  // perder el `code` que el llamador pueda estar mirando.
+  if (msg === error?.message) throw error;
+  throw new Error(msg);
 };

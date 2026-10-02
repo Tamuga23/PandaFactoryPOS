@@ -1,7 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    // 0. Red de seguridad para colecciones SIN regla propia.
+    // OJO: las reglas de Firestore se evaluan en UNION — este `false` no anula
+    // ningun `allow` de los bloques de abajo. Solo cubre lo que no tiene match.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -12,13 +14,19 @@ service cloud.firestore {
     }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
-    function isSignedIn() { return request.auth != null; }
+    // Staff REAL. Una sesion anonima nunca puede llevar este claim, y alguien
+    // que se auto-registre con email/password tampoco: el claim `admin` solo se
+    // setea a mano con el Admin SDK (scripts/set_admin_claim.mjs). Por eso el
+    // gate es el claim y no `sign_in_provider != 'anonymous'`: el provider de
+    // email/password permite auto-registro con la API key publica, asi que por
+    // si solo no separa al staff de un visitante.
+    function isStaff() { return request.auth != null && request.auth.token.admin == true; }
     
     // Product Validation Blueprint
     function isValidProduct(data) {
       return data.keys().hasAll(['sku', 'name', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'createdAt', 'updatedAt', 'ownerId'])
         && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
-            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo'])
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'])
         && data.sku is string && data.sku.size() <= 50
         && data.name is string && data.name.size() <= 100
         && data.price is number && data.price >= 0
@@ -44,6 +52,7 @@ service cloud.firestore {
         && (!('specsProyector' in data) || (data.specsProyector is map))
         && (!('objecionesOverride' in data) || (data.objecionesOverride is list && data.objecionesOverride.size() <= 30))
         && (!('media' in data) || (data.media is map))
+        && (!('financiamientoOverride' in data) || (data.financiamientoOverride is map))
         && (!('activo' in data) || (data.activo is bool));
     }
 
@@ -62,10 +71,20 @@ service cloud.firestore {
 
     function isValidSale(data) {
       return data.keys().hasAll(['date', 'items', 'subtotal', 'tax', 'total', 'invoiceNumber', 'ownerId'])
-        && data.keys().hasOnly(['date', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'transport', 'invoiceNumber', 'ownerId', 'id', 'status', 'documentType', 'clientDocumentType', 'currency', 'exchangeRate', 'paymentMethod', 'clientDocumentNumber', 'paymentReference', 'notes', 'customerId'])
+        && data.keys().hasOnly(['date', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'transport', 'invoiceNumber', 'ownerId', 'id', 'status', 'documentType', 'clientDocumentType', 'currency', 'exchangeRate', 'paymentMethod', 'clientDocumentNumber', 'paymentReference', 'notes', 'customerId', 'financiamiento'])
         && (data.ownerId is string)
         && (data.date is number || data.date is timestamp)
         && data.items is list && data.items.size() <= 100
+        // OJO: esto valida SOLO EL PRIMER renglon. El lenguaje de reglas no
+        // tiene bucles, asi que no hay forma de recorrer la lista entera: los
+        // renglones 2..N no pasan por el whitelist de campos, ni por el tope de
+        // precio, ni por la coincidencia serialNumbers.size() == quantity.
+        //
+        // La defensa real de los renglones es Zod del lado del cliente
+        // (CartItemSchema corre sobre el array completo en recordSale) mas
+        // sanitizeSaleItem, que saca los campos de tablet. Esta linea es una
+        // prueba de forma, no una garantia — no confiar en ella para decidir
+        // que un campo nuevo "ya esta cubierto".
         && (data.items.size() == 0 || isValidSaleItem(data.items[0]))
         && data.subtotal is number
         && data.tax is number
@@ -75,7 +94,21 @@ service cloud.firestore {
         && (!('clientDocumentType' in data) || (data.clientDocumentType in ['CEDULA', 'RUC', 'PASAPORTE', 'NINGUNO']))
         && (!('currency' in data) || (data.currency in ['NIO', 'USD']))
         && (!('exchangeRate' in data) || (data.exchangeRate is number && data.exchangeRate >= 0.01))
-        && (!('paymentMethod' in data) || (data.paymentMethod in ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']))
+        && (!('paymentMethod' in data) || (data.paymentMethod in ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO', 'FINANCIAMIENTO']))
+        // Plan de cuotas cobrado. Solo tiene sentido si la venta es financiada,
+        // y el total tiene que cuadrar con la cuota: si no, el numero que vio el
+        // cliente no es el que se cobro.
+        && (!('financiamiento' in data) || (
+             data.financiamiento is map
+             && data.paymentMethod == 'FINANCIAMIENTO'
+             && data.financiamiento.keys().hasAll(['plazoMeses', 'recargoPct', 'cuotaNio', 'totalNio'])
+             && data.financiamiento.keys().hasOnly(['plazoMeses', 'recargoPct', 'cuotaNio', 'totalNio', 'banco'])
+             && data.financiamiento.plazoMeses is int && data.financiamiento.plazoMeses > 0 && data.financiamiento.plazoMeses <= 60
+             && data.financiamiento.recargoPct is number && data.financiamiento.recargoPct >= 0 && data.financiamiento.recargoPct <= 100
+             && data.financiamiento.cuotaNio is number && data.financiamiento.cuotaNio > 0
+             && data.financiamiento.totalNio is number && data.financiamiento.totalNio > 0
+             && (!('banco' in data.financiamiento) || (data.financiamiento.banco is string && data.financiamiento.banco.size() <= 60))
+           ))
         && (!('clientDocumentNumber' in data) || (data.clientDocumentNumber is string))
         && (!('paymentReference' in data) || (data.paymentReference is string))
         && (!('notes' in data) || (data.notes is string))
@@ -94,7 +127,16 @@ service cloud.firestore {
     function isValidPurchaseTrackingItem(item) {
       return item.keys().hasAll(['itemId', 'quantity'])
         && item.itemId is string
-        && item.quantity is number;
+        && item.quantity is number
+        // Costo unitario real con el que la unidad entro al inventario. Se usa
+        // para deshacer el promedio ponderado al revertir una recepcion.
+        // Esta funcion nunca tuvo `hasOnly`, asi que el campo ya pasaba: esta
+        // linea le pone tipo, y el deploy se puede hacer cuando se quiera sin
+        // romper nada.
+        && (!('costoUnitarioReal' in item) || (item.costoUnitarioReal is number && item.costoUnitarioReal >= 0))
+        && (!('costoPrevio' in item) || (item.costoPrevio is number && item.costoPrevio >= 0))
+        && (!('costoDespues' in item) || (item.costoDespues is number && item.costoDespues >= 0))
+        && (!('stockDespues' in item) || (item.stockDespues is number));
     }
 
     function isValidPurchaseTracking(tracking) {
@@ -124,7 +166,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
            'date', 'items', 'totalCost', 'supplier', 'notes', 'invoiceNumber', 'ownerId', 'id', 'currency', 'exchangeRate',
            'platform', 'shippingChannel', 'shippingModality', 'orderNumber', 'financing', 'estimatedWeight',
-           'trackings', 'status', 'stockAdded', 'freightCost', 'customsTaxes', 'insuranceCost'
+           'trackings', 'status', 'stockAdded', 'freightCost', 'customsTaxes', 'insuranceCost', 'shippingRatePerLb'
         ])
         && (data.ownerId is string)
         && data.currency in ['NIO', 'USD']
@@ -132,7 +174,7 @@ service cloud.firestore {
         && data.items is list && (data.items.size() == 0 || isValidPurchaseItem(data.items[0]))
         && data.trackings is list && (data.trackings.size() == 0 || isValidPurchaseTracking(data.trackings[0]))
         && data.totalCost is number
-        && (!('status' in data) || (data.status in ['OPEN', 'PARTIAL', 'CLOSED']))
+        && (!('status' in data) || (data.status in ['OPEN', 'PARTIAL', 'CLOSED', 'CANCELLED']))
         && (!('stockAdded' in data) || (data.stockAdded is bool))
         && (!('platform' in data) || (data.platform is string))
         && (!('shippingChannel' in data) || (data.shippingChannel is string))
@@ -142,7 +184,8 @@ service cloud.firestore {
         && (!('estimatedWeight' in data) || (data.estimatedWeight is number))
         && (!('freightCost' in data) || (data.freightCost is number))
         && (!('customsTaxes' in data) || (data.customsTaxes is number))
-        && (!('insuranceCost' in data) || (data.insuranceCost is number));
+        && (!('insuranceCost' in data) || (data.insuranceCost is number))
+        && (!('shippingRatePerLb' in data) || (data.shippingRatePerLb is number && data.shippingRatePerLb >= 0));
     }
 
     function isValidCompany(data) {
@@ -175,6 +218,17 @@ service cloud.firestore {
         && (!('email' in data) || (data.email is string && data.email.size() <= 100));
     }
 
+    // Category Objection Validation Blueprint (proyector, tablet, …)
+    function isValidCategoryObjection(data) {
+      return data.keys().hasAll(['categorySlug', 'pregunta', 'respuesta', 'orden'])
+        && data.keys().hasOnly(['id', 'categorySlug', 'pregunta', 'respuesta', 'orden'])
+        && data.categorySlug is string && data.categorySlug.size() > 0 && data.categorySlug.size() <= 60
+        && data.pregunta is string && data.pregunta.size() > 0 && data.pregunta.size() <= 120
+        && data.respuesta is string && data.respuesta.size() > 0 && data.respuesta.size() <= 2000
+        && data.orden is number
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128));
+    }
+
     // Universal Objection Validation Blueprint (garantía, factura, conexión, …)
     function isValidUniversalObjection(data) {
       return data.keys().hasAll(['titulo', 'respuesta', 'ownerId'])
@@ -191,100 +245,205 @@ service cloud.firestore {
     }
 
     match /products/{productId} {
-      allow get: if isSignedIn() && isValidId(productId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
-      allow update: if isSignedIn() && isValidId(productId) 
+      allow get: if isStaff() && isValidId(productId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isStaff() && isValidId(productId) 
         && isValidProduct(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().ownerId == existing().ownerId
         && incoming().diff(existing()).affectedKeys().hasOnly([
             'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
-            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo'
+            'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'
         ]);
-      allow delete: if isSignedIn() && isValidId(productId);
+      allow delete: if isStaff() && isValidId(productId);
     }
 
     match /sales/{saleId} {
-      allow get: if isSignedIn() && isValidId(saleId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(saleId) && isValidSale(incoming());
-      allow update: if isSignedIn() && isValidId(saleId) && isValidSale(incoming());
-      allow delete: if isSignedIn() && isValidId(saleId);
+      allow get: if isStaff() && isValidId(saleId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(saleId) && isValidSale(incoming());
+      allow update: if isStaff() && isValidId(saleId) && isValidSale(incoming());
+      allow delete: if isStaff() && isValidId(saleId);
     }
 
     match /purchases/{purchaseId} {
-      allow get: if isSignedIn() && isValidId(purchaseId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(purchaseId) && isValidPurchase(incoming());
-      allow update: if isSignedIn() && isValidId(purchaseId) && isValidPurchase(incoming());
-      allow delete: if isSignedIn() && isValidId(purchaseId);
+      allow get: if isStaff() && isValidId(purchaseId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(purchaseId) && isValidPurchase(incoming());
+      allow update: if isStaff() && isValidId(purchaseId) && isValidPurchase(incoming());
+      allow delete: if isStaff() && isValidId(purchaseId);
     }
 
+    // `company` es MONO-TENANT: el POS escribe siempre en el doc fijo
+    // `company/shared_store` (useStoreData.ts:176). El `{uid}` de abajo es solo
+    // el nombre del comodin, no un id por usuario.
+    //
+    // GET publico SOLO de `shared_store`: expone nombre, telefono, direccion,
+    // email y logo de la tienda — datos que ya estan publicados en la web. NO
+    // expone costos ni ventas. Sirve para que PandaWEB lea defaultExchangeRate
+    // sin sesion, cambiando su `listCollection("company")` por
+    // `getDocument("company/shared_store")` (ese helper ya existe y no se usa).
+    // LIST sigue cerrado: el POS lo usa (snapshot.docs[0]) y es staff.
     match /company/{uid} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow write: if isSignedIn() 
+      allow get: if uid == 'shared_store' || isStaff();
+      allow list: if isStaff();
+      allow write: if isStaff() 
         && incoming().keys().hasAll(['name', 'phone', 'address', 'email', 'ownerId'])
         && incoming().keys().hasOnly(['name', 'phone', 'address', 'email', 'logoBase64', 'ownerId', 'defaultExchangeRate'])
         && (!('defaultExchangeRate' in incoming()) || (incoming().defaultExchangeRate is number && incoming().defaultExchangeRate >= 0.01));
     }
 
+    // Reglas de financiamiento a plazos (doc `config/financiamiento`).
+    //
+    // Lectura ABIERTA a cualquier sesion (incluida la anonima de la tablet y la
+    // web): define la cuota que se le muestra al cliente, no hay nada privado
+    // aca. Lo que el banco le cobra a la tienda NO vive en este doc — es dato
+    // de margen y se maneja en scripts/reporte_financiamiento.mjs.
+    //
+    // `recargo` es un mapa meses->porcentaje. Se valida que sea map y que los
+    // numeros sueltos sean sanos; el detalle lo valida Zod en el cliente
+    // (ConfigFinanciamientoSchema).
+    function isValidConfigFinanciamiento(data) {
+      return data.keys().hasAll(['minUsd', 'plazos', 'recargoPorDefecto'])
+        && data.keys().hasOnly(['banco', 'minUsd', 'plazos', 'recargoPorDefecto', 'porCategoria', 'actualizadoEn'])
+        && (!('banco' in data) || (data.banco is string && data.banco.size() <= 60))
+        && data.minUsd is number && data.minUsd >= 0
+        && data.plazos is list && data.plazos.size() > 0 && data.plazos.size() <= 12
+        && data.recargoPorDefecto is map
+        && (!('porCategoria' in data) || (data.porCategoria is map && data.porCategoria.keys().size() <= 30))
+        && (!('actualizadoEn' in data) || (data.actualizadoEn is number));
+    }
+
+    // LECTURA PUBLICA: `config/financiamiento` define la cuota que se le MUESTRA
+    // al cliente en la tablet y en la web. No hay nada privado (lo que el banco
+    // le cobra a la tienda vive en scripts/reporte_financiamiento.mjs, no aca).
+    // Abrirlo evita que PandaLink/PandaWEB caigan en silencio a las condiciones
+    // por defecto y le coticen al cliente cuotas que no son las vigentes.
+    match /config/{docId} {
+      allow get: if true;
+      allow list: if true;
+      allow write: if isStaff()
+        && docId == 'financiamiento'
+        && isValidConfigFinanciamiento(incoming());
+    }
+
     match /customers/{customerId} {
-      allow get: if isSignedIn() && isValidId(customerId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(customerId) && isValidCustomer(incoming());
-      allow update: if isSignedIn() && isValidId(customerId) && isValidCustomer(incoming());
-      allow delete: if isSignedIn() && isValidId(customerId);
+      allow get: if isStaff() && isValidId(customerId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(customerId) && isValidCustomer(incoming());
+      allow update: if isStaff() && isValidId(customerId) && isValidCustomer(incoming());
+      allow delete: if isStaff() && isValidId(customerId);
     }
 
     match /suppliers/{supplierId} {
-      allow get: if isSignedIn() && isValidId(supplierId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(supplierId) && isValidSupplier(incoming());
-      allow update: if isSignedIn() && isValidId(supplierId) && isValidSupplier(incoming());
-      allow delete: if isSignedIn() && isValidId(supplierId);
+      allow get: if isStaff() && isValidId(supplierId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(supplierId) && isValidSupplier(incoming());
+      allow update: if isStaff() && isValidId(supplierId) && isValidSupplier(incoming());
+      allow delete: if isStaff() && isValidId(supplierId);
+    }
+
+    // ---------------------------------------------------------------------
+    // Kardex (P2.7): movimientos de inventario. LEDGER INMUTABLE — solo create.
+    // ---------------------------------------------------------------------
+    function isValidMovimiento(data) {
+      return data.keys().hasAll(['productId', 'tipo', 'delta', 'fecha', 'ownerId'])
+        && data.keys().hasOnly(['id', 'productId', 'productName', 'sku', 'tipo', 'delta', 'stockDespues', 'motivo', 'refId', 'fecha', 'ownerId'])
+        && data.productId is string && data.productId.size() <= 128
+        && data.tipo in ['venta', 'devolucion', 'compra', 'reversion', 'ajuste']
+        && data.delta is number
+        && data.fecha is number
+        && (data.ownerId is string)
+        && (!('id' in data) || data.id is string)
+        && (!('productName' in data) || (data.productName is string && data.productName.size() <= 150))
+        && (!('sku' in data) || (data.sku is string && data.sku.size() <= 50))
+        && (!('stockDespues' in data) || data.stockDespues is number)
+        && (!('motivo' in data) || (data.motivo is string && data.motivo.size() <= 300))
+        && (!('refId' in data) || (data.refId is string && data.refId.size() <= 128));
+    }
+    match /movimientos/{movId} {
+      allow get, list: if isStaff();
+      allow create: if isStaff() && isValidMovimiento(incoming());
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Contadores transaccionales (P1.1): numeración correlativa de facturas
+    // y proformas. Docs: counters/invoices, counters/proformas → { value, updatedAt }.
+    // Se escriben SOLO dentro de la transacción de recordSale.
+    // ---------------------------------------------------------------------
+    match /counters/{counterId} {
+      allow get: if isStaff();
+      allow list: if false;
+      allow create, update: if isStaff()
+        && incoming().keys().hasAll(['value'])
+        && incoming().keys().hasOnly(['value', 'updatedAt'])
+        && incoming().value is number && incoming().value >= 0
+        && (!('updatedAt' in incoming()) || incoming().updatedAt is number);
+      allow delete: if false;
     }
 
     // ---------------------------------------------------------------------
     // Catálogo público: espejo derivado de products, SIN `cost`.
-    // Lo escribe ÚNICAMENTE el servidor (Cloud Function vía Admin SDK, que
-    // omite estas reglas). Ningún cliente puede escribirlo.
+    // LECTURA PÚBLICA (Fase 0 · paso 1, 2026-08). La consumen PandaWEB desde
+    // el servidor de Next (sin sesión) y PandaLink en la tablet. Se abre ANTES
+    // de cerrar las colecciones sensibles, para que la tablet no quede a
+    // ciegas durante el corte.
+    // Lo escribe ÚNICAMENTE el servidor (Admin SDK, que omite estas reglas):
+    // ningún cliente puede escribirlo, ni siquiera autenticado.
     // ---------------------------------------------------------------------
     match /catalogo_publico/{productId} {
-      allow get: if isSignedIn() && isValidId(productId);
-      allow list: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if false;
     }
 
     // ---------------------------------------------------------------------
     // Objeciones universales (garantía, factura, conexión, …).
-    // Globales y editables desde el OS por cualquier usuario autenticado.
+    // LECTURA PÚBLICA (Fase 0 · paso 1): las lee la tablet.
+    // La ESCRITURA sigue exigiendo sesión — se edita desde el POS.
     // ---------------------------------------------------------------------
     match /objeciones_universales/{objId} {
-      allow get: if isSignedIn() && isValidId(objId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
-      allow update: if isSignedIn() && isValidId(objId) && isValidUniversalObjection(incoming());
-      allow delete: if isSignedIn() && isValidId(objId);
+      allow get: if isValidId(objId);
+      allow list: if true;
+      allow create: if isStaff() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow update: if isStaff() && isValidId(objId) && isValidUniversalObjection(incoming());
+      allow delete: if isStaff() && isValidId(objId);
     }
 
-    // ===================== FASE 2 (pendiente) ============================
-    // Más adelante: gatear lecturas sensibles detrás de un custom claim `admin`.
-    // Setear el claim con Admin SDK: admin.auth().setCustomUserClaims(uid, { admin: true }).
+    // ---------------------------------------------------------------------
+    // Objeciones por categoría (proyector, dashcam, smartwatch, …).
+    // LECTURA PÚBLICA (Fase 0 · paso 1): las lee la tablet.
+    // La ESCRITURA sigue exigiendo sesión — se edita desde el POS.
+    // ---------------------------------------------------------------------
+    match /objeciones_categoria/{objId} {
+      allow get: if isValidId(objId);
+      allow list: if true;
+      allow create: if isStaff() && isValidId(objId) && isValidCategoryObjection(incoming());
+      allow update: if isStaff() && isValidId(objId) && isValidCategoryObjection(incoming());
+      allow delete: if isStaff() && isValidId(objId);
+    }
+
+    // ============== FASE 0 — ESTADO ======================================
+    // HECHO (paso 1): catalogo_publico y objeciones con lectura pública.
+    // HECHO (paso 3): products, sales, purchases, customers, suppliers,
+    //   movimientos, counters y company detrás de isStaff().
     //
-    // function isAdmin() { return isSignedIn() && request.auth.token.admin == true; }
+    // REQUISITO PREVIO AL DEPLOY (paso 2) — SIN ESTO EL POS QUEDA AFUERA:
+    //   a) habilitar el proveedor Email/Password en Firebase Console;
+    //   b) crear el usuario del staff;
+    //   c) darle el claim:  node scripts/set_admin_claim.mjs <email>
+    //   d) cambiar el login del POS (src/App.tsx + src/lib/db.ts) de
+    //      signInAnonymously a signInWithEmailAndPassword.
+    // El proveedor Anónimo se queda HABILITADO: lo usan PandaLink y PandaWEB,
+    // y una sesión anónima ya no puede leer nada sensible porque no lleva el
+    // claim `admin`.
     //
-    // Ej.: restringir lectura de `products` (incluye `cost`) sólo a admins, dejando
-    // que la tablet consuma el espejo público `catalogo_publico`:
-    //
-    // match /products/{productId} {
-    //   allow get, list: if isAdmin();
-    //   // ... writes igual que arriba pero exigiendo isAdmin() ...
-    // }
-    //
-    // Ej.: catálogo público legible por la tablet sin login:
-    // match /catalogo_publico/{productId} { allow get, list: if true; }
+    // Pendiente aparte (no es parte de este corte):
+    //   - `sales` update no restringe affectedKeys(): se puede reescribir el
+    //     total de una factura ya emitida. Hoy solo lo puede hacer staff.
+    //   - `ownerId` nunca se compara contra request.auth.uid: no es una
+    //     frontera de propiedad, es solo un campo tipado.
     // =====================================================================
   }
 }

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, ShoppingBag, Search, Tag, Image as ImageIcon, Loader2, Package } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag, Search, Tag, Image as ImageIcon, Loader2, Package, X } from 'lucide-react';
 import { formatCurrency } from '../lib/utils';
 import { Product, Supplier } from '../types';
+import { toast } from './Toast';
 
 interface PurchaseRegistrationProps {
   inventory: Product[];
@@ -42,7 +43,6 @@ export default function PurchaseRegistration({
   onCancel
 }: PurchaseRegistrationProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Order Level State
   const [supplier, setSupplier] = useState('');
@@ -58,10 +58,11 @@ export default function PurchaseRegistration({
   const [financing, setFinancing] = useState('');
   const [isCustomFinancing, setIsCustomFinancing] = useState(false);
 
-  // Landed Cost State
+  // Landed Cost State (P1.5: ahora sí tienen inputs y viajan a la orden)
   const [freightCost, setFreightCost] = useState(0);
   const [customsTaxes, setCustomsTaxes] = useState(0);
   const [insuranceCost, setInsuranceCost] = useState(0);
+  const [shippingRatePerLb, setShippingRatePerLb] = useState('');
 
   // Items State
   const [items, setItems] = useState<DraftItem[]>([]);
@@ -99,7 +100,6 @@ export default function PurchaseRegistration({
       imageFile: null,
       imagePreview: ''
     });
-    setFeedback(null);
   };
 
   const handleExistingItemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -193,15 +193,15 @@ export default function PurchaseRegistration({
 
   const handleAddItem = () => {
     if (isNewProduct && (!itemForm.description || !itemForm.category)) {
-      setFeedback({ message: 'Description and Category are required for new products.', type: 'error' });
+      toast.error('Un producto nuevo necesita descripción y categoría.');
       return;
     }
     if (!isNewProduct && !itemForm.itemId) {
-      setFeedback({ message: 'Select an existing item.', type: 'error' });
+      toast.error('Elegí un producto del catálogo.');
       return;
     }
     if (itemForm.unitCost < 0 || itemForm.quantity <= 0) {
-      setFeedback({ message: 'Valid cost and quantity are required.', type: 'error' });
+      toast.error('El costo y la cantidad tienen que ser números válidos.');
       return;
     }
 
@@ -226,7 +226,6 @@ export default function PurchaseRegistration({
       imageFile: null,
       imagePreview: ''
     });
-    setFeedback(null);
   };
 
   const handleRemoveItem = (draftId: string) => {
@@ -236,17 +235,16 @@ export default function PurchaseRegistration({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) {
-      setFeedback({ message: 'Añade al menos un artículo a la orden.', type: 'error' });
+      toast.error('Agregá al menos un artículo a la orden.');
       return;
     }
 
     if (!supplier) {
-      setFeedback({ message: 'El proveedor es requerido.', type: 'error' });
+      toast.error('Falta el proveedor.');
       return;
     }
 
     setIsSubmitting(true);
-    setFeedback(null);
 
     try {
       const finalItems = [];
@@ -258,13 +256,14 @@ export default function PurchaseRegistration({
           const newProductData = {
             name: item.description,
             description: item.description,
-            price: item.catalogPriceUSD * 36.6243, // use exchange rate
-            cost: item.unitCost * 36.6243,
+            price: item.catalogPriceUSD, // Store base USD
+            cost: item.unitCost, // Store base USD
             category: item.category,
             status: 'Activo',
             imageFile: item.imageFile,
             stock: 0, // stock increases on Phase 2
-            sku: `SKU-${Math.floor(Math.random() * 10000)}`
+            // P3.5: SKU autogenerado único (timestamp base36; el aleatorio colisionaba)
+            sku: `SKU-${Date.now().toString(36).toUpperCase()}`
           };
 
           const newId = await onAddProduct(newProductData);
@@ -304,13 +303,14 @@ export default function PurchaseRegistration({
         freightCost,
         customsTaxes,
         insuranceCost,
+        shippingRatePerLb: shippingRatePerLb ? Number(shippingRatePerLb) : undefined,
         date: new Date(acquisitionDate).getTime(),
         items: finalItems
       };
 
       await onAddPurchase(purchaseData);
 
-      setFeedback({ message: 'Orden de compra registrada exitosamente!', type: 'success' });
+      toast.success('Orden de compra registrada.');
       
       setItems([]);
       
@@ -319,7 +319,7 @@ export default function PurchaseRegistration({
       }
     } catch (error: any) {
       console.error("Submission error:", error);
-      setFeedback({ message: error.message || 'An error occurred during submission.', type: 'error' });
+      toast.error(error.message || 'No se pudo registrar la orden de compra.');
     } finally {
       setIsSubmitting(false);
     }
@@ -327,37 +327,71 @@ export default function PurchaseRegistration({
 
   return (
     <div className="flex flex-col w-full h-full bg-zinc-900 overflow-hidden">
+      {/*
+        Este formulario ocupa el 90% de la altura de la pantalla y se abre
+        encima de todo, y hasta ahora no tenia ni titulo ni salida: ni una X, ni
+        un boton de cancelar, ni nada que dijera que era. `onCancel` llegaba por
+        props desde Purchases y el componente nunca lo usaba.
+
+        Quedaban dos formas de salir —la tecla ESC y el clic en el fondo— y
+        ninguna de las dos se ve. Quien no las conoce se queda adentro.
+      */}
+      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-zinc-700 shrink-0">
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+            Registrar orden de compra
+          </h3>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Fase 1: queda anotada la orden. El inventario recién se mueve cuando
+            marcás cada caja como recibida.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cerrar sin guardar la orden"
+          title="Cerrar sin guardar"
+          className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        >
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
+      </div>
+
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-        {feedback && (
-          <div className={`p-4 mb-6 rounded-xl border ${feedback.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
-            {feedback.message}
-          </div>
-        )}
 
         <div className="space-y-8">
           {/* Order Details Section */}
           <div className="bg-zinc-800/30 p-6 rounded-xl border border-zinc-800">
              <h4 className="text-zinc-100 font-bold mb-4 flex items-center gap-2 border-b border-zinc-700/50 pb-2">
-                <ShoppingBag className="w-4 h-4 text-sky-400" /> Detalles Generales de la Orden
+                <ShoppingBag className="w-4 h-4 text-cyan-400" /> Detalles Generales de la Orden
              </h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Proveedor</label>
+                  <label htmlFor="ordencompra-proveedor" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Proveedor</label>
                   {isCustomSupplier ? (
                     <div className="flex gap-2">
-                      <input
+                      <input id="ordencompra-proveedor"
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={supplier}
                         onChange={(e) => setSupplier(e.target.value)}
                         placeholder="Nombre del proveedor"
                       />
-                      <button type="button" onClick={() => setIsCustomSupplier(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomSupplier(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
+                    /*
+                      MISMO id que el <input> de la otra rama del ternario, a
+                      propósito: son excluyentes, nunca coexisten en el DOM, y
+                      comparten un solo <label>. Con ids distintos el `htmlFor`
+                      quedaría colgando en una de las dos ramas. Un grep va a
+                      ver el id "repetido": no lo está en tiempo de ejecución.
+                    */
                     <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                      id="ordencompra-proveedor"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={supplier}
                       onChange={handleSupplierChange}
                     >
@@ -365,62 +399,64 @@ export default function PurchaseRegistration({
                       {suppliers.map((sup) => (
                         <option key={sup.id} value={sup.id}>{sup.name}</option>
                       ))}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar nuevo proveedor</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar nuevo proveedor</option>
                     </select>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Plataforma</label>
+                  <label htmlFor="ordencompra-plataforma" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Plataforma</label>
                   {isCustomPlatform ? (
                     <div className="flex gap-2">
-                      <input
+                      <input id="ordencompra-plataforma"
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={platform}
                         onChange={(e) => setPlatform(e.target.value)}
                         placeholder="Nombre de la plataforma"
                       />
-                      <button type="button" onClick={() => setIsCustomPlatform(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomPlatform(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
-                    <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                    /* Mismo id que el <input> de la otra rama del ternario: ver
+                       la nota del selector de proveedor, más arriba. */
+                    <select id="ordencompra-plataforma"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={platform}
                       onChange={handlePlatformChange}
                     >
                       {PLATFORMS.map((plat) => <option key={plat} value={plat}>{plat}</option>)}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar plataforma</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar plataforma</option>
                     </select>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Fecha de Adquisición</label>
-                  <input
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Fecha de Adquisición</label>
+                  <input aria-label="Fecha de Adquisición"
                     type="date"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                     value={acquisitionDate}
                     onChange={(e) => setAcquisitionDate(e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Financiación</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Financiación</label>
                   {isCustomFinancing ? (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="Financiación"
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={financing}
                         onChange={(e) => setFinancing(e.target.value)}
                         placeholder="Tipo de financiación"
                       />
-                      <button type="button" onClick={() => setIsCustomFinancing(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomFinancing(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
-                    <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                    <select aria-label="Financiación"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={financing}
                       onChange={handleFinancingChange}
                     >
@@ -429,69 +465,150 @@ export default function PurchaseRegistration({
                       <option value="Tarjeta Socio A">Tarjeta Socio A</option>
                       <option value="Tarjeta B">Tarjeta B</option>
                       <option value="Crédito Proveedor">Crédito Proveedor</option>
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar financiación</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar financiación</option>
                     </select>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Canal de Envío</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Canal de Envío</label>
                   {isCustomShippingChannel ? (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="Canal de Envío"
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={shippingChannel}
                         onChange={(e) => setShippingChannel(e.target.value)}
                         placeholder="Canal de envío"
                       />
-                      <button type="button" onClick={() => setIsCustomShippingChannel(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomShippingChannel(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
-                    <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                    <select aria-label="Canal de Envío"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={shippingChannel}
                       onChange={handleShippingChannelChange}
                     >
                       {SHIPPING_CHANNELS.map((ch) => <option key={ch} value={ch}>{ch}</option>)}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar canal</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar canal</option>
                     </select>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Modalidad</label>
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Modalidad</label>
                   {isCustomShippingMode ? (
                     <div className="flex gap-2">
-                      <input
+                      <input aria-label="Modalidad"
                         type="text"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         value={shippingMode}
                         onChange={(e) => setShippingMode(e.target.value)}
                         placeholder="Modalidad de envío"
                       />
-                      <button type="button" onClick={() => setIsCustomShippingMode(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors">Volver</button>
+                      <button type="button" onClick={() => setIsCustomShippingMode(false)} className="px-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-zinc-200 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                     </div>
                   ) : (
-                    <select
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all"
+                    <select aria-label="Modalidad"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                       value={shippingMode}
                       onChange={handleShippingModeChange}
                     >
                       {SHIPPING_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-                      <option value="CUSTOM" className="font-bold text-sky-400">+ Agregar modalidad</option>
+                      <option value="CUSTOM" className="font-bold text-cyan-400">+ Agregar modalidad</option>
                     </select>
                   )}
                 </div>
                 
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">No. Orden Master (Opcional)</label>
-                  <input
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">No. Orden Master (Opcional)</label>
+                  <input aria-label="No. Orden Master (Opcional)"
                     type="text"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                     value={orderNumber}
                     onChange={(e) => setOrderNumber(e.target.value)}
                     placeholder="Ej. 114-1234567-890"
+                  />
+                </div>
+             </div>
+          </div>
+
+          {/* Landed Cost Section (P1.5) */}
+          <div className="bg-zinc-800/30 p-6 rounded-xl border border-zinc-800">
+             <h4 className="text-zinc-100 font-bold mb-1 flex items-center gap-2 border-b border-zinc-700/50 pb-2">
+                <Tag className="w-4 h-4 text-amber-400" /> Costos de Importación (Landed Cost)
+             </h4>
+             <p className="text-[10px] text-zinc-400 mb-4 leading-relaxed">
+               Estos costos se suman al costo real de cada unidad al recibirla.
+               Cargá <strong className="text-zinc-300">una de las dos</strong> formas de flete:
+               la tarifa <strong className="text-zinc-300">$/lb</strong> (se cobra por el peso de cada ítem)
+               o el <strong className="text-zinc-300">Flete Total</strong> (se reparte por valor).
+               Aduana y seguro siempre se prorratean por valor.
+             </p>
+             {/*
+               El campo de tarifa mostraba "Default: 6.5" o "Default: 2.5" como
+               placeholder gris, y no era una sugerencia: si lo dejabas vacío,
+               ESE número se aplicaba igual. Y 'Sea Cargo' es la modalidad
+               inicial, así que toda orden traía un $2.50/lb latente que pisaba
+               el Flete Total declarado. Ahora no se aplica nada que no esté
+               escrito, y este aviso dice qué va a pasar con lo que hay cargado.
+             */}
+             <p className="text-[10px] mb-4 leading-relaxed" aria-live="polite">
+               {shippingRatePerLb && Number(shippingRatePerLb) > 0 ? (
+                 <span className="text-cyan-400">
+                   Se va a cobrar <strong>${Number(shippingRatePerLb)} por libra</strong> a cada ítem que tenga peso.
+                   {freightCost > 0 && ' El Flete Total se reparte entre los ítems que no tengan peso cargado.'}
+                 </span>
+               ) : freightCost > 0 ? (
+                 <span className="text-cyan-400">
+                   Se van a repartir los <strong>${freightCost}</strong> de Flete Total entre todos los ítems, por valor.
+                 </span>
+               ) : (
+                 <span className="text-amber-400">
+                   Sin flete cargado: el costo de cada unidad va a quedar sin el flete, y el margen que
+                   muestren los reportes va a salir más alto de lo real.
+                 </span>
+               )}
+             </p>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Tarifa Flete (USD/lb)</label>
+                  <input aria-label="Tarifa Flete (USD/lb)"
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={shippingRatePerLb}
+                    onChange={(e) => setShippingRatePerLb(e.target.value)}
+                    placeholder={shippingMode === 'Air Cargo' ? 'Ej. 6.5' : 'Ej. 2.5'}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Flete Total (USD)</label>
+                  <input aria-label="Flete Total (USD)"
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={freightCost || ''}
+                    onChange={(e) => setFreightCost(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="Si no cargás $/lb"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="ordencompra-aduana-dga-usd" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Aduana / DGA (USD)</label>
+                  <input id="ordencompra-aduana-dga-usd"
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={customsTaxes || ''}
+                    onChange={(e) => setCustomsTaxes(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="Impuestos"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="ordencompra-seguro-usd" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Seguro (USD)</label>
+                  <input id="ordencompra-seguro-usd"
+                    type="number" step="any" min="0"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500"
+                    value={insuranceCost || ''}
+                    onChange={(e) => setInsuranceCost(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder="Opcional"
                   />
                 </div>
              </div>
@@ -511,14 +628,14 @@ export default function PurchaseRegistration({
                    <div key={item.draftId} className="flex items-center justify-between bg-zinc-900 border border-zinc-700 p-3 rounded-lg">
                       <div className="flex items-center gap-3">
                          <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                           {item.imagePreview ? <img src={item.imagePreview} className="w-full h-full object-cover rounded" /> : <Package className="w-4 h-4 text-zinc-500" />}
+                           {item.imagePreview ? <img src={item.imagePreview} alt="" className="w-full h-full object-cover rounded" /> : <Package className="w-4 h-4 text-zinc-500" aria-hidden="true" />}
                          </div>
                          <div>
-                            <div className="text-sm font-bold text-zinc-200">{item.description} {item.isNewProduct && <span className="text-[9px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded-full ml-1">NUEVO</span>}</div>
+                            <div className="text-sm font-bold text-zinc-200">{item.description} {item.isNewProduct && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full ml-1">NUEVO</span>}</div>
                             <div className="text-[10px] text-zinc-400">Cant: {item.quantity} × ${item.unitCost.toFixed(2)} = <span className="text-zinc-200 font-bold">${(item.quantity * item.unitCost).toFixed(2)}</span> {item.color && ` • Color: ${item.color}`} {item.estimatedWeight && ` • Peso: ${item.estimatedWeight}lbs`}</div>
                          </div>
                       </div>
-                      <button onClick={() => handleRemoveItem(item.draftId)} className="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg">
+                      <button onClick={() => handleRemoveItem(item.draftId)} className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
                    </div>
@@ -531,13 +648,13 @@ export default function PurchaseRegistration({
                <div className="flex gap-2 mb-4">
                  <button
                    onClick={() => handleToggleProductMode(false)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                  >
                    Seleccionar Existente
                  </button>
                  <button
                    onClick={() => handleToggleProductMode(true)}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isNewProduct ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300'} focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                  >
                    Definir Nuevo Producto
                  </button>
@@ -547,9 +664,9 @@ export default function PurchaseRegistration({
                   {!isNewProduct ? (
                     <>
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Buscar Inventario</label>
-                        <select
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-sky-500 focus:ring-1 outline-none"
+                        <label htmlFor="ordencompra-buscar-inventario" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Buscar Inventario</label>
+                        <select id="ordencompra-buscar-inventario"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-cyan-500 focus:ring-1 outline-none"
                           value={itemForm.itemId}
                           onChange={handleExistingItemChange}
                         >
@@ -563,60 +680,67 @@ export default function PurchaseRegistration({
                   ) : (
                     <>
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Nombre del Producto</label>
-                        <input
+                        <label htmlFor="ordencompra-nombre-del-producto" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Nombre del Producto</label>
+                        <input id="ordencompra-nombre-del-producto"
                           type="text"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                           value={itemForm.description}
                           onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Categoría</label>
+                        <label htmlFor="ordencompra-categoria" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Categoría</label>
                         {isCustomCategory ? (
                           <div className="flex gap-2">
-                            <input
+                            <input id="ordencompra-categoria"
                               type="text"
-                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                               value={itemForm.category}
                               onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
                             />
-                            <button type="button" onClick={() => setIsCustomCategory(false)} className="px-2 bg-zinc-700 rounded-lg text-xs text-white">Volver</button>
+                            <button type="button" onClick={() => setIsCustomCategory(false)} className="px-2 bg-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">Volver</button>
                           </div>
                         ) : (
-                          <select
-                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                          <select aria-label="Categoría"
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                             value={itemForm.category}
                             onChange={handleCategoryChange}
                           >
                             <option value="">-- Seleccionar --</option>
                             {uniqueCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                            <option value="CUSTOM" className="text-sky-400">+ Nueva</option>
+                            <option value="CUSTOM" className="text-cyan-400">+ Nueva</option>
                           </select>
                         )}
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Precio Venta Catálogo (USD)</label>
-                        <input
+                        <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Precio Venta Catálogo (USD)</label>
+                        <input aria-label="Precio Venta Catálogo (USD)"
                           type="number"
                           step="any" min="0"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                           value={itemForm.catalogPriceUSD || ''}
                           onChange={(e) => setItemForm({ ...itemForm, catalogPriceUSD: Number(e.target.value) })}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                         <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Imagen del Producto (Opcional)</label>
+                         <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Imagen del Producto (Opcional)</label>
                          {itemForm.imagePreview ? (
                             <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-600">
                               <img src={itemForm.imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                              <button type="button" onClick={removeImage} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-600 text-white p-1 rounded-full"><Trash2 className="w-3 h-3"/></button>
+                              <button
+                                type="button"
+                                onClick={removeImage}
+                                aria-label="Quitar la imagen"
+                                className="absolute top-1 right-1 bg-rose-600/20 border border-rose-500/30 text-rose-400 hover:bg-rose-600/30 p-1 rounded-full focus:outline-none focus:ring-1 focus:ring-rose-500"
+                              >
+                                <Trash2 className="w-3 h-3" aria-hidden="true" />
+                              </button>
                             </div>
                          ) : (
                             <div className="flex items-center justify-center w-full">
-                                <label className="flex flex-col items-center justify-center w-full h-20 border border-zinc-700 border-dashed rounded-xl cursor-pointer bg-zinc-800/50 hover:bg-zinc-800">
+                                <label className="flex flex-col items-center justify-center w-full h-20 border border-zinc-700 border-dashed rounded-xl cursor-pointer bg-zinc-800/50 hover:bg-zinc-800 focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2 focus-within:ring-offset-zinc-900">
                                     <span className="text-[10px] text-zinc-400">Click para subir foto</span>
-                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                                    <input aria-label="Elegir una imagen para el artículo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
                                 </label>
                             </div>
                          )}
@@ -627,11 +751,11 @@ export default function PurchaseRegistration({
                   <div className="col-span-1 md:col-span-2 h-px bg-zinc-800 my-1"></div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-rose-400">Costo VNE (USD)</label>
-                    <input
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider text-rose-400">Costo VNE (USD)</label>
+                    <input aria-label="Costo VNE (USD)"
                       type="number"
                       step="any" min="0"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.unitCost || ''}
                       onChange={(e) => setItemForm({ ...itemForm, unitCost: Number(e.target.value) })}
                       placeholder="Costo de compra"
@@ -639,21 +763,21 @@ export default function PurchaseRegistration({
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider text-sky-400">Cantidad</label>
-                    <input
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider text-cyan-400">Cantidad</label>
+                    <input aria-label="Cantidad"
                       type="number"
                       min="1"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.quantity || ''}
                       onChange={(e) => setItemForm({ ...itemForm, quantity: Number(e.target.value) })}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Color Específico</label>
-                    <input
+                    <label className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Color Específico</label>
+                    <input aria-label="Color Específico"
                       type="text"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.color}
                       onChange={(e) => setItemForm({ ...itemForm, color: e.target.value })}
                       placeholder="Ej. Negro"
@@ -661,11 +785,11 @@ export default function PurchaseRegistration({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Peso Estimado (lbs) por la cantidad entera</label>
-                    <input
+                    <label htmlFor="ordencompra-peso-estimado-lbs-por-la-cantidad-entera" className="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Peso Estimado (lbs) por la cantidad entera</label>
+                    <input id="ordencompra-peso-estimado-lbs-por-la-cantidad-entera"
                       type="number"
                       step="any" min="0"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                       value={itemForm.estimatedWeight}
                       onChange={(e) => setItemForm({ ...itemForm, estimatedWeight: e.target.value })}
                       placeholder="Ej. 2.5"
@@ -676,7 +800,7 @@ export default function PurchaseRegistration({
                      <button
                        type="button"
                        onClick={handleAddItem}
-                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-sky-400 border border-zinc-700 font-bold py-2.5 px-4 rounded-lg transition-all flex justify-center items-center gap-2 text-sm"
+                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-cyan-400 border border-zinc-700 font-bold py-2.5 px-4 rounded-lg transition-all flex justify-center items-center gap-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                      >
                        <Plus className="w-4 h-4" /> Agregar Item a la Orden
                      </button>
@@ -689,14 +813,26 @@ export default function PurchaseRegistration({
       </div>
       
       {/* Sticky Bottom Actions */}
-      <div className="p-4 border-t border-zinc-700 bg-zinc-900 shrink-0">
+      <div className="p-4 border-t border-zinc-700 bg-zinc-900 shrink-0 flex items-center gap-3">
+         <button
+           type="button"
+           onClick={onCancel}
+           disabled={isSubmitting}
+           className="px-5 py-3 text-sm text-zinc-400 hover:text-white font-semibold transition-colors rounded-xl disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+         >
+           Cancelar
+         </button>
          <button
            onClick={handleSubmit}
            disabled={isSubmitting || items.length === 0}
-           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 disabled:text-emerald-700/50 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex justify-center items-center gap-2"
+           className="flex-1 bg-cyan-700 hover:bg-cyan-800 disabled:bg-zinc-800 disabled:text-zinc-400 text-white font-bold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
          >
            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
-           {isSubmitting ? 'Procesando Múltiples Artículos...' : `Finalizar y Guardar ${items.length > 0 ? items.length : ''} Artículos`}
+           {isSubmitting
+             ? 'Guardando la orden...'
+             : items.length === 0
+               ? 'Agregá al menos un artículo'
+               : `Guardar la orden (${items.length} artículo${items.length === 1 ? '' : 's'})`}
          </button>
       </div>
 
