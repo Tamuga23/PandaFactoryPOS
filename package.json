@@ -21,7 +21,8 @@
     "financiamiento:cuotas": "node --experimental-strip-types scripts/lib/financiamiento.test.mjs",
     "costo:test": "node --experimental-strip-types scripts/lib/costoPromedio.test.mjs",
     "medir:foco": "node scripts/medir/foco.mjs",
-    "medir:contraste": "node scripts/medir/contraste.mjs"
+    "medir:contraste": "node scripts/medir/contraste.mjs",
+    "iconos": "node scripts/generar_iconos.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.1",
     "@firebase/rules-unit-testing": "^5.0.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^22.19.17",
     "@types/react": "^19.3.0",
@@ -55,6 +57,7 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.5"
   }
 }

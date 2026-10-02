@@ -5,28 +5,48 @@ import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
  * Sistema de notificaciones del POS (reemplaza a los alert() nativos).
  * Uso: import { toast } from '../components/Toast';
  *      toast.error('Mensaje'); toast.success('...'); toast.info('...');
- * <Toaster /> se monta UNA vez en Layout.tsx.
+ *      toast.accion('Pregunta', { etiqueta: 'Hacerlo', alHacer: fn }, 'detalle');
+ * <Toaster /> se monta UNA vez en App.tsx, por fuera del login: montado en
+ * Layout no existía durante "Cargando App...", y el error de una suscripción
+ * que se caía en la carga inicial se emitía antes que él y se perdía.
  */
 type ToastType = 'success' | 'error' | 'info';
+interface Accion {
+  etiqueta: string;
+  alHacer: () => void;
+}
 interface ToastMsg {
   id: number;
   type: ToastType;
   text: string;
+  detalle?: string;
+  accion?: Accion;
 }
 
 let pushToast: ((t: Omit<ToastMsg, 'id'>) => void) | null = null;
 let seq = 0;
 
-const emit = (type: ToastType) => (text: string) => {
-  if (pushToast) pushToast({ type, text });
-  else console.warn(`[toast:${type}]`, text); // Toaster aún no montado
+const push = (t: Omit<ToastMsg, 'id'>) => {
+  if (pushToast) pushToast(t);
+  else console.warn(`[toast:${t.type}]`, t.text); // Toaster aún no montado
 };
+const emit = (type: ToastType) => (text: string) => push({ type, text });
 
 export const toast = {
   success: emit('success'),
   error: emit('error'),
   info: emit('info'),
+  /**
+   * Un aviso que pide una decisión (hoy: aplicar una versión nueva). Lleva un
+   * botón y, como el error, no caduca: la X es "después".
+   */
+  accion: (text: string, accion: Accion, detalle?: string) =>
+    push({ type: 'info', text, detalle, accion }),
 };
+
+// Lo que se queda hasta que alguien lo cierra: los errores (ver abajo) y lo
+// que espera una decisión, que no tiene sentido retirar por temporizador.
+const persiste = (t: Omit<ToastMsg, 'id'>) => t.type === 'error' || !!t.accion;
 
 const BORDER: Record<ToastType, string> = {
   success: 'border-emerald-500/40',
@@ -63,9 +83,9 @@ export function Toaster() {
           se quedan hasta que alguien los cierra, que es la regla que este
           archivo ya declaraba y que este recorte contradecía.
         */
-        const errores = prev.filter((i) => i.type === 'error');
-        const efimeros = prev.filter((i) => i.type !== 'error').slice(-2);
-        return [...errores, ...efimeros, { ...t, id }];
+        const persistentes = prev.filter(persiste);
+        const efimeros = prev.filter((i) => !persiste(i)).slice(-2);
+        return [...persistentes, ...efimeros, { ...t, id }];
       });
       /*
         Los ERRORES no se autodestruyen. Los avisos de este POS son el único
@@ -82,7 +102,7 @@ export function Toaster() {
         Éxito e información sí se van solos: no hay nada que leer dos veces.
         El error se cierra con su X, que ya existía.
       */
-      if (t.type === 'error') return;
+      if (persiste(t)) return;
       setTimeout(() => {
         setItems((prev) => prev.filter((i) => i.id !== id));
       }, 4500);
@@ -133,7 +153,24 @@ export function Toaster() {
             className={`flex items-start gap-2.5 rounded-xl border ${BORDER[t.type]} bg-zinc-900/95 backdrop-blur px-4 py-3 text-sm shadow-2xl`}
           >
             <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${ICON_COLOR[t.type]}`} aria-hidden="true" />
-            <span className="flex-1 text-zinc-100 leading-snug">{t.text}</span>
+            <div className="flex-1">
+              <span className="block text-zinc-100 leading-snug">{t.text}</span>
+              {t.detalle && (
+                <span className="block mt-1 text-xs text-zinc-400 leading-relaxed">{t.detalle}</span>
+              )}
+              {t.accion && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setItems((prev) => prev.filter((i) => i.id !== t.id));
+                    t.accion!.alHacer();
+                  }}
+                  className="mt-3 px-4 py-1.5 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  {t.accion.etiqueta}
+                </button>
+              )}
+            </div>
             <button
               onClick={() => setItems((prev) => prev.filter((i) => i.id !== t.id))}
               aria-label="Cerrar aviso"

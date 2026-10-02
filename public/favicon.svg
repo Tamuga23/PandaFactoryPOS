@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Favicon: el mismo panda-ticket de scripts/iconos/icono-app.svg, recortado
+    para 16-48 px. Más grande dentro del cuadro, sin los renglones grises (a
+    32 px son medio pixel de ruido) y con menos dientes en el corte.
+  -->
+  <rect width="512" height="512" rx="112" fill="#0e7490"/>
+  <g transform="translate(256 262) scale(1.55) translate(-256 -256)">
+    <circle cx="178" cy="160" r="38" fill="#09090b"/>
+    <circle cx="334" cy="160" r="38" fill="#09090b"/>
+    <path fill="#ffffff" d="M160,182 Q160,156 186,156 L326,156 Q352,156 352,182 L352,372 L336,394 L320,372 L304,394 L288,372 L272,394 L256,372 L240,394 L224,372 L208,394 L192,372 L176,394 L160,372 Z"/>
+    <ellipse cx="213" cy="222" rx="29" ry="37" transform="rotate(32 213 222)" fill="#09090b"/>
+    <ellipse cx="299" cy="222" rx="29" ry="37" transform="rotate(-32 299 222)" fill="#09090b"/>
+    <circle cx="220" cy="214" r="9" fill="#ffffff"/>
+    <circle cx="292" cy="214" r="9" fill="#ffffff"/>
+    <ellipse cx="256" cy="262" rx="14" ry="9" fill="#09090b"/>
+    <rect x="214" y="318" width="84" height="16" rx="8" fill="#09090b"/>
+  </g>
+</svg>

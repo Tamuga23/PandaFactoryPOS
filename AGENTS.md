@@ -142,6 +142,35 @@ hash que el build local de la rama.
   iniciada como `pandastorenic@gmail.com`. Java es 8, demasiado viejo para el
   emulador, así que `npm run test:rules` no corre en este equipo.
 
+## Estado al 2026-10-01 — PWA e ícono
+
+La app se instala como PWA. `vite-plugin-pwa` genera el manifest y el service
+worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de la app.
+
+- **La versión nueva NO se aplica sola** (`registerType: 'prompt'`). Aplicarla
+  recarga la página, y una recarga en medio de una venta tira el carrito.
+  `src/components/AvisoActualizacion.tsx` busca versión nueva cada hora y al
+  volver la app al frente, y la ofrece con `toast.accion`. No lo cambies a
+  `autoUpdate`.
+- El `<Toaster />` pasó de `Layout.tsx` a `App.tsx`. Montado en Layout no
+  existía durante "Cargando App...", y el error de una suscripción caída en la
+  carga inicial se perdía.
+- Verificado con Chrome headless contra `vite preview`: cero errores de
+  instalabilidad; `/pos` abre sin red desde el precache; con un deploy simulado
+  el aviso aparece, la página no se recarga sola, y "Actualizar" recarga con la
+  versión nueva.
+- **Sin red abre la interfaz, no los datos.** Firestore no tiene persistencia
+  local (`initializeFirestore` sin `persistentLocalCache`), y `recordSale` es
+  una transacción, que exige servidor. Habilitar la caché offline es una
+  decisión aparte: deja productos, ventas y clientes guardados en el
+  dispositivo, y las escrituras que se encolen sin red se aplicarían después
+  sobre un stock que pudo cambiar mientras tanto.
+- `workbox.maximumFileSizeToCacheInBytes` está en 6 MB porque el chunk
+  principal mide 2,0 MB y el tope por defecto es 2 MiB. Si lo pasa, workbox lo
+  saca del precache con sólo un warning, y la app deja de abrir sin red.
+- En iOS, un acceso directo agregado antes de este cambio conserva el ícono
+  viejo. Hay que borrarlo y volver a agregarlo desde Safari.
+
 ## Reglas de trabajo para el agente
 
 - **NUNCA** leas, muevas, copies ni pegues en el chat el JSON del service account. La rotación de la llave la hace el usuario a mano en Google Cloud Console.
@@ -183,5 +212,6 @@ npm run backfill:dry      # simular sync de catalogo_publico
 npm run backfill          # sincronizar catálogo de la tablet
 npm run auditoria         # fichas incompletas del catálogo
 npm run financiamiento    # reporte de margen de las ventas financiadas
-firebase deploy --only firestore:rules
+npm run iconos            # regenera los PNG y el favicon.ico desde los SVG
+npx firebase-tools deploy --only firestore:rules
 ```
