@@ -66,11 +66,9 @@ tocado), y que ya está arreglado:
 
 **Pendiente del usuario**
 
-- `firebase deploy --only firestore:rules` cuando pueda. Los tres campos nuevos
-  de `itemsInBox` (`costoUnitarioReal`, `costoPrevio`, `costoDespues`,
-  `stockDespues`) YA pasan con las reglas desplegadas, porque
-  `isValidPurchaseTrackingItem` nunca tuvo `hasOnly`; el deploy sólo les pone
-  tipo. **Nada se rompe si no se despliega.**
+- ~~`firebase deploy --only firestore:rules`~~ **HECHO (2026-10-01)**: los
+  campos de costo de `itemsInBox` (`costoUnitarioReal`, `costoPrevio`,
+  `costoDespues`, `stockDespues`) ya tienen tipo en las reglas desplegadas.
 - Rotar el service account (ver P0.2 arriba).
 
 ## Estado al 2026-09-23 — critique del Catálogo Maestro
@@ -137,9 +135,12 @@ hash que el build local de la rama.
   GitHub y que nunca se subió. Quedó renombrado a `respaldo/main-local-junio`
   (todos sus blobs existen en el historial remoto, así que no tiene nada único),
   y `main` ahora sigue a `origin/main`.
-- Sigue pendiente `firebase deploy --only firestore:rules`. En este equipo no
-  hay `firebase-tools` instalado, así que hay que usar `npx firebase-tools`, y Java
-  es 8, demasiado viejo para el emulador, así que `npm run test:rules` no corre.
+- Reglas desplegadas el mismo día con
+  `npx firebase-tools deploy --only firestore:rules`: compilaron y se
+  publicaron en la base nombrada que fija `firebase.json`. `firebase-tools` no
+  está instalado globalmente, pero `npx` funciona y la sesión de la CLI ya está
+  iniciada como `pandastorenic@gmail.com`. Java es 8, demasiado viejo para el
+  emulador, así que `npm run test:rules` no corre en este equipo.
 
 ## Reglas de trabajo para el agente
 
