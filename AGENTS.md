@@ -66,11 +66,9 @@ tocado), y que ya está arreglado:
 
 **Pendiente del usuario**
 
-- `firebase deploy --only firestore:rules` cuando pueda. Los tres campos nuevos
-  de `itemsInBox` (`costoUnitarioReal`, `costoPrevio`, `costoDespues`,
-  `stockDespues`) YA pasan con las reglas desplegadas, porque
-  `isValidPurchaseTrackingItem` nunca tuvo `hasOnly`; el deploy sólo les pone
-  tipo. **Nada se rompe si no se despliega.**
+- ~~`firebase deploy --only firestore:rules`~~ **HECHO (2026-10-01)**: los
+  campos de costo de `itemsInBox` (`costoUnitarioReal`, `costoPrevio`,
+  `costoDespues`, `stockDespues`) ya tienen tipo en las reglas desplegadas.
 - Rotar el service account (ver P0.2 arriba).
 
 ## Estado al 2026-09-23 — critique del Catálogo Maestro
@@ -117,6 +115,62 @@ derivación a mano. Las dos ya divergieron (la del backfill emite un campo
 `specs` que no existe en `Product`). Unificarlas es trabajo pendiente y choca
 con el principio 2 de PRODUCT.md.
 
+## Estado al 2026-10-01 — producción al día
+
+**Durante tres meses nada de lo de arriba estuvo en producción.** Vercel
+despliega a Production sólo con un push a `main`. Todo se subía a
+`feature/objeciones-tres-capas`, que genera Previews, y `main` seguía en el
+merge del PR #2 del 24 de junio. Esa versión entraba con sesión anónima, y
+desde el 10 de septiembre las reglas exigen el claim `admin`, así que la
+producción vieja no podía leer datos. Tampoco tenía `vercel.json`.
+
+PR #3 (98 commits) mergeado el 2026-10-01 → `main` en `1583842`, desplegado
+como Production. Verificado: `panda-factory-pos.vercel.app` responde 200 en `/`
+y en rutas internas, y el bundle servido (`index-P_3gVtIp.js`) tiene el mismo
+hash que el build local de la rama.
+
+- **Para que algo llegue a producción hay que mergear a `main`.** Un push a la
+  rama sólo produce un Preview.
+- El `main` local era un "Initial commit" huérfano, sin ancestro común con
+  GitHub y que nunca se subió. Quedó renombrado a `respaldo/main-local-junio`
+  (todos sus blobs existen en el historial remoto, así que no tiene nada único),
+  y `main` ahora sigue a `origin/main`.
+- Reglas desplegadas el mismo día con
+  `npx firebase-tools deploy --only firestore:rules`: compilaron y se
+  publicaron en la base nombrada que fija `firebase.json`. `firebase-tools` no
+  está instalado globalmente, pero `npx` funciona y la sesión de la CLI ya está
+  iniciada como `pandastorenic@gmail.com`. Java es 8, demasiado viejo para el
+  emulador, así que `npm run test:rules` no corre en este equipo.
+
+## Estado al 2026-10-01 — PWA e ícono
+
+La app se instala como PWA. `vite-plugin-pwa` genera el manifest y el service
+worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de la app.
+
+- **La versión nueva NO se aplica sola** (`registerType: 'prompt'`). Aplicarla
+  recarga la página, y una recarga en medio de una venta tira el carrito.
+  `src/components/AvisoActualizacion.tsx` busca versión nueva cada hora y al
+  volver la app al frente, y la ofrece con `toast.accion`. No lo cambies a
+  `autoUpdate`.
+- El `<Toaster />` pasó de `Layout.tsx` a `App.tsx`. Montado en Layout no
+  existía durante "Cargando App...", y el error de una suscripción caída en la
+  carga inicial se perdía.
+- Verificado con Chrome headless contra `vite preview`: cero errores de
+  instalabilidad; `/pos` abre sin red desde el precache; con un deploy simulado
+  el aviso aparece, la página no se recarga sola, y "Actualizar" recarga con la
+  versión nueva.
+- **Sin red abre la interfaz, no los datos.** Firestore no tiene persistencia
+  local (`initializeFirestore` sin `persistentLocalCache`), y `recordSale` es
+  una transacción, que exige servidor. Habilitar la caché offline es una
+  decisión aparte: deja productos, ventas y clientes guardados en el
+  dispositivo, y las escrituras que se encolen sin red se aplicarían después
+  sobre un stock que pudo cambiar mientras tanto.
+- `workbox.maximumFileSizeToCacheInBytes` está en 6 MB porque el chunk
+  principal mide 2,0 MB y el tope por defecto es 2 MiB. Si lo pasa, workbox lo
+  saca del precache con sólo un warning, y la app deja de abrir sin red.
+- En iOS, un acceso directo agregado antes de este cambio conserva el ícono
+  viejo. Hay que borrarlo y volver a agregarlo desde Safari.
+
 ## Reglas de trabajo para el agente
 
 - **NUNCA** leas, muevas, copies ni pegues en el chat el JSON del service account. La rotación de la llave la hace el usuario a mano en Google Cloud Console.
@@ -158,5 +212,6 @@ npm run backfill:dry      # simular sync de catalogo_publico
 npm run backfill          # sincronizar catálogo de la tablet
 npm run auditoria         # fichas incompletas del catálogo
 npm run financiamiento    # reporte de margen de las ventas financiadas
-firebase deploy --only firestore:rules
+npm run iconos            # regenera los PNG y el favicon.ico desde los SVG
+npx firebase-tools deploy --only firestore:rules
 ```

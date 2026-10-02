@@ -658,6 +658,29 @@ reglas propias:
 > pantalla hereda gratis las dos reglas de arriba, y el sistema volvió a tener
 > una sola manera de avisar.
 
+**Toast con acción (2026-10-01).** `toast.accion(texto, {etiqueta, alHacer},
+detalle)` es la variante turquesa con un botón primario debajo del texto. Igual
+que el error, no caduca: la X significa "después". Hoy lo usa sólo el aviso de
+versión nueva de la PWA. Primero fue una tarjeta propia abajo a la derecha, y
+eso repetía el error de Configuración: otra esquina, otro canal. Además, en el
+celular tapaba la barra de cobro fija del POS. Por eso el `<Toaster />` se
+monta en `App.tsx`, por fuera del login, y no en `Layout.tsx`.
+
+### Ícono de la app
+
+Un ticket de venta que es un panda: el papel blanco con las orejas, las manchas
+de los ojos y el total en tinta negra, sobre **Turquesa Acción** (`#0e7490`) a
+sangre. Junta los dos mundos del sistema, el papel del cliente y la voz de la
+marca, y en la carpeta "Panda Apps" del celular no se confunde con los otros
+tres pandas, que son blanco y negro sobre fondo oscuro o crema.
+
+- Maestro: `scripts/iconos/icono-app.svg`. El dibujo cabe en el círculo central
+  del 80%, así que sirve como `any` y como `maskable`.
+- Favicon: `public/favicon.svg`. Es el mismo dibujo, más grande y sin los
+  renglones grises, que a 32 px son medio pixel de ruido.
+- `npm run iconos` regenera los PNG y el `.ico`. Se commitean, porque el build
+  de Vercel no corre ese script.
+
 ## Do's and Don'ts
 
 ### Do:

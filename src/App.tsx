@@ -16,6 +16,8 @@ import Catalog from './pages/Catalog';
 import Customers from './pages/Customers';
 import UniversalObjections from './components/UniversalObjections';
 import CategoryObjections from './components/CategoryObjections';
+import AvisoActualizacion from './components/AvisoActualizacion';
+import { Toaster } from './components/Toast';
 import { StoreDataProvider, useStore } from './context/StoreContext';
 import { loginWithEmail, mensajeErrorLogin } from './lib/db';
 import { Store, LogIn, AlertCircle } from 'lucide-react';
@@ -26,7 +28,11 @@ import React, { useState } from 'react';
 export default function App() {
   return (
     <StoreDataProvider>
+      {/* Notificaciones globales (reemplazo de alert()). Antes que el aviso
+          de actualización, que las usa. */}
+      <Toaster />
       <AppContent />
+      <AvisoActualizacion />
     </StoreDataProvider>
   );
 }
