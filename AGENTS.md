@@ -117,6 +117,30 @@ derivación a mano. Las dos ya divergieron (la del backfill emite un campo
 `specs` que no existe en `Product`). Unificarlas es trabajo pendiente y choca
 con el principio 2 de PRODUCT.md.
 
+## Estado al 2026-10-01 — producción al día
+
+**Durante tres meses nada de lo de arriba estuvo en producción.** Vercel
+despliega a Production sólo con un push a `main`. Todo se subía a
+`feature/objeciones-tres-capas`, que genera Previews, y `main` seguía en el
+merge del PR #2 del 24 de junio. Esa versión entraba con sesión anónima, y
+desde el 10 de septiembre las reglas exigen el claim `admin`, así que la
+producción vieja no podía leer datos. Tampoco tenía `vercel.json`.
+
+PR #3 (98 commits) mergeado el 2026-10-01 → `main` en `1583842`, desplegado
+como Production. Verificado: `panda-factory-pos.vercel.app` responde 200 en `/`
+y en rutas internas, y el bundle servido (`index-P_3gVtIp.js`) tiene el mismo
+hash que el build local de la rama.
+
+- **Para que algo llegue a producción hay que mergear a `main`.** Un push a la
+  rama sólo produce un Preview.
+- El `main` local era un "Initial commit" huérfano, sin ancestro común con
+  GitHub y que nunca se subió. Quedó renombrado a `respaldo/main-local-junio`
+  (todos sus blobs existen en el historial remoto, así que no tiene nada único),
+  y `main` ahora sigue a `origin/main`.
+- Sigue pendiente `firebase deploy --only firestore:rules`. En este equipo no
+  hay `firebase-tools` instalado, así que hay que usar `npx firebase-tools`, y Java
+  es 8, demasiado viejo para el emulador, así que `npm run test:rules` no corre.
+
 ## Reglas de trabajo para el agente
 
 - **NUNCA** leas, muevas, copies ni pegues en el chat el JSON del service account. La rotación de la llave la hace el usuario a mano en Google Cloud Console.
