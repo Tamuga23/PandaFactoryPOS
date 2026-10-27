@@ -1,16 +1,36 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Product, CartItem, Sale, ClientData } from '../types';
-import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
-import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package, Receipt } from 'lucide-react';
+import { Product, CartItem, Sale, ClientData, Apartado, NuevoApartado } from '../types';
+import { formatCurrency, DEFAULT_EXCHANGE_RATE, telefonoWhatsApp } from '../lib/utils';
+import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package, Receipt, HandCoins } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { planesParaVenta } from '../lib/financiamiento';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import ShippingLabelPreview from '../components/ShippingLabelPreview';
+import DialogoApartar, { type PrimaApartado } from '../components/DialogoApartar';
 import { toast } from '../components/Toast';
-import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
+/*
+  `TRANSPORTES_CON_ETIQUETA` —los transportes que generan una etiqueta física
+  de envío— era una constante privada de este archivo. La lista estaba escrita
+  a mano en dos lugares del POS y en otros dos del proyecto; pasó a
+  lib/invoice.ts porque ahora la necesita también la entrega de un apartado.
+*/
+import {
+  buildInvoiceDataFromSale,
+  buildWhatsAppMessage,
+  buildInvoiceDataFromApartado,
+  buildWhatsAppApartado,
+  TRANSPORTES_CON_ETIQUETA,
+} from '../lib/invoice';
 import { formatCurrencyNIO } from '../lib/utils';
 import { round2, precioVigente } from '../lib/validations';
+import {
+  totalNioDe,
+  redondearCordobas,
+  validarTelefono,
+  abonadoNio,
+  saldoNio,
+} from '../lib/apartados';
 import {
   guardarVentaEnCurso,
   leerVentaEnCurso,
@@ -19,15 +39,11 @@ import {
   type VentaEnCurso,
 } from '../lib/ventaEnCurso';
 
-/**
- * Los transportes que generan una etiqueta física de envío. La lista estaba
- * escrita a mano en dos lugares de este archivo y en otros dos del proyecto;
- * acá al menos el POS tiene una sola fuente.
- */
-const TRANSPORTES_CON_ETIQUETA = ['DELIVERY MANAGUA', 'CARGOTRANS', 'BUSES INTERLOCALES'];
-
 export default function POS() {
-  const { products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer, configFinanciamiento } = useStore();
+  const {
+    products, recordSale, companyInfo, loading, customers, addCustomer, updateCustomer, configFinanciamiento,
+    apartados, crearApartado, configApartados,
+  } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -80,6 +96,31 @@ export default function POS() {
   // Con cuánto paga el cliente, para calcular el vuelto. Solo UI: no viaja a
   // Firestore ni al documento. Vacío = todavía no lo dijo.
   const [pagaCon, setPagaCon] = useState('');
+  // Atajo de teclado PEDIDO y todavía no atendido (ver el efecto de F2/F3/F4).
+  const [atajo, setAtajo] = useState<null | 'factura' | 'proforma' | 'apartar'>(null);
+
+  // ---- Apartar --------------------------------------------------------------
+  const [apartarAbierto, setApartarAbierto] = useState(false);
+  const [procesandoApartado, setProcesandoApartado] = useState(false);
+  // Como `errorConfirmacion`: el motivo se pinta DENTRO del diálogo.
+  const [errorApartado, setErrorApartado] = useState<string | null>(null);
+  /*
+    Los ids del apartado y de su prima. Nacen al ABRIR el diálogo y no al
+    confirmar: si la transacción falla de una forma que no dice si se guardó
+    (la red cae justo al confirmar) y el operador reintenta, el reintento cae
+    sobre el MISMO documento y `crearApartado` no reserva el stock dos veces ni
+    consume otro número. Se renuevan después de un éxito o al reabrir.
+  */
+  const intentoApartado = useRef<{ apartadoId: string; primaId: string } | null>(null);
+  const botonApartarRef = useRef<HTMLButtonElement>(null);
+  /*
+    El carrito CON el precio de efectivo, tal como estaba antes de abrir
+    Apartar. Al abrir se quita (decisión del dueño), pero si el operador sale
+    sin apartar —ESC, Volver, o el cliente decide pagar todo hoy— hay que
+    devolverlo: el precio de efectivo es una promesa publicada en la web y en la
+    tablet, y sin esto el FACTURAR siguiente cobraba el precio de lista.
+  */
+  const carritoConEfectivo = useRef<CartItem[] | null>(null);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -175,6 +216,15 @@ export default function POS() {
   const tax = subtotal * taxRate;
   const currentExchangeRate = companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE;
   const total = subtotal + tax + (shipping / currentExchangeRate) - (discount / currentExchangeRate);
+  /*
+    El total de contado en córdobas, con la MISMA cuenta que imprime el papel
+    (`totalNioDe`: cada línea a córdobas, por la cantidad, y al final envío y
+    descuento). `total × tasa` da otro double y, con envío, otro centavo:
+    US$150 + envío C$50 a 36.6243 se veía C$5,543.65 en pantalla y la factura
+    decía C$5,543.64. La cifra que se le dice al cliente en voz alta tiene que
+    ser la del papel. `total` (USD) sigue siendo lo que se guarda en la venta.
+  */
+  const totalNio = totalNioDe(cart, currentExchangeRate, shipping, discount);
 
   // P2.5: Enter agrega el match exacto de SKU (o el único resultado) — listo
   // para lector de código de barras (tipea el SKU y manda Enter).
@@ -418,7 +468,7 @@ export default function POS() {
    * boton abajo a la derecha. El acelerador de SKU (Enter en la busqueda) ya
    * demostraba que la pantalla sabe trabajar asi; faltaba terminarlo.
    *
-   * No se disparan mientras se escribe en un campo, salvo F2/F3 — que son
+   * No se disparan mientras se escribe en un campo, salvo F2/F3/F4 — que son
    * teclas de funcion y no producen texto.
    */
   useEffect(() => {
@@ -426,25 +476,38 @@ export default function POS() {
       const dentroDeCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(
         (e.target as HTMLElement)?.tagName ?? '',
       );
-      // Con un modal abierto el POS no manda: el preview tiene su propio ESC.
-      if (previewData || labelSaleData) return;
+      // Con un modal abierto el POS no manda: el preview tiene su propio ESC,
+      // y el diálogo de apartar tiene sus propios campos.
+      if (previewData || labelSaleData || apartarAbierto) return;
 
-      // El precio de línea se confirma SOLO con `onBlur`. Con el mouse eso
-      // funciona solo (el mousedown sobre FACTURAR dispara el blur antes del
-      // click), pero F2 es un keydown en `window` y no saca el foco del input:
-      // el operador negociaba, tecleaba 3500, apretaba F2 y se facturaba el
-      // precio anterior. Se fuerza el blur y se difiere un tick para que el
-      // commit ya esté aplicado cuando se arme la venta.
-      if (e.key === 'F2' || e.key === 'F3') {
+      /*
+        El precio de línea se confirma SOLO con `onBlur`. Con el mouse eso
+        funciona solo (el mousedown sobre FACTURAR dispara el blur antes del
+        click), pero F2 es un keydown en `window` y no saca el foco del input:
+        el operador negociaba, tecleaba 3500, apretaba F2 y se facturaba el
+        precio anterior. Se fuerza el blur.
+
+        Y la acción NO se llama desde acá. Antes era `blur()` y después
+        `setTimeout(() => handleTryCheckout(proforma), 0)`, y el tick de espera
+        no arreglaba nada: el `handleTryCheckout` de adentro del setTimeout es
+        el de ESTE render, una clausura con el carrito de ANTES del blur, así
+        que se seguía facturando el precio anterior a la negociación. Ahora la
+        tecla PIDE el atajo en estado, y el efecto de abajo lo atiende en el
+        render siguiente —que ya trae el precio confirmado— con las funciones
+        de ese render.
+      */
+      const pedido =
+        e.key === 'F2' ? 'factura'
+        : e.key === 'F3' ? 'proforma'
+        : e.key === 'F4' ? 'apartar'
+        : null;
+      if (pedido) {
         e.preventDefault();
         if (cart.length === 0) return;
-        const proforma = e.key === 'F3';
         if (editingPriceId !== null) {
           (document.activeElement as HTMLElement | null)?.blur();
-          setTimeout(() => handleTryCheckout(proforma), 0);
-        } else {
-          handleTryCheckout(proforma);
         }
+        setAtajo(pedido);
         return;
       }
       if (e.key === '/' && !dentroDeCampo) {
@@ -467,6 +530,22 @@ export default function POS() {
     // descuento y a precio de lista, consumiendo un correlativo irreversible.
     // Re-suscribir en cada render cuesta un addEventListener y es lo correcto.
   });
+
+  /*
+    Atiende el atajo que pidió la tecla (ver arriba). Corre en el render que
+    trae el pedido, que es también el que ya tiene aplicado el blur del precio,
+    y llama a las funciones de ESE render: ninguna clausura vieja.
+    Depende sólo de `atajo` a propósito: tiene que correr UNA vez por pedido.
+    No es la clausura congelada que se criticó arriba — este efecto se recrea
+    en cada render, y el que corre es el del render del pedido.
+  */
+  useEffect(() => {
+    if (!atajo) return;
+    setAtajo(null);
+    if (atajo === 'apartar') handleTryApartar();
+    else handleTryCheckout(atajo === 'proforma');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atajo]);
 
   /**
    * Restaura la venta a medias, RECONCILIANDO contra el catálogo de ahora.
@@ -603,15 +682,15 @@ export default function POS() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esFinanciada, planesVenta]);
 
-  const handleTryCheckout = async (isProforma: boolean = false) => {
-    if (cart.length === 0) return;
-
+  /**
+   * Lo que FACTURAR y APARTAR validan igual antes de abrir nada. Devuelve el
+   * mensaje para el operador, o null si se puede seguir. Es una sola función
+   * para que las dos puertas no puedan desalinearse.
+   */
+  const errorDeCierre = (): string | null => {
     // P1.7: el descuento no puede superar el monto de la venta.
     const grossNIO = subtotal * currentExchangeRate + shipping;
-    if (discount > grossNIO) {
-      toast.error('El descuento no puede superar el total de la venta.');
-      return;
-    }
+    if (discount > grossNIO) return 'El descuento no puede superar el total de la venta.';
 
     /*
       El transporte es el único campo del formulario con una consecuencia
@@ -624,17 +703,48 @@ export default function POS() {
       porque el operador acaba de cambiarlo y puede no darse cuenta de que ese
       cambio volvió obligatorios dos campos que están en otro bloque, más
       arriba y fuera de la vista.
+      Un apartado se corta igual: la caja sale el día que se entrega, con la
+      dirección que se guardó hoy.
     */
     if (TRANSPORTES_CON_ETIQUETA.includes(transport)) {
       const faltan: string[] = [];
       if (!customerAddress.trim()) faltan.push('la dirección');
       if (!customerPhone.trim()) faltan.push('el teléfono');
       if (faltan.length > 0) {
-        toast.error(
-          `${transport} necesita ${faltan.join(' y ')} para poder imprimir la etiqueta.`,
-        );
-        return;
+        return `${transport} necesita ${faltan.join(' y ')} para poder imprimir la etiqueta.`;
       }
+    }
+    return null;
+  };
+
+  const handleTryCheckout = async (isProforma: boolean = false) => {
+    if (cart.length === 0) return;
+
+    /*
+      ¿Este carrito ya es un apartado? Pasa si un intento de APARTAR dio error
+      pero el servidor sí lo guardó (la red se cortó después del commit): el
+      carrito no se limpió, y si el cliente decide pagar todo y el operador
+      factura, el stock se descontaría DOS veces — una al apartar, otra acá —
+      con una sola unidad en la mano del cliente. La guarda que tiene Apartar
+      sólo corría al volver a apretar Apartar.
+    */
+    const apartadoPrevio = intentoApartado.current
+      ? apartados.find((a) => a.id === intentoApartado.current!.apartadoId)
+      : undefined;
+    if (!isProforma && apartadoPrevio) {
+      toast.error(
+        `El intento de apartar SÍ registró ${apartadoPrevio.numero} con este carrito: el stock ya está reservado. ` +
+        'Si el cliente paga todo, registrá el saldo como abono en Apartados y entregalo desde ahí. ' +
+        'Facturar acá descontaría el stock dos veces.',
+      );
+      return;
+    }
+
+    // Descuento y transporte: ver `errorDeCierre`.
+    const errorCierre = errorDeCierre();
+    if (errorCierre) {
+      toast.error(errorCierre);
+      return;
     }
 
     // Venta financiada sin plazo elegido: se corta acá. Registrar el plazo es
@@ -711,6 +821,84 @@ export default function POS() {
     setPreviewData(invoiceData);
   };
 
+  /**
+   * La ficha del cliente en el CRM, ANTES de registrar la operación: si viene
+   * vinculada, la actualiza cuando cambió algún dato; si no, crea una y lo
+   * avisa. Devuelve el id que queda asociado (el mismo que llegó si no hay
+   * nombre). LANZA si una escritura falla: el que llama dice qué es lo que
+   * todavía no se registró.
+   *
+   * Vivía adentro de handleConfirmCheckout. Salió tal cual para que FACTURAR y
+   * APARTAR no tengan dos copias de la misma regla.
+   */
+  const asegurarFichaCliente = async (d: {
+    customerId?: string;
+    customerName?: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    customerAddress?: string;
+  }): Promise<string | undefined> => {
+    if (!(d.customerName || '').trim()) return d.customerId;
+    if (d.customerId) {
+      // Find existing customer to check if update is needed
+      const existingCust = customers.find(c => c.id === d.customerId);
+      if (existingCust && (existingCust.fullName !== d.customerName || existingCust.phone !== d.customerPhone || existingCust.email !== d.customerEmail || existingCust.address !== d.customerAddress)) {
+        await updateCustomer({
+          ...existingCust,
+          fullName: d.customerName,
+          phone: d.customerPhone,
+          email: d.customerEmail,
+          address: d.customerAddress,
+        });
+      }
+      return d.customerId;
+    }
+    // Create new customer
+    const newCustomerId = uuidv4();
+    await addCustomer({
+      id: newCustomerId,
+      fullName: d.customerName,
+      phone: d.customerPhone,
+      email: d.customerEmail,
+      address: d.customerAddress,
+      createdAt: Date.now(),
+    });
+    // Se avisa: tipear un nombre daba de alta una ficha en el CRM sin que
+    // nadie lo dijera, y despues aparecia en Clientes sin explicacion.
+    toast.info(`Se creó la ficha de ${d.customerName.trim()} en Clientes.`);
+    return newCustomerId;
+  };
+
+  /**
+   * Deja el POS en blanco después de registrar. FACTURAR y APARTAR terminan
+   * igual, y tienen que terminar igual: un campo que una limpia y la otra no
+   * se arrastra en silencio a la operación siguiente.
+   */
+  const limpiarVenta = () => {
+    setCart([]);
+    setCustomerName('');
+    setCustomerEmail('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setCustomNote('');
+    setDiscount(0);
+    setShipping(0);
+    setPaymentReference('');
+    // El cliente seleccionado TIENE que limpiarse: `sale.customerId` sale de
+    // acá, así que si queda pegado, la próxima venta de mostrador (sin nombre)
+    // se archiva en silencio en el historial del cliente anterior.
+    setSelectedCustomerId(null);
+    // La forma de pago y el plazo también: heredar FINANCIAMIENTO de la venta
+    // anterior arrastra el plazo al checkout siguiente y llega hasta el reporte
+    // de margen. `transport` se deja a propósito: casi todas las ventas de una
+    // misma jornada salen por la misma vía.
+    setPaymentMethod('EFECTIVO');
+    setPlazoMeses(null);
+    setPagaCon('');
+    // La venta ya está registrada: el borrador no tiene nada que recuperar.
+    borrarVentaEnCurso();
+  };
+
   const handleConfirmCheckout = async () => {
     if (!pendingSale) return;
     setErrorConfirmacion(null);
@@ -735,36 +923,8 @@ export default function POS() {
     */
     let finalCustomerId = sale.customerId;
     try {
-      if (sale.customerName.trim() && !isProforma) {
-      if (finalCustomerId) {
-        // Find existing customer to check if update is needed
-        const existingCust = customers.find(c => c.id === finalCustomerId);
-        if (existingCust && (existingCust.fullName !== sale.customerName || existingCust.phone !== sale.customerPhone || existingCust.email !== sale.customerEmail || existingCust.address !== sale.customerAddress)) {
-           await updateCustomer({
-             ...existingCust,
-             fullName: sale.customerName,
-             phone: sale.customerPhone,
-             email: sale.customerEmail,
-             address: sale.customerAddress
-           });
-        }
-      } else {
-        // Create new customer
-        const newCustomerId = uuidv4();
-        finalCustomerId = newCustomerId;
-        await addCustomer({
-          id: newCustomerId,
-          fullName: sale.customerName,
-          phone: sale.customerPhone,
-          email: sale.customerEmail,
-          address: sale.customerAddress,
-          createdAt: Date.now()
-        });
-        // Se avisa: tipear un nombre daba de alta una ficha en el CRM sin que
-        // nadie lo dijera, y despues aparecia en Clientes sin explicacion.
-        toast.info(`Se creó la ficha de ${sale.customerName.trim()} en Clientes.`);
-      }
-      }
+      // Una proforma no toca el CRM: cotizar no hace cliente a nadie.
+      if (!isProforma) finalCustomerId = await asegurarFichaCliente(sale);
     } catch (e: any) {
       const msg = e?.message || 'No se pudo guardar la ficha del cliente.';
       toast.error(`${msg} La venta TODAVÍA no se registró: podés reintentar.`);
@@ -813,40 +973,27 @@ export default function POS() {
       decirle al cliente en voz alta.
     */
     const fin = confirmedSale.financiamiento;
+    // El de contado, con la cuenta del papel (ver `totalNio` arriba) y la tasa
+    // congelada en la venta: es el número que dice la factura que se abre.
+    const totalVentaNio = totalNioDe(
+      confirmedSale.items,
+      confirmedSale.exchangeRate,
+      confirmedSale.shipping || 0,
+      confirmedSale.discount || 0,
+    );
     toast.success(
       `${isProforma ? 'Proforma' : 'Venta'} ${assignedNumber} registrada · ` +
       (fin
         ? `${formatCurrencyNIO(fin.totalNio)} en ${fin.plazoMeses} cuotas de ${formatCurrencyNIO(fin.cuotaNio)}`
-        : `${formatCurrencyNIO(confirmedSale.total * currentExchangeRate)}`) +
+        : `${formatCurrencyNIO(totalVentaNio)}`) +
       `${isProforma ? '' : ' · stock actualizado'}`,
     );
     // Habilitar "Enviar por WhatsApp" (comparte el PDF) si hay teléfono.
     setWaShare(confirmedSale.customerPhone
-      ? buildWhatsAppMessage(confirmedSale, formatCurrencyNIO(confirmedSale.total * currentExchangeRate))
+      ? buildWhatsAppMessage(confirmedSale, formatCurrencyNIO(totalVentaNio))
       : null);
 
-    setCart([]);
-    setCustomerName('');
-    setCustomerEmail('');
-    setCustomerPhone('');
-    setCustomerAddress('');
-    setCustomNote('');
-    setDiscount(0);
-    setShipping(0);
-    setPaymentReference('');
-    // El cliente seleccionado TIENE que limpiarse: `sale.customerId` sale de
-    // acá, así que si queda pegado, la próxima venta de mostrador (sin nombre)
-    // se archiva en silencio en el historial del cliente anterior.
-    setSelectedCustomerId(null);
-    // La forma de pago y el plazo también: heredar FINANCIAMIENTO de la venta
-    // anterior arrastra el plazo al checkout siguiente y llega hasta el reporte
-    // de margen. `transport` se deja a propósito: casi todas las ventas de una
-    // misma jornada salen por la misma vía.
-    setPaymentMethod('EFECTIVO');
-    setPlazoMeses(null);
-    setPagaCon('');
-    // La venta ya está registrada: el borrador no tiene nada que recuperar.
-    borrarVentaEnCurso();
+    limpiarVenta();
 
     // Prepare label if transport requires it. Queda en espera: se monta recién
     // cuando el operador cierra el preview, no debajo de él.
@@ -856,6 +1003,278 @@ export default function POS() {
 
     setPendingSale(null);
     setIsConfirming(false);
+  };
+
+  // ---- Apartar ---------------------------------------------------------------
+
+  /** El comprobante en el preview, con WhatsApp si el teléfono abre un chat. */
+  const mostrarComprobanteApartado = (ap: Apartado) => {
+    setPreviewData(buildInvoiceDataFromApartado(ap, companyInfo, products));
+    const wa = buildWhatsAppApartado(ap, 'comprobante');
+    setWaShare(wa.link ? wa : null);
+  };
+
+  /**
+   * Un apartado quedó registrado: se avisa con sus números, el POS queda en
+   * blanco como después de una venta y se abre el comprobante. `yaEstaba` = lo
+   * registró un intento anterior cuya respuesta no llegó.
+   */
+  const terminarApartado = (ap: Apartado, yaEstaba: boolean) => {
+    toast.success(
+      `Apartado ${ap.numero} ${yaEstaba ? 'ya estaba registrado' : 'registrado'} · ` +
+      `prima ${formatCurrencyNIO(abonadoNio(ap))} · saldo ${formatCurrencyNIO(saldoNio(ap))} · stock reservado`,
+    );
+    limpiarVenta();
+    intentoApartado.current = null;
+    carritoConEfectivo.current = null;
+    setApartarAbierto(false);
+    setErrorApartado(null);
+    setProcesandoApartado(false);
+    mostrarComprobanteApartado(ap);
+  };
+
+  /**
+   * APARTAR (F4): valida lo que un apartado necesita y abre el diálogo de la
+   * prima. No escribe nada; eso pasa al confirmar.
+   */
+  const handleTryApartar = () => {
+    if (cart.length === 0) return;
+
+    /*
+      ¿El intento anterior se guardó igual? Pasa cuando la red se cae justo al
+      confirmar: el servidor registró el apartado, la respuesta no llegó y el
+      diálogo dijo error. Al reabrir los ids son nuevos —un carrito nuevo es un
+      apartado nuevo—, así que sin esta guarda el mismo carrito se apartaría DOS
+      veces: dos números y el stock reservado doble. No se adivina si el
+      carrito de ahora es aquel: se dice qué pasó y decide el operador.
+    */
+    const anterior = intentoApartado.current;
+    const guardado = anterior ? apartados.find((a) => a.id === anterior.apartadoId) : undefined;
+    if (guardado) {
+      intentoApartado.current = null;
+      toast.error(
+        `El intento anterior SÍ registró el apartado ${guardado.numero} de ${guardado.customerName}, ` +
+        'con el stock reservado. Si es este mismo carrito, no lo apartés otra vez: está en Apartados. ' +
+        'Si es otro, apretá Apartar de nuevo.',
+      );
+      return;
+    }
+
+    // Nombre y teléfono son obligatorios acá y no al facturar: un apartado dura
+    // semanas, se sigue por cliente, y el teléfono es el único canal para
+    // recordarle el saldo.
+    if (!customerName.trim()) {
+      toast.error('Para apartar hace falta el nombre del cliente: el apartado queda a su nombre.');
+      document.getElementById('pos-cliente-nombre')?.focus();
+      return;
+    }
+    const errorTelefono = validarTelefono(customerPhone);
+    if (errorTelefono) {
+      toast.error(errorTelefono);
+      document.getElementById('pos-cliente-telefono')?.focus();
+      return;
+    }
+    const errorCierre = errorDeCierre();
+    if (errorCierre) {
+      toast.error(errorCierre);
+      return;
+    }
+
+    /*
+      El precio de efectivo se QUITA (decisión del dueño): es el precio de pagar
+      todo junto y en efectivo, y un apartado se paga en partes, durante
+      semanas. Se avisa porque el total cambia sin que el operador lo pidiera.
+      La cuenta sale de `appliedCashCount` y no de lo que devuelve
+      `removeCashDiscount`: ese contador se llena adentro del actualizador de
+      `setCart`, que React puede correr recién en el render siguiente, y
+      entonces devolvería 0.
+    */
+    if (appliedCashCount > 0) {
+      carritoConEfectivo.current = cart;
+      removeCashDiscount();
+      toast.info(
+        `Se quitó el precio de efectivo en ${appliedCashCount} ${appliedCashCount === 1 ? 'línea' : 'líneas'}: ` +
+        'un apartado no es un pago de contado en efectivo. El total cambió.',
+      );
+    }
+
+    intentoApartado.current = { apartadoId: uuidv4(), primaId: uuidv4() };
+    setErrorApartado(null);
+    setApartarAbierto(true);
+  };
+
+  const cerrarDialogoApartar = () => {
+    if (procesandoApartado) return;
+    setApartarAbierto(false);
+    setErrorApartado(null);
+    // Se salió sin apartar: vuelve el precio de efectivo que se quitó al abrir.
+    // Si un intento ambiguo SÍ lo guardó, no: ese carrito ya es un apartado.
+    const conEfectivo = carritoConEfectivo.current;
+    carritoConEfectivo.current = null;
+    const seGuardo = intentoApartado.current
+      && apartados.some((a) => a.id === intentoApartado.current!.apartadoId);
+    if (conEfectivo && !seGuardo) {
+      setCart(conEfectivo);
+      toast.info('No se apartó: se volvió a aplicar el precio de efectivo.');
+    }
+    // El foco vuelve al botón: el diálogo se lo llevó al campo de la prima, y
+    // al desmontarse caería al <body>.
+    botonApartarRef.current?.focus();
+  };
+
+  /**
+   * Confirma el apartado: la ficha del cliente y después la transacción, que
+   * reserva el stock, consume el AP-xxxxxx y registra la prima. Los ids son los
+   * de `intentoApartado`: un reintento cae sobre el mismo apartado.
+   */
+  const handleConfirmarApartado = async (datos: PrimaApartado) => {
+    const ids = intentoApartado.current;
+    if (!ids || procesandoApartado) return;
+    setErrorApartado(null);
+    setProcesandoApartado(true);
+
+    /*
+      Reintento después de un error ambiguo. `crearApartado` ya no reserva dos
+      veces (mismo id), pero devuelve sólo el número: si entre un intento y
+      otro se cambió la prima, el comprobante saldría con la prima nueva y el
+      servidor tendría la vieja. Si el snapshot ya trae el apartado, el papel
+      sale de lo guardado.
+    */
+    const yaGuardado = apartados.find((a) => a.id === ids.apartadoId);
+    if (yaGuardado) {
+      terminarApartado(yaGuardado, true);
+      return;
+    }
+
+    // (a) La ficha del cliente, ANTES de apartar: si falla, todavía no se
+    // registró nada y reintentar es seguro.
+    let fichaId = selectedCustomerId || undefined;
+    let nombreFicha = customerName;
+    let correoFicha = customerEmail;
+    let direccionFicha = customerAddress;
+    try {
+      if (!fichaId) {
+        /*
+          Sin ficha elegida, se busca una con el MISMO teléfono y el MISMO
+          nombre antes de crear otra. Un apartado vive semanas y se sigue por
+          cliente: dos fichas de la misma persona parten su historial en dos.
+          Hacen falta las dos coincidencias, porque un teléfono solo puede ser
+          el de la casa, compartido.
+        */
+        const telefono = telefonoWhatsApp(customerPhone);
+        const nombre = customerName.trim().toLowerCase();
+        const misma = telefono
+          ? customers.find((c) =>
+              telefonoWhatsApp(c.phone) === telefono && (c.fullName || '').trim().toLowerCase() === nombre)
+          : undefined;
+        if (misma) {
+          // Queda como si se la hubiera elegido en el autocompletado: con el
+          // nombre tal como está en Clientes, y vinculada también para un
+          // reintento.
+          fichaId = misma.id;
+          nombreFicha = misma.fullName;
+          /*
+            Lo que el formulario trae VACÍO se completa desde la ficha, igual que
+            hace `elegirCliente`. Sin esto, `asegurarFichaCliente` veía '' contra
+            el correo y la dirección guardados, "actualizaba" la ficha y se los
+            BORRABA en silencio — y el correo siempre, porque el POS no tiene
+            campo de correo. Variables locales y no sólo los setters: esta
+            función sigue viendo los valores del render en que se llamó.
+          */
+          correoFicha = customerEmail.trim() || misma.email || '';
+          direccionFicha = customerAddress.trim() || misma.address || '';
+          setSelectedCustomerId(misma.id);
+          setCustomerName(misma.fullName);
+          setCustomerEmail(correoFicha);
+          setCustomerAddress(direccionFicha);
+          toast.info(`Se usó la ficha de ${misma.fullName.trim()} que ya estaba en Clientes (mismo nombre y teléfono).`);
+        }
+      }
+      fichaId = await asegurarFichaCliente({
+        customerId: fichaId,
+        customerName: nombreFicha,
+        customerPhone,
+        customerEmail: correoFicha,
+        customerAddress: direccionFicha,
+      });
+      // Una ficha recién creada queda elegida: si la transacción de abajo
+      // falla, el reintento la encuentra en vez de crear otra igual.
+      if (fichaId && fichaId !== selectedCustomerId) setSelectedCustomerId(fichaId);
+    } catch (e: any) {
+      const msg = e?.message || 'No se pudo guardar la ficha del cliente.';
+      toast.error(`${msg} El apartado TODAVÍA no se registró: podés reintentar.`);
+      setErrorApartado(`${msg} El apartado TODAVÍA no se registró: podés reintentar.`);
+      setProcesandoApartado(false);
+      return;
+    }
+
+    // (b) El apartado. Montos con las MISMAS cuentas que una venta, y el total
+    // en córdobas con la del papel: es el que queda congelado.
+    const ahora = Date.now();
+    const referencia = datos.referencia.trim();
+    const nuevo: NuevoApartado = {
+      id: ids.apartadoId,
+      fecha: ahora,
+      fechaLimite: datos.fechaLimite,
+      items: [...cart],
+      subtotal, // USD
+      tax, // USD
+      total: subtotal + tax + (shipping / currentExchangeRate) - (discount / currentExchangeRate), // USD
+      discount, // NIO, como se tipeó
+      shipping, // NIO, como se tipeó
+      exchangeRate: currentExchangeRate,
+      totalNio,
+      abonos: [{
+        id: ids.primaId,
+        fecha: ahora,
+        montoNio: redondearCordobas(datos.primaNio),
+        metodo: datos.metodo,
+        ...(referencia ? { referencia } : {}),
+      }],
+      customerId: fichaId,
+      customerName: nombreFicha.trim(),
+      customerPhone: customerPhone.trim(),
+      customerEmail: correoFicha.trim() || undefined,
+      customerAddress: direccionFicha.trim() || undefined,
+      transport,
+      notes: customNote,
+    };
+
+    // (c) La transacción. Su mensaje ya viene listo para el operador (stock,
+    // permisos, conexión, datos). Los ids se quedan: el reintento es seguro.
+    let resultado: { numero: string; guardado: Apartado | null };
+    try {
+      resultado = await crearApartado(nuevo);
+    } catch (e: any) {
+      const msg = e?.message || 'No se pudo registrar el apartado. Intentá de nuevo.';
+      toast.error(msg);
+      setErrorApartado(msg);
+      setProcesandoApartado(false);
+      return;
+    }
+
+    /*
+      Si el apartado ya existía, lo había guardado un intento anterior cuya
+      respuesta no llegó. El aviso y el comprobante salen de LO GUARDADO, y si
+      la prima que quedó no es la que se pidió esta vez (el operador corrigió un
+      dígito entre un intento y otro), se dice: es plata, y el papel no puede
+      decir otra cosa que el servidor.
+    */
+    if (resultado.guardado) {
+      const primaGuardada = abonadoNio(resultado.guardado);
+      if (redondearCordobas(primaGuardada) !== redondearCordobas(datos.primaNio)) {
+        toast.error(
+          `${resultado.guardado.numero} ya había quedado registrado con prima ${formatCurrencyNIO(primaGuardada)}, ` +
+          `no ${formatCurrencyNIO(datos.primaNio)}. Si hay que corregirla, anulá ese abono en Apartados y registrá el correcto.`,
+        );
+      }
+      terminarApartado(resultado.guardado, true);
+      return;
+    }
+    terminarApartado(
+      { ...nuevo, numero: resultado.numero, status: 'activo', anulaciones: [], ownerId: 'shared_store', updatedAt: ahora },
+      false,
+    );
   };
 
   if (loading) return <div className="text-zinc-400">Cargando POS…</div>;
@@ -890,6 +1309,29 @@ export default function POS() {
           onClose={() => setLabelSaleData(null)}
           companyLogo={companyInfo?.logoBase64}
           companyName={companyInfo?.name}
+        />
+      )}
+      {/*
+        El diálogo recibe el carrito VIVO (ver DialogoApartar): al abrirlo se
+        quita el precio de efectivo en el mismo paso, y el total de adentro
+        tiene que ser el que se va a guardar, no el de antes.
+      */}
+      {apartarAbierto && (
+        <DialogoApartar
+          items={cart}
+          tasa={currentExchangeRate}
+          envioNio={shipping}
+          descuentoNio={discount}
+          clienteNombre={customerName.trim()}
+          clienteTelefono={customerPhone.trim()}
+          config={configApartados}
+          metodoInicial={paymentMethod}
+          referenciaInicial={paymentReference}
+          conCuotas={esFinanciada}
+          procesando={procesandoApartado}
+          error={errorApartado}
+          onConfirmar={handleConfirmarApartado}
+          onCerrar={cerrarDialogoApartar}
         />
       )}
       {/*
@@ -1058,7 +1500,7 @@ export default function POS() {
                <ShoppingCart className="w-5 h-5" /> 
                Ver Carrito ({cart.length} ítems)
              </span>
-             <span>{formatCurrency((subtotal * (companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE)) + shipping - discount, 'NIO')}</span>
+             <span className="tabular-nums">{formatCurrency(totalNio, 'NIO')}</span>
            </button>
         </div>
       )}
@@ -1577,7 +2019,7 @@ export default function POS() {
                   )}
                   {planElegido && !planElegido.sinInteres && (
                     <p className="text-[11px] text-zinc-400 mt-2 leading-snug">
-                      De contado serían {formatCurrency(total * currentExchangeRate, 'NIO')}. A{' '}
+                      De contado serían {formatCurrency(totalNio, 'NIO')}. A{' '}
                       {planElegido.meses} meses el cliente paga{' '}
                       {formatCurrency(planElegido.sobrePrecioNio, 'NIO')} más.
                     </p>
@@ -1683,7 +2125,7 @@ export default function POS() {
               </span>
               <span className="text-3xl font-bold text-cyan-400 tabular-nums leading-none truncate">
                 {formatCurrency(
-                  esFinanciada && planElegido ? planElegido.totalNio : total * currentExchangeRate,
+                  esFinanciada && planElegido ? planElegido.totalNio : totalNio,
                   'NIO',
                 )}
               </span>
@@ -1728,7 +2170,7 @@ export default function POS() {
                   />
                 </div>
                 {pagaCon.trim() !== '' && (() => {
-                  const vuelto = (Number(pagaCon) || 0) - total * currentExchangeRate;
+                  const vuelto = (Number(pagaCon) || 0) - totalNio;
                   return (
                     <div className="flex items-baseline justify-between gap-2 mt-1.5">
                       <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 shrink-0">
@@ -1746,20 +2188,27 @@ export default function POS() {
               <div className="flex items-baseline justify-between gap-2 mt-1">
                 <span className="text-[10px] uppercase tracking-wider text-zinc-400 shrink-0">De contado</span>
                 <span className="text-[11px] text-zinc-400 tabular-nums">
-                  {formatCurrency(total * currentExchangeRate, 'NIO')}
+                  {formatCurrency(totalNio, 'NIO')}
                 </span>
               </div>
             )}
           </div>
 
-          <div className="mt-4 flex gap-2">
+          {/*
+            `flex-wrap` + `justify-end`: con tres botones, en el panel angosto
+            de una pantalla de 1024–1280px la fila no entra. En vez de
+            desbordar el panel, el último baja a una segunda fila, alineado
+            bajo los secundarios, y FACTURAR conserva el ancho que le sobra.
+          */}
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
             {/*
               Dos consecuencias OPUESTAS compartían el mismo ícono `FileText`, y
               la proforma era además un botón de 56px sin etiqueta, descubrible
               solo por `title`. Facturar mueve stock, kardex y el correlativo;
               cotizar no escribe nada. Ahora se distinguen por ícono Y por
               palabra: Receipt para el recibo, FileText para el papel que
-              todavía no compromete.
+              todavía no compromete, HandCoins para el apartado — reserva stock
+              y cobra una prima, pero no factura.
             */}
             <button
               onClick={() => handleTryCheckout(false)}
@@ -1774,10 +2223,20 @@ export default function POS() {
               onClick={() => handleTryCheckout(true)}
               disabled={cart.length === 0}
               title="Generar proforma — no descuenta stock (F3)"
-              className="px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+              className="px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
             >
               <FileText className="w-4 h-4" />
               Proforma
+            </button>
+            <button
+              ref={botonApartarRef}
+              onClick={() => handleTryApartar()}
+              disabled={cart.length === 0}
+              title="Apartar con prima — reserva el stock (F4)"
+              className="px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold py-3 rounded-lg border border-zinc-700 flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+            >
+              <HandCoins className="w-4 h-4" />
+              Apartar
             </button>
           </div>
           {/*
@@ -1789,6 +2248,7 @@ export default function POS() {
           <p className="text-[10px] text-zinc-400 text-center mt-1">
             <kbd className="font-sans font-bold text-zinc-400">F2</kbd> facturar ·{' '}
             <kbd className="font-sans font-bold text-zinc-400">F3</kbd> proforma ·{' '}
+            <kbd className="font-sans font-bold text-zinc-400">F4</kbd> apartar ·{' '}
             <kbd className="font-sans font-bold text-zinc-400">/</kbd> buscar
           </p>
         </div>

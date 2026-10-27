@@ -35,3 +35,37 @@ export const etiquetaVenta = (estado?: string) =>
 
 export const etiquetaOrden = (estado?: string) =>
   ESTADO_ORDEN[estado || 'OPEN'] || estado || 'Abierta';
+
+/**
+ * Estado VISIBLE de un apartado. `listo` y `vencido` no se guardan en
+ * Firestore: los deriva `estadoVisible` (src/lib/apartados.ts) al pintar.
+ */
+export const ESTADO_APARTADO: Record<string, string> = {
+  activo: 'Activo',
+  listo: 'Listo para entregar',
+  vencido: 'Vencido',
+  entregado: 'Entregado',
+  cancelado: 'Cancelado',
+};
+
+export const etiquetaApartado = (estado?: string) =>
+  ESTADO_APARTADO[estado || 'activo'] || estado || 'Activo';
+
+/**
+ * Formas de pago, como se dicen en la consola. Son los mismos rótulos del
+ * selector del POS: CRÉDITO es tarjeta de crédito en UN pago, no fiado.
+ *
+ * El recibo oficial NO usa este diccionario —tiene el suyo en InvoicePreview y
+ * PRODUCT.md pide no tocar sus campos mientras su estatus fiscal no esté
+ * confirmado—; lo usan las pantallas y el comprobante de apartado.
+ */
+export const METODO_PAGO: Record<string, string> = {
+  EFECTIVO: 'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  TARJETA: 'Tarjeta de débito',
+  CREDITO: 'Tarjeta de crédito',
+  FINANCIAMIENTO: 'Cuotas Banpro',
+};
+
+export const etiquetaMetodo = (metodo?: string) =>
+  METODO_PAGO[metodo || ''] || metodo || '—';

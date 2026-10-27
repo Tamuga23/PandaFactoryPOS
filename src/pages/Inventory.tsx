@@ -3,21 +3,48 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { Product, Movimiento } from '../types';
 import { formatCurrency, fileToBase64, compressImage } from '../lib/utils';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Search, PackagePlus, AlertTriangle, ShoppingCart, Check, Layers, History, Download, X, Loader2, PackageOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Search, PackagePlus, AlertTriangle, ShoppingCart, Check, Layers, History, Download, X, Loader2, PackageOpen, HandCoins } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { toCsv, downloadCsv } from '../lib/csv';
+import { apartadosConProducto } from '../lib/apartados';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const TIPO_LABEL: Record<Movimiento['tipo'], string> = {
   venta: 'Venta', devolucion: 'Devolución', compra: 'Compra',
   reversion: 'Reversión', ajuste: 'Ajuste',
+  // Sale del stock reservada para un cliente / vuelve porque se canceló.
+  apartado: 'Apartado', liberacion: 'Liberación',
+};
+
+/*
+  Unidades APARTADAS: reservadas para un cliente que todavía está pagando. Ya no
+  están en `stock` —que es lo que se puede vender—, pero siguen en el estante.
+  Lo que el operador encuentra al contar es `stock + apartadas`, y por eso los
+  dos formularios de esta pantalla piden y muestran ESE número (el conteo
+  físico) y no el stock a secas: si pidieran el stock, el que cuenta 5 con 1
+  apartada escribiría 5, y el POS volvería a vender la unidad del cliente.
+*/
+const apartadasDe = (p?: Product | null): number => Math.max(0, p?.apartadas || 0);
+const conteoDe = (p: Product): number => (p.stock || 0) + apartadasDe(p);
+
+/** El aviso de un ajuste guardado, con la cuenta de las apartadas si las hay. */
+const avisoAjuste = (nombre: string, antes: number, conteo: number, apartadas: number): string =>
+  apartadas > 0
+    ? `«${nombre}»: ${antes} → ${conteo - apartadas} disponibles (contaste ${conteo}, ` +
+      `${apartadas} ${apartadas === 1 ? 'apartada' : 'apartadas'}). Queda en el kardex.`
+    : `«${nombre}»: ${antes} → ${conteo} unidades. Queda en el kardex.`;
+
+/** «A», «B» y 3 más: un aviso no puede crecer sin techo con un lote de 200. */
+const listaNombres = (nombres: string[], max = 4): string => {
+  const citados = nombres.slice(0, max).map((n) => `«${n}»`).join(', ');
+  return nombres.length > max ? `${citados} y ${nombres.length - max} más` : citados;
 };
 
 export default function Inventory() {
-  const { products, loading, addProduct, updateProduct, deleteProduct, bulkUpdateProducts, adjustStock, fetchMovimientos } = useStore();
+  const { products, loading, addProduct, updateProduct, deleteProduct, bulkUpdateProducts, adjustStock, fetchMovimientos, apartados } = useStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -28,6 +55,21 @@ export default function Inventory() {
   const [isSaving, setIsSaving] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [borrando, setBorrando] = useState<Product | null>(null);
+  /*
+    El campo de stock de los dos formularios es CONTROLADO: la cuenta de abajo
+    ("se guarda como disponible") tiene que seguir lo que se tipea. Antes el + y
+    el − escribían el DOM a mano por `getElementById`, y nada se enteraba.
+  */
+  const [conteoInput, setConteoInput] = useState('');
+  /*
+    El error de guardado se dice ADENTRO del diálogo, pegado al botón, que pasa
+    a "Reintentar". En un toast de la esquina, el diálogo seguía abierto como si
+    nada y el operador no sabía si lo de recién se había guardado o no.
+  */
+  const [errorModal, setErrorModal] = useState<string | null>(null);
+  // Lo tipeado en "Stock" del ajuste masivo: decide si hace falta el aviso de
+  // las apartadas ANTES de aplicar.
+  const [stockMasivo, setStockMasivo] = useState('');
 
   // P2.7: kardex por producto.
   const [kardexProduct, setKardexProduct] = useState<Product | null>(null);
@@ -78,15 +120,23 @@ export default function Inventory() {
 
   // P2.7: export CSV del inventario (para el contador).
   const exportInventoryCsv = () => {
+    /*
+      Las apartadas van en su columna y TAMBIÉN en el valor a costo: siguen
+      siendo inventario de la tienda hasta que se entregan (recién ahí hay
+      venta). Sin sumarlas, el CSV del contador valuaba de menos exactamente lo
+      que el "Valor Inventario a costo" del Dashboard ya suma. Acá se valúan al
+      costo actual del producto; el Dashboard usa el costo congelado al apartar,
+      así que sólo difieren si entró mercadería a otro costo en el medio.
+    */
     const rows = products.map(p => ({
       sku: p.sku, nombre: p.name, categoria: p.category,
-      precioUSD: p.price, costoUSD: p.cost, stock: p.stock,
-      valorCostoUSD: Math.round((p.cost || 0) * (p.stock || 0) * 100) / 100,
+      precioUSD: p.price, costoUSD: p.cost, stock: p.stock, apartadas: apartadasDe(p),
+      valorCostoUSD: Math.round((p.cost || 0) * conteoDe(p) * 100) / 100,
       minimo: p.minStockAlert, activo: p.activo === false ? 'NO' : 'SI',
     }));
     downloadCsv(`inventario_${new Date().toISOString().slice(0, 10)}`, toCsv(rows, [
       ['sku', 'SKU'], ['nombre', 'Producto'], ['categoria', 'Categoría'],
-      ['precioUSD', 'Precio USD'], ['costoUSD', 'Costo USD'], ['stock', 'Stock'],
+      ['precioUSD', 'Precio USD'], ['costoUSD', 'Costo USD'], ['stock', 'Stock'], ['apartadas', 'Apartadas'],
       ['valorCostoUSD', 'Valor a costo USD'], ['minimo', 'Stock mínimo'], ['activo', 'Activo'],
     ]));
     toast.success(`Inventario exportado (${rows.length} productos).`);
@@ -114,6 +164,28 @@ export default function Inventory() {
     más que eso: el sistema castigaba al que leía. Ahora la consecuencia vive
     adentro del diálogo, pegada al botón, y el diálogo espera lo que haga falta.
   */
+  /*
+    Con unidades APARTADAS ni siquiera se abre el diálogo: no hay una
+    consecuencia que aceptar, hay un apartado que resolver antes. Con todo
+    apartado el stock es 0 y el producto parece vacío, pero esas unidades están
+    en el estante con el nombre de un cliente, y si el producto desaparece,
+    cancelar el apartado ya no tiene adónde devolverlas. `deleteProduct` también
+    lo frena, leyendo del servidor; esto ahorra el viaje y nombra los apartados.
+  */
+  const pedirBorrado = (product: Product) => {
+    const apartadas = apartadasDe(product);
+    if (apartadas > 0) {
+      const numeros = apartadosConProducto(apartados, product.id).map((x) => x.apartado.numero);
+      toast.error(
+        `«${product.name}» tiene ${apartadas} ${apartadas === 1 ? 'unidad apartada' : 'unidades apartadas'}` +
+        `${numeros.length > 0 ? ` en ${numeros.join(', ')}` : ''}: ` +
+        `entregá o cancelá ${numeros.length > 1 ? 'los apartados' : 'el apartado'} antes de borrarlo, o marcalo Inactivo.`,
+      );
+      return;
+    }
+    setBorrando(product);
+  };
+
   const confirmarBorrado = async () => {
     const producto = borrando;
     if (!producto) return;
@@ -168,11 +240,16 @@ export default function Inventory() {
     } else {
       setEditingProduct(null);
     }
+    // El campo arranca en el conteo físico: lo que hay en el estante.
+    setConteoInput(product ? String(conteoDe(product)) : '');
+    setErrorModal(null);
     setIsModalOpen(true);
   };
 
   const openStockModal = (product: Product) => {
     setEditingProduct(product);
+    setConteoInput(String(conteoDe(product)));
+    setErrorModal(null);
     setIsStockModalOpen(true);
   };
 
@@ -182,6 +259,17 @@ export default function Inventory() {
     setIsStockModalOpen(false);
     setIsBulkEditModalOpen(false);
     setEditingProduct(null);
+    setErrorModal(null);
+    setStockMasivo('');
+  };
+
+  // El + y el − del ajuste rápido. Restar no baja de 0; sumar no toca un
+  // valor negativo que ya estuviera (eso lo corrige el operador a mano).
+  const cambiarConteo = (delta: number) => {
+    setConteoInput((v) => {
+      const n = Number(v) || 0;
+      return String(delta < 0 ? Math.max(0, n + delta) : n + delta);
+    });
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,13 +323,32 @@ export default function Inventory() {
         return;
       }
       // P2.7: si toca stock, el kardex registra el motivo.
-      await bulkUpdateProducts(selectedProducts, updates, motivo || 'Ajuste masivo');
+      const { conApartados } = await bulkUpdateProducts(selectedProducts, updates, motivo || 'Ajuste masivo');
+      const tocados = n - conApartados.length;
       const campos = Object.keys(updates).filter((k) => k !== 'updatedAt').length;
-      toast.success(
-        `${n} ${n === 1 ? 'producto actualizado' : 'productos actualizados'} · ` +
-        `${campos} ${campos === 1 ? 'campo' : 'campos'}` +
-        `${typeof updates.stock === 'number' ? ' · queda en el kardex' : ''}`,
-      );
+      if (tocados > 0) {
+        toast.success(
+          `${tocados} ${tocados === 1 ? 'producto actualizado' : 'productos actualizados'} · ` +
+          `${campos} ${campos === 1 ? 'campo' : 'campos'}` +
+          `${typeof updates.stock === 'number' ? ' · queda en el kardex' : ''}`,
+        );
+      }
+      /*
+        Los que tienen unidades apartadas no entraron en el lote: ni el stock ni
+        NINGÚN otro campo de este lote (ver `bulkUpdateProducts`). Va como error
+        —no se borra solo— y con nombres, porque el operador cree que ajustó
+        todos, y esos quedaron exactamente como estaban.
+      */
+      if (conApartados.length > 0) {
+        const k = conApartados.length;
+        toast.error(
+          k === 1
+            ? `No se tocó ${listaNombres(conApartados)} porque tiene unidades apartadas. ` +
+              `Ajustalo desde su botón de stock: el conteo tiene que incluir las apartadas.`
+            : `No se tocaron ${k} productos porque tienen unidades apartadas: ${listaNombres(conApartados)}. ` +
+              `Ajustalos de a uno: el conteo tiene que incluir las apartadas.`,
+        );
+      }
       setSelectedProducts([]);
       closeModal();
     } catch (e: any) {
@@ -269,28 +376,57 @@ export default function Inventory() {
     if (!editingProduct) return;
 
     setIsSaving(true);
+    setErrorModal(null);
     const formData = new FormData(e.currentTarget);
-    const newStock = Number(formData.get('stock'));
+    /*
+      El número del campo es lo CONTADO en la tienda, apartadas incluidas, y va
+      SIEMPRE con `conteoFisico`: el hook descuenta las apartadas que diga el
+      SERVIDOR en la misma transacción. Con 0 apartadas el conteo es el stock y
+      no cambia nada; y si en el medio se apartó algo desde el POS, la cuenta
+      igual da, porque no depende de lo que esta pantalla creía al abrir.
+    */
+    const conteo = Number(formData.get('stock'));
     const newMinAlert = Number(formData.get('minStockAlert'));
     const motivo = ((formData.get('motivo') as string) || '').trim();
+    const apartadas = apartadasDe(products.find((p) => p.id === editingProduct.id) || editingProduct);
+    // "¿Cambió?" contra lo que el campo MOSTRÓ al abrir (la foto que quedó en
+    // `editingProduct`), no contra la caché viva: una venta en el medio no es
+    // un cambio que haya hecho el operador.
+    const cambioStock = conteo !== conteoDe(editingProduct);
 
     // P2.7: el ajuste manual exige motivo si el stock cambia.
-    if (newStock !== editingProduct.stock && !motivo) {
-      toast.error('Indicá el motivo del ajuste de stock (queda en el kardex).');
+    if (cambioStock && !motivo) {
+      setErrorModal('Indicá el motivo del ajuste de stock: queda en el kardex.');
       setIsSaving(false);
       return;
     }
 
-    // Automatically remove the reordering flag if stock goes above the min alert
-    const isNowLowStock = newStock <= newMinAlert;
+    // Automatically remove the reordering flag if stock goes above the min alert.
+    // Contra lo DISPONIBLE, que es lo que mira la alerta: lo apartado no se vende.
+    const isNowLowStock = conteo - apartadas <= newMinAlert;
     const updatedIsReordering = isNowLowStock ? editingProduct.isReordering : false;
 
     try {
-      // P2.7: adjustStock deja el movimiento en el kardex (transaccional).
-      await adjustStock(editingProduct, newStock, motivo, {
-        minStockAlert: newMinAlert,
-        isReordering: updatedIsReordering,
-      });
+      if (cambioStock) {
+        // P2.7: adjustStock deja el movimiento en el kardex (transaccional).
+        await adjustStock(editingProduct, conteo, motivo, {
+          minStockAlert: newMinAlert,
+          isReordering: updatedIsReordering,
+        }, { conteoFisico: true });
+      } else {
+        /*
+          Sin cambio de conteo NO se escribe el stock. Antes este camino igual
+          llamaba a `adjustStock` con el número de cuando se ABRIÓ el diálogo: si
+          mientras tanto el POS vendía una unidad, guardar sólo la alerta mínima
+          devolvía el stock al valor viejo y deshacía la venta (con un "ajuste"
+          en el kardex que nadie había pedido). Ahora se escriben sólo los dos
+          campos que este diálogo cambia.
+        */
+        await bulkUpdateProducts([editingProduct.id], {
+          minStockAlert: newMinAlert,
+          isReordering: updatedIsReordering,
+        });
+      }
       closeModal();
       /*
         Era la única escritura de inventario que no confirmaba nada: el modal se
@@ -299,19 +435,18 @@ export default function Inventory() {
         dice cuántas unidades entraron— y ésta, que exige motivo y escribe en el
         kardex, se iba en silencio.
       \*/
-      if (newStock !== editingProduct.stock) {
-        toast.success(
-          `«${editingProduct.name}»: ${editingProduct.stock} → ${newStock} unidades. Queda en el kardex.`,
-        );
+      if (cambioStock) {
+        toast.success(avisoAjuste(editingProduct.name, editingProduct.stock, conteo, apartadas));
       } else {
         toast.success(`«${editingProduct.name}» actualizado.`);
       }
     } catch (error: any) {
       console.error('Error updating stock:', error);
-      // El mensaje real: `adjustStock` lanza "El producto ya no existe", y las
-      // reglas y la cuota vienen humanizadas desde `db.ts`. Aplastarlo con un
-      // genérico le quitaba al operador el único dato que sirve.
-      toast.error(error?.message || 'No se pudo actualizar el stock. Intentá de nuevo.');
+      // El mensaje real: `adjustStock` lanza "El producto ya no existe" o
+      // "Contaste N, pero hay M unidades apartadas…", y las reglas y la cuota
+      // vienen humanizadas desde `db.ts`. Aplastarlo con un genérico le quitaba
+      // al operador el único dato que sirve.
+      setErrorModal(error?.message || 'No se pudo actualizar el stock. Intentá de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -320,6 +455,7 @@ export default function Inventory() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
+    setErrorModal(null);
     const formData = new FormData(e.currentTarget);
     
     try {
@@ -347,10 +483,22 @@ export default function Inventory() {
       };
 
       if (editingProduct) {
-        // P2.7: si el form de edición cambió el stock, dejar rastro en kardex.
-        if (productData.stock !== editingProduct.stock) {
-          const { stock: _s, ...rest } = productData;
-          await adjustStock(editingProduct, productData.stock, 'Edición de producto', rest);
+        /*
+          P2.7: si el form de edición cambió el stock, dejar rastro en kardex.
+
+          En una edición, `productData.stock` es el CONTEO FÍSICO que muestra el
+          campo (disponible + apartadas), así que va con `conteoFisico`, igual
+          que el ajuste rápido. Y "¿cambió?" se compara contra lo que el campo
+          mostró al abrir: comparado con el stock a secas, guardar un precio en
+          un producto con 1 apartada daba "cambió" sin que nadie tocara el
+          campo. Contra la caché viva tampoco: una venta en el medio daría
+          "cambió" y el ajuste la desharía.
+        */
+        if (productData.stock !== conteoDe(editingProduct)) {
+          const { stock: conteo, ...rest } = productData;
+          await adjustStock(editingProduct, conteo, 'Edición de producto', rest, { conteoFisico: true });
+          const apartadas = apartadasDe(products.find((p) => p.id === editingProduct.id) || editingProduct);
+          toast.success(avisoAjuste(productData.name, editingProduct.stock, conteo, apartadas));
         } else {
           await updateProduct(productData);
         }
@@ -362,11 +510,65 @@ export default function Inventory() {
       console.error('Error saving product:', error);
       // Acá el mensaje importa todavía más: el más frecuente es
       // "Ya existe otro producto con el SKU X", que dice exactamente qué hacer.
-      toast.error(error?.message || 'No se pudo guardar el producto. Intentá de nuevo.');
+      setErrorModal(error?.message || 'No se pudo guardar el producto. Intentá de nuevo.');
     } finally {
       setIsSaving(false);
     }
   };
+
+  /*
+    Lo que muestran los dos formularios de stock sobre las apartadas. Se lee del
+    producto VIVO, no de la foto de `editingProduct`: si mientras el diálogo
+    está abierto se aparta o se cancela algo desde el POS, el rótulo y la cuenta
+    se corrigen solos. El número tipeado sigue valiendo, porque apartar y
+    cancelar no cambian lo que hay en el estante (stock + apartadas).
+  */
+  const productoVivo = editingProduct
+    ? products.find((p) => p.id === editingProduct.id) || editingProduct
+    : null;
+  const apartadasVivas = apartadasDe(productoVivo);
+  const reservas = productoVivo && apartadasVivas > 0 ? apartadosConProducto(apartados, productoVivo.id) : [];
+  const conteoNum = conteoInput.trim() === '' ? NaN : Number(conteoInput);
+  const etiquetaConteo = apartadasVivas > 0
+    ? `Conteo físico (incluye ${apartadasVivas} ${apartadasVivas === 1 ? 'apartada' : 'apartadas'})`
+    : 'Stock actual';
+  const infoApartadas = apartadasVivas > 0 ? (
+    <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 space-y-1.5 text-xs">
+      <p className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-amber-400">
+        <HandCoins className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        Apartadas: en la tienda, pero no a la venta
+      </p>
+      {reservas.length > 0 && (
+        <ul className="text-zinc-300 space-y-0.5">
+          {reservas.map(({ apartado, unidades }) => (
+            <li key={apartado.id} className="truncate tabular-nums">
+              {apartado.numero} · {apartado.customerName} · {unidades}
+            </li>
+          ))}
+        </ul>
+      )}
+      {Number.isFinite(conteoNum) && conteoNum < apartadasVivas ? (
+        <p className="text-rose-300 font-semibold">
+          Contaste menos que las apartadas: falta mercadería que ya se está pagando. Revisalo antes de guardar.
+        </p>
+      ) : (
+        <p className="text-zinc-300 tabular-nums">
+          Se guarda como disponible:{' '}
+          {Number.isFinite(conteoNum)
+            ? <>{conteoNum} − {apartadasVivas} = <strong className="text-cyan-400">{conteoNum - apartadasVivas}</strong></>
+            : `conteo − ${apartadasVivas}`}
+        </p>
+      )}
+    </div>
+  ) : null;
+  const errorEnDialogo = errorModal ? (
+    <p role="alert" className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 leading-relaxed">
+      {errorModal}
+    </p>
+  ) : null;
+  const seleccionadosConApartadas = isBulkEditModalOpen
+    ? products.filter((p) => selectedProducts.includes(p.id) && apartadasDe(p) > 0)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -554,8 +756,20 @@ export default function Inventory() {
                       tienen anchos distintos y las comas de una columna no
                       alinean, que es un error de lectura esperando ocurrir. */}
                   <td className="px-4 py-2 text-right tabular-nums">{formatCurrency(product.price)}</td>
-                  <td className={`px-4 py-2 text-right ${isLowStock ? 'text-rose-400 font-medium' : 'text-zinc-300'}`}>
+                  <td className={`px-4 py-2 text-right tabular-nums whitespace-nowrap ${isLowStock ? 'text-rose-400 font-medium' : 'text-zinc-300'}`}>
                     {product.stock}
+                    {/* El stock es lo que se puede vender; lo apartado está en
+                        el estante y no se vende. Sin esto, contar 5 y ver 4
+                        parecía un faltante. */}
+                    {apartadasDe(product) > 0 && (
+                      <span
+                        className="ml-1.5 text-[10px] font-bold text-amber-400"
+                        title={`${apartadasDe(product)} ${apartadasDe(product) === 1 ? 'unidad apartada' : 'unidades apartadas'} para clientes: en la tienda, pero no a la venta`}
+                      >
+                        <span aria-hidden="true">+{apartadasDe(product)} apart.</span>
+                        <span className="sr-only">, más {apartadasDe(product)} {apartadasDe(product) === 1 ? 'apartada' : 'apartadas'}</span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-col items-center justify-center gap-1.5">
@@ -620,7 +834,7 @@ export default function Inventory() {
                       <PackageOpen className="h-4 w-4 inline" />
                     </button>
                     <button
-                      onClick={() => setBorrando(product)}
+                      onClick={() => pedirBorrado(product)}
                       className="text-zinc-400 hover:text-rose-400 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500 rounded"
                       title="Eliminar producto"
                       aria-label={`Eliminar «${product.name}» del catálogo`}
@@ -650,7 +864,14 @@ export default function Inventory() {
                 <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                   <History className="w-5 h-5 text-amber-400" /> Kardex — {kardexProduct.name}
                 </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">SKU {kardexProduct.sku} · Stock actual: <span className="text-cyan-400 font-bold">{kardexProduct.stock}</span></p>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  SKU {kardexProduct.sku} · Stock actual: <span className="text-cyan-400 font-bold">{kardexProduct.stock}</span>
+                  {/* La columna Stock del kardex es lo disponible: sin las
+                      apartadas al lado, el total del estante no se ve en ningún lado. */}
+                  {apartadasDe(kardexProduct) > 0 && (
+                    <> · Apartadas: <span className="text-amber-400 font-bold">{apartadasDe(kardexProduct)}</span></>
+                  )}
+                </p>
               </div>
               <button onClick={() => setKardexProduct(null)} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
                 <X className="w-4 h-4" />
@@ -734,20 +955,16 @@ export default function Inventory() {
                   
                   <div className="space-y-4 mt-4">
                     <div>
-                      <label className="block text-xs uppercase text-zinc-400 font-bold mb-1">Stock actual</label>
+                      {/* El rótulo pasó a ser un <label> de verdad: el campo tenía
+                          sólo `aria-label`, fijo en "Unidades en stock", y con
+                          apartadas lo que se tipea ya no es el stock. */}
+                      <label htmlFor="quick-stock-input" className="block text-xs uppercase text-zinc-400 font-bold mb-1">{etiquetaConteo}</label>
                       <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => {
-                          const input = document.getElementById('quick-stock-input') as HTMLInputElement;
-                          if(input) input.value = String(Math.max(0, Number(input.value) - 1));
-                        }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">-</button>
-                        {/* Sin `aria-label` no tenía nombre: su `id` sólo lo usan
-                            los botones de + y − por `getElementById`, no un <label>. */}
-                        <input id="quick-stock-input" required type="number" name="stock" aria-label="Unidades en stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-center text-lg font-bold text-cyan-400 tabular-nums focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
-                        <button type="button" onClick={() => {
-                          const input = document.getElementById('quick-stock-input') as HTMLInputElement;
-                          if(input) input.value = String(Number(input.value) + 1);
-                        }} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">+</button>
+                        <button type="button" aria-label="Una unidad menos" onClick={() => cambiarConteo(-1)} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">-</button>
+                        <input id="quick-stock-input" required type="number" name="stock" value={conteoInput} onChange={(e) => setConteoInput(e.target.value)} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-center text-lg font-bold text-cyan-400 tabular-nums focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <button type="button" aria-label="Una unidad más" onClick={() => cambiarConteo(1)} className="p-2 bg-zinc-800 rounded text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">+</button>
                       </div>
+                      {infoApartadas}
                     </div>
                     <div className="bg-zinc-950 p-3 rounded border border-zinc-800">
                       <label className="flex items-center gap-2 text-xs uppercase text-zinc-400 font-bold mb-2">
@@ -766,6 +983,7 @@ export default function Inventory() {
                       />
                       <p className="text-[10px] text-zinc-400 mt-1">Queda registrado en el kardex del producto.</p>
                     </div>
+                    {errorEnDialogo}
                   </div>
                 </div>
                 <div className="bg-zinc-900 border-t border-zinc-800 px-4 py-3 sm:px-6 flex gap-3 justify-end">
@@ -782,7 +1000,7 @@ export default function Inventory() {
                     disabled={isSaving}
                     className="w-full sm:w-auto inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-700 text-sm font-medium text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors disabled:opacity-50"
                   >
-                    {isSaving ? 'Guardando…' : 'Actualizar Stock'}
+                    {isSaving ? 'Guardando…' : errorModal ? 'Reintentar' : 'Actualizar Stock'}
                   </button>
                 </div>
               </form>
@@ -836,16 +1054,19 @@ export default function Inventory() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* `items-end`: con apartadas el rótulo del conteo ocupa dos
+                        renglones, y los dos campos tienen que quedar alineados. */}
+                    <div className="grid grid-cols-2 gap-4 items-end">
                       <div>
-                        <label htmlFor="inv-stock-actual" className="block text-xs uppercase text-zinc-400 font-bold mb-1">Stock actual</label>
-                        <input id="inv-stock-actual" required type="number" name="stock" defaultValue={editingProduct?.stock} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <label htmlFor="inv-stock-actual" className="block text-xs uppercase text-zinc-400 font-bold mb-1">{etiquetaConteo}</label>
+                        <input id="inv-stock-actual" required type="number" name="stock" value={conteoInput} onChange={(e) => setConteoInput(e.target.value)} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 tabular-nums focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                       <div>
                         <label htmlFor="inv-alerta-minima" className="block text-xs uppercase text-zinc-400 font-bold mb-1">Alerta mínima</label>
                         <input id="inv-alerta-minima" required type="number" name="minStockAlert" defaultValue={editingProduct?.minStockAlert} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                     </div>
+                    {infoApartadas}
 
                     <div>
                       <label htmlFor="inv-imagen-del-producto" className="block text-xs uppercase text-zinc-400 font-bold mb-1">Imagen del producto</label>
@@ -856,6 +1077,7 @@ export default function Inventory() {
                         </div>
                       )}
                     </div>
+                    {errorEnDialogo}
                   </div>
                 </div>
                 <div className="bg-zinc-900 border-t border-zinc-800 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
@@ -864,7 +1086,7 @@ export default function Inventory() {
                     disabled={isSaving}
                     className="w-full inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-cyan-700 text-base font-medium text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSaving ? 'Procesando…' : 'Guardar Cambios'}
+                    {isSaving ? 'Procesando…' : errorModal ? 'Reintentar' : 'Guardar Cambios'}
                   </button>
                   <button
                     type="button"
@@ -905,13 +1127,36 @@ export default function Inventory() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="inv-stock" className="block text-xs uppercase text-zinc-400 font-bold mb-1">Stock</label>
-                        <input id="inv-stock" type="number" name="stock" placeholder="Dejar vacío" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+                        <input id="inv-stock" type="number" name="stock" placeholder="Dejar vacío" onChange={(e) => setStockMasivo(e.target.value)} className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                       <div>
                         <label htmlFor="inv-alerta-minima-2" className="block text-xs uppercase text-zinc-400 font-bold mb-1">Alerta mínima</label>
                         <input id="inv-alerta-minima-2" type="number" name="minStockAlert" placeholder="Dejar vacío" className="block w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
                       </div>
                     </div>
+                    {/*
+                      ANTES de aplicar, no después: el lote escribe el mismo
+                      stock en todos, y en un producto con apartadas ese número
+                      no puede ser el stock (el conteo las incluye). El hook los
+                      saltea enteros —tampoco les aplica precio ni categoría—, y
+                      enterarse recién en el aviso final obliga a rehacer el lote.
+                    */}
+                    {stockMasivo.trim() !== '' && seleccionadosConApartadas.length > 0 && (
+                      <div role="status" className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-relaxed">
+                        <p className="font-bold text-amber-400 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          {seleccionadosConApartadas.length === 1
+                            ? '1 producto tiene unidades apartadas'
+                            : `${seleccionadosConApartadas.length} productos tienen unidades apartadas`}
+                        </p>
+                        <p className="text-zinc-300 mt-1">
+                          {listaNombres(seleccionadosConApartadas.map((p) => p.name))}.{' '}
+                          {seleccionadosConApartadas.length === 1
+                            ? 'Con el stock en el lote, a ese no se le aplica ningún cambio, tampoco precio, categoría ni alerta: su conteo tiene que incluir las apartadas, y se ajusta de a uno.'
+                            : 'Con el stock en el lote, a esos no se les aplica ningún cambio, tampoco precio, categoría ni alerta: su conteo tiene que incluir las apartadas, y se ajustan de a uno.'}
+                        </p>
+                      </div>
+                    )}
                     {/* P2.7: motivo si se ajusta stock en masa */}
                     <div>
                       <label htmlFor="inv-motivo-si-ajusta-stock" className="block text-xs uppercase text-zinc-400 font-bold mb-1">Motivo (si ajusta stock)</label>

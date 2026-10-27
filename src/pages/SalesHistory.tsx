@@ -32,8 +32,18 @@ const localDayStart = (str: string) => {
 export default function SalesHistory() {
   const {
     sales, deleteSale, updateSale, changeSaleStatus, recordSale, loading, companyInfo,
-    olderSales, hasMoreOlderSales, loadingOlderSales, loadMoreSales,
+    olderSales, hasMoreOlderSales, loadingOlderSales, loadMoreSales, apartados,
   } = useStore();
+
+  /*
+    El número del apartado del que salió una factura. `paymentReference` lo
+    trae como "Apartado AP-000001" (es lo que imprime el recibo), así que se
+    prefiere el número del apartado en memoria y, si no está, se le saca el
+    prefijo para no decir "del apartado Apartado AP-…".
+  */
+  const numeroApartadoDe = (sale: Sale): string =>
+    apartados.find((ap) => ap.id === sale.apartadoId)?.numero ||
+    (sale.paymentReference || '').replace(/^Apartado\s+/i, '').trim();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -417,6 +427,17 @@ export default function SalesHistory() {
                        }`}>
                          {ESTADO_VENTA[estadoVenta] || estadoVenta}
                        </span>
+                       {/* Factura emitida al entregar un apartado: su stock salió
+                           al apartar y sus pagos están abono por abono en el
+                           apartado, no acá. */}
+                       {sale.apartadoId && (
+                         <span
+                           className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500"
+                           title={`Emitida al entregar el apartado ${numeroApartadoDe(sale) || ''}`.trim()}
+                         >
+                           Apartado
+                         </span>
+                       )}
                      </h4>
                      <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
                         <Calendar className="w-3 h-3" /> {new Date(sale.date).toLocaleString()}
@@ -661,6 +682,24 @@ export default function SalesHistory() {
                   {esProforma
                     ? 'Es una cotización: no toca stock.'
                     : 'Este cambio no mueve stock.'}
+                </p>
+              )}
+              {/*
+                `changeSaleStatus` no sabe de apartados: repone el stock como en
+                cualquier venta, pero el apartado sigue "entregado" y con sus
+                abonos cobrados — la anulación no los toca. Eso hay que saberlo
+                ANTES de confirmar, no descubrirlo después en Apartados.
+              */}
+              {sale.apartadoId && (
+                <p className="text-sm text-amber-400 leading-relaxed">
+                  {numeroApartadoDe(sale)
+                    ? `Esta factura salió del apartado ${numeroApartadoDe(sale)}`
+                    : 'Esta factura salió de un apartado'}
+                  {/* Volver a "Completada" una que se había anulado no repone
+                      nada: ahí "anularla repone el stock" diría lo contrario. */}
+                  {(nuevo || 'completed') === 'completed'
+                    ? ': el apartado sigue figurando como entregado, y este cambio no lo toca.'
+                    : ': anularla repone el stock, pero el apartado sigue figurando como entregado.'}
                 </p>
               )}
 

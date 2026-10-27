@@ -14,6 +14,7 @@ import SalesHistory from './pages/SalesHistory';
 import Settings from './pages/Settings';
 import Catalog from './pages/Catalog';
 import Customers from './pages/Customers';
+import Apartados from './pages/Apartados';
 import UniversalObjections from './components/UniversalObjections';
 import CategoryObjections from './components/CategoryObjections';
 import AvisoActualizacion from './components/AvisoActualizacion';
@@ -164,6 +165,7 @@ function AppContent() {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/pos" element={<POS />} />
+          <Route path="/apartados" element={<Apartados />} />
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/history" element={<SalesHistory />} />
           <Route path="/reports" element={<Reports />} />

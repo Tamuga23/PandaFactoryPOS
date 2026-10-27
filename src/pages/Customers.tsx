@@ -1,18 +1,43 @@
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { Customer, Sale } from '../types';
-import { Search, Plus, Trash2, Edit, User, Phone, MapPin, Mail, Calendar, History, Printer, MessageCircle, X, FileText, Loader2 } from 'lucide-react';
+import { Apartado, Customer, Sale } from '../types';
+import { Search, Plus, Trash2, Edit, User, Phone, MapPin, Mail, Calendar, History, Printer, MessageCircle, X, FileText, Loader2, HandCoins } from 'lucide-react';
 import { formatCurrency, formatCurrencyNIO } from '../lib/utils';
 import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { etiquetaVenta } from '../lib/etiquetas';
+import { BadgeEstado } from '../components/ApartadoPiezas';
+import { estadoVisible, redondearCordobas, saldoNio, type EstadoVisible } from '../lib/apartados';
 import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export default function Customers() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, loading, fetchSalesByCustomer, companyInfo } = useStore();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, loading, fetchSalesByCustomer, companyInfo, apartados } = useStore();
+
+  /*
+    Apartados por ficha. Se cruzan por `customerId`, que es lo único que liga un
+    apartado a una ficha: el nombre y el teléfono viajan COPIADOS en el apartado
+    —son el canal de cobro y tienen que sobrevivir a la ficha— y pueden no
+    coincidir con ella si se editó después. Uno hecho sin ficha no aparece acá.
+
+    Se leen de memoria (la suscripción a `apartados` trae la colección entera),
+    así que a diferencia de las compras no hay consulta que esperar.
+  */
+  const apartadosPorCliente = React.useMemo(() => {
+    const porCliente = new Map<string, Apartado[]>();
+    for (const ap of apartados) {
+      if (!ap.customerId) continue;
+      const lista = porCliente.get(ap.customerId);
+      if (lista) lista.push(ap);
+      else porCliente.set(ap.customerId, [ap]);
+    }
+    return porCliente;
+  }, [apartados]);
+  const activosDe = (customerId: string) =>
+    (apartadosPorCliente.get(customerId) || []).filter((ap) => ap.status === 'activo');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -122,6 +147,26 @@ export default function Customers() {
       // acción por no haber podido mostrar un aviso. El diálogo lo dice.
       setBorrando((b) => (b && b.cliente.id === cliente.id ? { ...b, compras: -1 } : b));
     }
+  };
+
+  /*
+    Borrar la ficha no toca sus apartados, y está bien que no los toque: el
+    apartado lleva su propia copia del nombre y del teléfono, así que se puede
+    seguir cobrando y entregando. Lo que se pierde es el vínculo —el apartado
+    queda apuntando a una ficha que ya no existe— y eso sí hay que decirlo
+    antes, con los números, para poder buscarlos después en Apartados.
+  */
+  const avisoApartados = (cliente?: Customer | null) => {
+    if (!cliente) return [];
+    const activos = activosDe(cliente.id);
+    if (activos.length === 0) return [];
+    const numeros = activos.map((ap) => ap.numero).join(', ');
+    return [{
+      tono: 'peligro' as const,
+      texto: activos.length === 1
+        ? `Tiene 1 apartado activo (${numeros}). El apartado conserva el nombre y el teléfono, pero queda sin ficha: deja de aparecer en su historial.`
+        : `Tiene ${activos.length} apartados activos (${numeros}). Los apartados conservan el nombre y el teléfono, pero quedan sin ficha: dejan de aparecer en su historial.`,
+    }];
   };
 
   const confirmarBorrado = async () => {
@@ -236,6 +281,21 @@ export default function Customers() {
                         <p className="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3" /> Registrado: {new Date(customer.createdAt).toLocaleDateString()}
                         </p>
+                        {/* Plata del cliente que la tienda tiene en la mano y
+                            mercadería suya en el estante: se ve sin abrir nada. */}
+                        {(() => {
+                          const activos = activosDe(customer.id);
+                          if (activos.length === 0) return null;
+                          const saldo = redondearCordobas(activos.reduce((s, ap) => s + Math.max(0, saldoNio(ap)), 0));
+                          return (
+                            <span className="inline-flex mt-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold tabular-nums">
+                              {activos.length === 1 ? 'Apartado' : `${activos.length} apartados`}
+                              {saldo > 0
+                                ? ` · saldo ${formatCurrencyNIO(saldo)}`
+                                : ` · ${activos.length === 1 ? 'listo' : 'listos'} para entregar`}
+                            </span>
+                          );
+                        })()}
                       </div>
                    </div>
                 </div>
@@ -346,6 +406,58 @@ export default function Customers() {
             })()}
 
             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
+              {/*
+                Los apartados van ARRIBA de las compras: un apartado activo es
+                plata a cuenta y mercadería en el estante, lo primero que hay que
+                saber del cliente que está en el mostrador. Cada uno lleva a su
+                ficha en Apartados, que es donde se abona, se entrega o se cancela.
+              */}
+              {(() => {
+                const propios = apartadosPorCliente.get(historyCustomer.id) || [];
+                if (propios.length === 0) return null;
+                const ahora = Date.now();
+                // Vienen por fecha (más nuevo primero); los activos pasan adelante.
+                const orden = [...propios].sort((a, b) => Number(b.status === 'activo') - Number(a.status === 'activo'));
+                return (
+                  <>
+                  <section aria-labelledby="historial-cliente-apartados" className="space-y-2">
+                    <h4 id="historial-cliente-apartados" className="text-[10px] uppercase font-bold text-zinc-400 pt-1">
+                      Apartados
+                    </h4>
+                    {orden.map((ap) => {
+                      const estado = estadoVisible(ap, ahora);
+                      return (
+                        <Link
+                          key={ap.id}
+                          to={`/apartados?q=${encodeURIComponent(ap.numero)}`}
+                          className="bg-zinc-800/40 border border-zinc-700/50 hover:border-zinc-600 rounded-lg p-3 flex items-center justify-between gap-3 transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-zinc-200 flex items-center gap-2 flex-wrap">
+                              <HandCoins className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
+                              {ap.numero}
+                              {/* El mismo badge que la pantalla de Apartados. */}
+                              <BadgeEstado estado={estado} />
+                            </p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">
+                              {new Date(ap.fecha).toLocaleDateString()} · {ap.items.length} ítem(s) · {ap.items.slice(0, 2).map(i => i.name).join(', ')}{ap.items.length > 2 ? '…' : ''}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-bold text-cyan-400 tabular-nums">{formatCurrencyNIO(ap.totalNio)}</p>
+                            {ap.status === 'activo' && (
+                              <p className="text-[10px] text-zinc-400 tabular-nums">Saldo {formatCurrencyNIO(saldoNio(ap))}</p>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </section>
+                  {/* Con apartados arriba, las compras necesitan su rótulo. */}
+                  <h4 className="text-[10px] uppercase font-bold text-zinc-400 pt-2">Compras</h4>
+                  </>
+                );
+              })()}
               {loadingHistory ? (
                 <div className="p-10 text-center text-zinc-400 flex justify-center items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" /> Cargando historial…
@@ -494,6 +606,7 @@ export default function Customers() {
         nombre={borrando?.cliente.fullName || ''}
         detalle={borrando ? [borrando.cliente.phone, borrando.cliente.email].filter(Boolean).join(' · ') || 'Sin teléfono ni correo' : null}
         consecuencias={[
+          ...avisoApartados(borrando?.cliente),
           borrando?.compras === null
             ? { tono: 'neutro' as const, texto: 'Contando sus compras…' }
             : borrando?.compras === -1

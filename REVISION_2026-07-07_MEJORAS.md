@@ -1,5 +1,26 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — P2.3: apartados con prima y abonos (2026-10-26/27)
+
+La parte de P2.3 que decía "el apartado/layaway es común en Nicaragua y encaja
+aquí mismo" está hecha. Lo que P2.3 llamaba "CREDITO con saldo pendiente" NO:
+el dueño decidió que el producto se entrega sólo con el saldo en cero, así que
+entregar debiendo (cuentas por cobrar) sigue en el backlog. Detalle completo,
+decisiones del dueño y modelo en `AGENTS.md` § "Estado al 2026-10-26".
+
+- Colección `apartados`; botón **Apartar (F4)** en el POS y pantalla
+  `/apartados`. El stock sale al apartar (kardex `apartado`), la factura —un
+  RECIBO_OFICIAL normal— recién al entregar, y cancelar devuelve las unidades
+  (kardex `liberacion`) al costo con que salieron.
+- `Product.apartadas`: el Inventario pide CONTEO FÍSICO cuando hay unidades
+  apartadas y graba `stock = conteo − apartadas`.
+- La cuenta va en centavos y se redondea como el papel: el `round2` de
+  `validations.ts` difiere de lo impreso en casos reales (3 × US$50 a 36.6243).
+  `npm run apartados:test`.
+- De paso, dos bugs que ya existían: F2/F3 facturaban el precio de ANTES de la
+  negociación si se apretaban con el precio de la línea en edición, y el "Total
+  a cobrar" del POS podía diferir un centavo de la factura cuando había envío.
+
 ## ESTADO — Los caminos de escritura y la conformidad (2026-09-22)
 
 Se corrieron evaluadores **a ciegas**: sin decirles qué se había tocado en las

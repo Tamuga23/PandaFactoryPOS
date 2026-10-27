@@ -18,8 +18,27 @@ export interface InvoiceItem {
   sku?: string;
 }
 
+/** Un abono como se imprime en el comprobante de apartado. */
+export interface AbonoImpreso {
+  fecha: string;
+  /** Ya en español ("Transferencia", "Tarjeta de débito"). */
+  metodo: string;
+  referencia?: string;
+  montoNio: number;
+  /**
+   * Si se anuló: se imprime TACHADO con el motivo, y no suma. Un abono anulado
+   * no desaparece del papel: el cliente puede tener una copia anterior que lo
+   * mostraba, y ésta tiene que explicarla en vez de contradecirla en silencio.
+   */
+  anulado?: { motivo: string; fecha: string };
+}
+
 export interface InvoiceData {
-  type: 'RECIBO_OFICIAL' | 'PROFORMA';
+  /**
+   * `APARTADO` es el comprobante que se lleva el cliente al apartar y en cada
+   * abono. NO es una factura y lo dice: la factura se emite al entregar.
+   */
+  type: 'RECIBO_OFICIAL' | 'PROFORMA' | 'APARTADO';
   invoiceNumber: string;
   date: string;
   validUntil?: string; // used for PROFORMA
@@ -63,6 +82,23 @@ export interface InvoiceData {
   };
   mainLogo?: string;
   bankDetails?: string;
+  /** Sólo en el comprobante de apartado (`type: 'APARTADO'`). */
+  apartado?: {
+    estado: 'activo' | 'entregado' | 'cancelado';
+    /** Fecha límite de PAGO, como se imprime (dd/mm/aaaa). */
+    fechaLimite: string;
+    /** El día al que corresponde el saldo impreso: el de emisión de esta copia. */
+    saldoAl: string;
+    totalNio: number;
+    abonadoNio: number;
+    saldoNio: number;
+    /** Todos, en orden; los anulados vienen marcados y no suman. */
+    abonos: AbonoImpreso[];
+    /** La factura que se emitió al entregar. */
+    invoiceNumber?: string;
+    /** Lo que se le devolvió al cancelar. */
+    devueltoNio?: number;
+  };
 }
 
 interface InvoicePreviewProps {
@@ -86,6 +122,68 @@ const FOOTER_HEIGHT = 200; // Reduced from 310
 const TABLE_HEADER_HEIGHT = 35; // Reduced from 45
 const ITEM_WITH_IMAGE_HEIGHT = 65; // Reduced from 125
 const ITEM_WITHOUT_IMAGE_HEIGHT = 40; // Reduced from 65
+
+/*
+  El pie del comprobante de apartado crece: suma las filas de abonado y saldo
+  y la tabla de abonos. La hoja es `overflow-hidden` y el pie no se parte, así
+  que si la paginación no supiera su alto real, las últimas filas se
+  recortarían sin aviso — y son justo las que dicen cuánto pagó el cliente.
+  Por eso también se imprimen como máximo los últimos MAX_ABONOS_IMPRESOS: con
+  ese tope el pie entra siempre en una hoja sola.
+*/
+const ALTO_FILAS_SALDO = 60;
+const ALTO_TABLA_ABONOS = 50;
+const ALTO_FILA_ABONO = 18;
+const MAX_ABONOS_IMPRESOS = 12;
+
+/**
+ * Los textos que cambian según el tipo de documento, en un mapa EXHAUSTIVO.
+ *
+ * Antes eran ternarios `data.type === 'PROFORMA' ? … : …` repartidos por el
+ * componente, con la factura en la rama del `else`. Con un tercer tipo (el
+ * comprobante de apartado), cada ternario que nadie tocara lo trataba como
+ * factura: el PDF salía `factura_AP-000001_….pdf` sobre un papel que dice "no
+ * es una factura", y la barra anunciaba "Venta AP-000001 registrada". `tsc` no
+ * podía avisar, porque la comparación sigue compilando con un tipo más. Un
+ * `Record` sobre el tipo sí obliga a completar cada entrada, hoy y con el
+ * próximo documento que aparezca.
+ *
+ * Los textos de RECIBO_OFICIAL y PROFORMA son EXACTAMENTE los de antes:
+ * PRODUCT.md pide no tocar los campos del recibo oficial mientras su estatus
+ * fiscal no esté confirmado.
+ */
+const DOC: Record<InvoiceData['type'], {
+  /** Titular del papel. */
+  titulo: string;
+  rotuloNumero: string;
+  /** Prefijo del nombre del PDF. */
+  archivo: string;
+  ariaLabel: string;
+  /** Título de la barra antes de confirmar. */
+  revisar: string;
+  /** Título de la barra sin número. */
+  sinNumero: string;
+  confirmar: string;
+  emisor: string;
+  receptor: string;
+}> = {
+  RECIBO_OFICIAL: {
+    titulo: 'Factura', rotuloNumero: 'Factura No #', archivo: 'factura',
+    ariaLabel: 'Vista previa de la factura', revisar: 'Revisá la factura', sinNumero: 'Factura',
+    confirmar: 'Confirmar Venta', emisor: 'Facturado Por:', receptor: 'Facturado A:',
+  },
+  PROFORMA: {
+    titulo: 'Cotización', rotuloNumero: 'Cotización No #', archivo: 'proforma',
+    ariaLabel: 'Vista previa de la cotización', revisar: 'Revisá la cotización', sinNumero: 'Cotización',
+    confirmar: 'Guardar Cotización', emisor: 'Facturado Por:', receptor: 'Facturado A:',
+  },
+  APARTADO: {
+    titulo: 'Apartado', rotuloNumero: 'Apartado No #', archivo: 'apartado',
+    ariaLabel: 'Vista previa del comprobante de apartado', revisar: 'Revisá el apartado',
+    sinNumero: 'Comprobante de apartado', confirmar: 'Confirmar apartado',
+    emisor: 'Emitido por:', receptor: 'A nombre de:',
+  },
+};
 
 export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isConfirming, whatsApp, errorConfirmacion }: InvoicePreviewProps) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -131,6 +229,21 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
 
   if (!isOpen) return null;
 
+  const doc = DOC[data.type];
+
+  // Comprobante de apartado: los abonos que entran en el papel y su alto.
+  const abonosApartado = data.type === 'APARTADO' ? data.apartado?.abonos ?? [] : [];
+  const abonosVisibles = abonosApartado.slice(-MAX_ABONOS_IMPRESOS);
+  const abonosOcultos = abonosApartado.slice(0, Math.max(0, abonosApartado.length - MAX_ABONOS_IMPRESOS));
+  const ocultosVigentes = abonosOcultos.filter((a) => !a.anulado);
+  const altoPie = FOOTER_HEIGHT + (
+    data.type === 'APARTADO'
+      ? ALTO_FILAS_SALDO + (abonosApartado.length > 0
+          ? ALTO_TABLA_ABONOS + ALTO_FILA_ABONO * (abonosVisibles.length + (abonosOcultos.length > 0 ? 1 : 0))
+          : 0)
+      : 0
+  );
+
   // Lógica de paginación matemática estricta
   const pages: { items: InvoiceItem[]; showHeader: boolean; showFooter: boolean }[] = [];
   let currentPageItems: InvoiceItem[] = [];
@@ -155,7 +268,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
     currentPageHeight += itemHeight;
   });
 
-  if (currentPageHeight + FOOTER_HEIGHT <= PAGE_HEIGHT_LIMIT) {
+  if (currentPageHeight + altoPie <= PAGE_HEIGHT_LIMIT) {
     pages.push({
       items: currentPageItems,
       showHeader: isFirstPage,
@@ -204,8 +317,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
     }
 
     const formattedName = data.client.fullName.replace(/\s+/g, '_');
-    const invoiceLabel = data.type === 'PROFORMA' ? 'proforma' : 'factura';
-    return { pdf, fileName: `${invoiceLabel}_${data.invoiceNumber}_${formattedName}.pdf` };
+    return { pdf, fileName: `${doc.archivo}_${data.invoiceNumber}_${formattedName}.pdf` };
   };
 
   const handleDownloadPDF = async () => {
@@ -237,8 +349,15 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
         await nav.share({ files: [file], text: whatsApp.text, title: result.fileName });
       } else {
         result.pdf.save(result.fileName);
-        if (whatsApp.link) window.open(whatsApp.link, '_blank');
-        toast.info('Este navegador no permite adjuntar directo: descargué el PDF — adjuntalo en el chat de WhatsApp que se abrió.');
+        // El aviso decía "el chat que se abrió" también cuando el teléfono no
+        // servía y no se abría nada: el operador buscaba una ventana que no
+        // existía. Ahora dice lo que de verdad pasó.
+        if (whatsApp.link) {
+          window.open(whatsApp.link, '_blank');
+          toast.info('Este navegador no permite adjuntar directo: descargué el PDF — adjuntalo en el chat de WhatsApp que se abrió.');
+        } else {
+          toast.info('Descargué el PDF, pero el teléfono no sirve para WhatsApp: mandalo a mano.');
+        }
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -257,7 +376,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
       aria-modal="true"
       tabIndex={-1}
       autoFocus
-      aria-label={data.type === 'PROFORMA' ? 'Vista previa de la cotización' : 'Vista previa de la factura'}
+      aria-label={doc.ariaLabel}
       className="dialogo-impresion fixed inset-0 z-[100] flex flex-col bg-zinc-900/90 backdrop-blur-sm overflow-hidden"
     >
       {/* Navbar modal */}
@@ -270,14 +389,22 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
         */}
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           {onConfirm ? (
-            <>Revisá la {data.type === 'PROFORMA' ? 'cotización' : 'factura'}</>
+            <>{doc.revisar}</>
+          ) : data.type === 'APARTADO' ? (
+            /*
+              Sin el check esmeralda de "registrada": este título también es el
+              de cada reimpresión, incluida la de un apartado CANCELADO, y ahí
+              un check de éxito diría lo contrario de lo que pasó. El alta ya
+              la confirma el aviso del POS.
+            */
+            <>{doc.sinNumero}{data.invoiceNumber ? ` ${data.invoiceNumber}` : ''}</>
           ) : data.invoiceNumber ? (
             <>
               <Check className="w-5 h-5 text-emerald-400" />
               {data.type === 'PROFORMA' ? 'Cotización' : 'Venta'} {data.invoiceNumber} registrada
             </>
           ) : (
-            <>{data.type === 'PROFORMA' ? 'Cotización' : 'Factura'}</>
+            <>{doc.sinNumero}</>
           )}
         </h2>
         <div className="flex items-center gap-4">
@@ -353,9 +480,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   ? 'Procesando...'
                   : errorConfirmacion
                     ? 'Reintentar'
-                    : data.type === 'PROFORMA'
-                      ? 'Guardar Cotización'
-                      : 'Confirmar Venta'}
+                    : doc.confirmar}
               </button>
               <button onClick={onClose} disabled={isConfirming} className="bg-zinc-800 text-zinc-300 hover:text-white px-4 py-2.5 rounded-lg hover:bg-zinc-700 transition-all font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500">
                 Editar Datos
@@ -454,7 +579,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h1 className="text-3xl font-extrabold text-[#1a6ba0] tracking-tight mb-4">
-                        {data.type === 'PROFORMA' ? 'Cotización' : 'Factura'}
+                        {doc.titulo}
                       </h1>
                       {/*
                         El renglón del número solo existe si hay número. El
@@ -465,7 +590,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                       */}
                       {data.invoiceNumber && (
                         <div className="flex items-center gap-4 text-[11px] font-semibold text-zinc-700">
-                          <span className="w-24">{data.type === 'PROFORMA' ? 'Cotización No #' : 'Factura No #'}</span>
+                          <span className="w-24">{doc.rotuloNumero}</span>
                           <span className="text-black font-bold uppercase">{data.invoiceNumber}</span>
                         </div>
                       )}
@@ -477,6 +602,31 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                         <div className="flex items-center gap-4 text-[11px] font-semibold text-rose-600 mt-1">
                           <span className="w-24">Válido hasta:</span>
                           <span className="font-bold">{data.validUntil}</span>
+                        </div>
+                      )}
+                      {/*
+                        La fecha límite es de PAGO: decía "Retirar antes de", que
+                        le promete al cliente un plazo para llevarse el producto y
+                        sugiere que después lo pierde. Lo que el sistema controla
+                        es hasta cuándo tiene para terminar de pagar. Sólo se
+                        imprime mientras está activo; cerrado, lo que importa es
+                        cómo terminó.
+                      */}
+                      {/* Con saldo en cero no hay nada que pagar antes de ninguna fecha. */}
+                      {data.type === 'APARTADO' && data.apartado?.estado === 'activo' && data.apartado.saldoNio > 0 && (
+                        <div className="flex items-center gap-4 text-[11px] font-semibold text-rose-600 mt-1">
+                          <span className="w-24">Pagar antes de:</span>
+                          <span className="font-bold">{data.apartado.fechaLimite}</span>
+                        </div>
+                      )}
+                      {data.type === 'APARTADO' && data.apartado && data.apartado.estado !== 'activo' && (
+                        <div className="flex items-center gap-4 text-[11px] font-semibold text-[#1a6ba0] mt-1">
+                          <span className="w-24">Estado:</span>
+                          <span className="font-bold">
+                            {data.apartado.estado === 'entregado'
+                              ? `Entregado${data.apartado.invoiceNumber ? ` · Factura ${data.apartado.invoiceNumber}` : ''}`
+                              : 'Cancelado'}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -499,7 +649,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                   <div className="grid grid-cols-2 gap-4 mb-8">
                     {/* Facturado Por */}
                     <div className="bg-[#dff3fa] p-3 rounded-xl shadow-sm border border-[#a2d8ed]">
-                      <h3 className="text-[9px] font-bold text-[#1a6ba0] uppercase tracking-wider mb-1">Facturado Por:</h3>
+                      <h3 className="text-[9px] font-bold text-[#1a6ba0] uppercase tracking-wider mb-1">{doc.emisor}</h3>
                       <p className="text-[11px] font-extrabold text-zinc-900 mb-0.5">{data.companyInfo?.name || 'Empresa'}</p>
                       <p className="text-[10px] text-zinc-600 leading-tight max-w-[90%] mb-1">
                         {data.companyInfo?.address || 'Dirección de la empresa'}
@@ -516,7 +666,7 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                     
                     {/* Facturado A */}
                     <div className="bg-[#dff3fa] p-3 rounded-xl shadow-sm border border-[#a2d8ed]">
-                      <h3 className="text-[9px] font-bold text-[#1a6ba0] uppercase tracking-wider mb-1">Facturado A:</h3>
+                      <h3 className="text-[9px] font-bold text-[#1a6ba0] uppercase tracking-wider mb-1">{doc.receptor}</h3>
                       <p className="text-[11px] font-extrabold text-zinc-900 mb-0.5">{data.client.fullName.toUpperCase() || 'CLIENTE FINAL'}</p>
                       <div className="flex text-[10px] text-zinc-700 leading-tight">
                         <span className="font-bold min-w-[55px]">Dirección:</span>
@@ -535,9 +685,11 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                         dejaba constancia de cómo pagó, y el número de
                         transferencia que se tipeaba en el POS no se podía leer en
                         ningún lado. Solo se imprime en el recibo oficial: en una
-                        cotización todavía no se pagó nada.
+                        cotización todavía no se pagó nada, y en un comprobante
+                        de apartado se pagó con VARIOS métodos, que van abono por
+                        abono en su tabla.
                       */}
-                      {data.type !== 'PROFORMA' && data.paymentMethod && (
+                      {data.type === 'RECIBO_OFICIAL' && data.paymentMethod && (
                         <div className="flex text-[10px] text-zinc-700 items-center leading-tight mt-1">
                           <span className="font-bold min-w-[60px]">Pago:</span>
                           <span className="text-black font-bold ml-1">
@@ -663,11 +815,139 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                      </div>
                                    </div>
                                  )}
+
+                                 {/* Comprobante de apartado: lo pagado y lo que
+                                     falta, con la fecha a la que corresponde. Dos
+                                     copias con saldos distintos se distinguen por
+                                     esa fecha. El saldo se imprime tal cual, sin
+                                     maquillar: si alguna vez diera negativo, que se
+                                     vea. */}
+                                 {data.type === 'APARTADO' && data.apartado && (
+                                   <div className="mt-1 pt-2.5 border-t border-dashed border-zinc-200 space-y-1.5">
+                                     <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-500">
+                                       <span>Abonado</span>
+                                       <span className="text-zinc-900 tabular-nums">{formatCurrencyNIO(data.apartado.abonadoNio)}</span>
+                                     </div>
+                                     {data.apartado.estado === 'cancelado' ? (
+                                       <div className="flex justify-between items-center text-[11px] font-bold">
+                                         <span className="text-zinc-900">Devuelto al cancelar</span>
+                                         <span className="text-zinc-900 tabular-nums">{formatCurrencyNIO(data.apartado.devueltoNio ?? 0)}</span>
+                                       </div>
+                                     ) : (
+                                       <div className="flex justify-between items-end font-extrabold uppercase pt-1">
+                                         <span className="text-zinc-900 text-[11px] leading-tight">
+                                           Saldo pendiente
+                                           <span className="block normal-case font-semibold text-[9px] text-zinc-500">al {data.apartado.saldoAl}</span>
+                                         </span>
+                                         <span className="text-[#135c7a] text-base tabular-nums">{formatCurrencyNIO(data.apartado.saldoNio)}</span>
+                                       </div>
+                                     )}
+                                   </div>
+                                 )}
                               </div>
                            </div>
                          </div>
 
+                         {/*
+                           Los abonos del apartado, uno por uno. Un abono ANULADO
+                           no desaparece: va tachado, con el motivo, y no suma.
+                           El cliente puede tener en el teléfono una copia vieja
+                           que lo mostraba; ésta tiene que explicarla.
+                         */}
+                         {data.type === 'APARTADO' && abonosApartado.length > 0 && (
+                           <div className="mb-4">
+                             <div className="flex gap-2 items-center mb-1.5">
+                               <div className="w-1.5 h-1.5 rounded-full bg-[#1a6ba0]" />
+                               <h3 className="font-bold text-[#1a6ba0] text-xs tracking-wide">Abonos</h3>
+                             </div>
+                             <table className="w-full text-left text-[9px]" style={{ tableLayout: 'fixed' }}>
+                               <thead>
+                                 <tr className="text-zinc-500 uppercase tracking-wider border-b border-zinc-200">
+                                   <th className="py-1 font-bold w-[15%]">Fecha</th>
+                                   <th className="py-1 font-bold w-[22%]">Forma de pago</th>
+                                   <th className="py-1 font-bold">Referencia</th>
+                                   <th className="py-1 font-bold text-right w-[18%]">Monto</th>
+                                 </tr>
+                               </thead>
+                               <tbody>
+                                 {abonosOcultos.length > 0 && (
+                                   <tr className="border-b border-zinc-100 text-zinc-600">
+                                     <td colSpan={3} className="py-1">
+                                       {ocultosVigentes.length} {ocultosVigentes.length === 1 ? 'abono anterior' : 'abonos anteriores'}
+                                     </td>
+                                     <td className="py-1 text-right font-bold text-zinc-900 tabular-nums">
+                                       {formatCurrencyNIO(ocultosVigentes.reduce((s, a) => s + a.montoNio, 0))}
+                                     </td>
+                                   </tr>
+                                 )}
+                                 {abonosVisibles.map((a, i) => (
+                                   <tr key={i} className="border-b border-zinc-100 last:border-0 text-zinc-700">
+                                     <td className={`py-1 tabular-nums ${a.anulado ? 'line-through text-zinc-500' : ''}`}>{a.fecha}</td>
+                                     <td className={`py-1 ${a.anulado ? 'line-through text-zinc-500' : ''}`}>{a.metodo}</td>
+                                     <td className={`py-1 truncate ${a.anulado ? 'text-rose-600' : ''}`}>
+                                       {a.anulado ? `Anulado el ${a.anulado.fecha}: ${a.anulado.motivo}` : (a.referencia || '—')}
+                                     </td>
+                                     <td className={`py-1 text-right font-bold tabular-nums ${a.anulado ? 'line-through text-zinc-500' : 'text-zinc-900'}`}>
+                                       {formatCurrencyNIO(a.montoNio)}
+                                     </td>
+                                   </tr>
+                                 ))}
+                               </tbody>
+                             </table>
+                           </div>
+                         )}
+
                          <div className="space-y-4 text-[9px] text-zinc-600 leading-snug pb-4">
+                           {data.type === 'APARTADO' ? (
+                             /*
+                               Condiciones del apartado, en lugar de "Pago" y
+                               "Garantía". Sin garantía: corre desde la factura,
+                               que se emite al entregar. Y SIN política de
+                               devolución: el dueño decide cuánto se devuelve en
+                               cada caso, así que el papel no promete nada.
+                             */
+                             /*
+                               Las condiciones dependen del ESTADO. Un apartado
+                               cancelado o entregado no puede seguir diciendo "quedan
+                               reservados a tu nombre": las unidades ya volvieron al
+                               stock, o ya se las llevó. Y el cliente puede recibir
+                               este papel por WhatsApp desde la pestaña de cerrados.
+                             */
+                             <div>
+                               <div className="flex gap-2 items-center mb-1.5">
+                                 <div className="w-1.5 h-1.5 rounded-full bg-[#1a6ba0]" />
+                                 <h3 className="font-bold text-[#1a6ba0] text-xs tracking-wide">
+                                   {data.apartado?.estado === 'cancelado'
+                                     ? 'Apartado cancelado'
+                                     : data.apartado?.estado === 'entregado'
+                                       ? 'Apartado entregado'
+                                       : 'Condiciones del apartado'}
+                                 </h3>
+                               </div>
+                               <div className="ml-3.5 space-y-0.5">
+                                 {data.apartado?.estado === 'cancelado' ? (
+                                   <p>Este apartado se canceló: los productos ya no están reservados.</p>
+                                 ) : data.apartado?.estado === 'entregado' ? (
+                                   <p>
+                                     Los productos se entregaron
+                                     {data.apartado.invoiceNumber ? ` con la factura ${data.apartado.invoiceNumber}` : ''}
+                                     : la garantía corre desde esa factura.
+                                   </p>
+                                 ) : (
+                                   <>
+                                     <p>
+                                       {(data.apartado?.saldoNio ?? 0) > 0
+                                         ? '1. Los productos quedan reservados a tu nombre. El saldo se completa antes de la fecha límite de pago indicada arriba.'
+                                         : '1. Los productos quedan reservados a tu nombre: el saldo ya está completo.'}
+                                     </p>
+                                     <p>2. Se entregan cuando el saldo pendiente llega a cero; en ese momento se emite la factura, y la garantía corre desde esa fecha.</p>
+                                     <p>3. Conservá este comprobante: cada abono queda registrado en él.</p>
+                                   </>
+                                 )}
+                               </div>
+                             </div>
+                           ) : (
+                           <>
                            <div>
                              <div className="flex gap-2 items-center mb-1.5">
                                <div className="w-1.5 h-1.5 rounded-full bg-[#1a6ba0]" />
@@ -709,11 +989,18 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                  .map((line, i) => <p key={i}>{line}</p>)}
                              </div>
                            </div>
+                           </>
+                           )}
                          </div>
 
                       <div className="text-center text-[8px] text-zinc-600 mt-6 pt-4 border-t border-zinc-100 flex flex-col gap-1 relative pb-2">
                         <p>Generado mediante <b>PandaStore System</b></p>
                         <p>Este documento electrónico es válido sin firma autógrafa.</p>
+                        {data.type === 'APARTADO' && (
+                          <p className="font-bold text-zinc-700">
+                            Este comprobante no es una factura. La factura se emite al entregar el producto.
+                          </p>
+                        )}
                       </div>
                    </div>
                  )}

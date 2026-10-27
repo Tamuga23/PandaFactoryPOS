@@ -91,6 +91,20 @@ export const formatCurrency = (amount: number, currency: 'USD' | 'NIO' = 'USD') 
   }).format(amount);
 };
 
+/**
+ * El número de WhatsApp de un teléfono tal como se tipea en el POS: 8 dígitos
+ * locales se completan con el 505 de Nicaragua; más de 8 se toman como número
+ * internacional completo; menos, no sirven y devuelve null.
+ *
+ * Vivía adentro de `buildWhatsAppMessage`. Salió para que el apartado valide el
+ * teléfono con la MISMA regla que después arma el link: un número que pasa la
+ * validación es, por construcción, uno que abre el chat.
+ */
+export const telefonoWhatsApp = (telefono?: string): string | null => {
+  const digits = (telefono || '').replace(/\D/g, '');
+  return digits.length === 8 ? `505${digits}` : digits.length > 8 ? digits : null;
+};
+
 export const formatCurrencyNIO = (amount: number) => {
   return new Intl.NumberFormat('es-NI', {
     style: 'currency',

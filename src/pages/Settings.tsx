@@ -10,6 +10,7 @@ import { writeBatch, doc, getDoc, setDoc, collection, query, getDocs } from 'fir
 // guard devolvia 0 y dejaba pasar cualquier numero. Ver src/lib/correlativos.ts.
 import { maximoFacturaEmitido } from '../lib/correlativos';
 import FinanciamientoSettings from '../components/FinanciamientoSettings';
+import ApartadosSettings from '../components/ApartadosSettings';
 import { toast } from '../components/Toast';
 
 export default function Settings() {
@@ -164,6 +165,14 @@ export default function Settings() {
    * P3.5 el SKU es único y el id es uuid, así que dos productos legítimamente
    * distintos pueden compartir nombre (el mismo modelo en dos colores). Por eso
    * la lista muestra el SKU: es lo único que los distingue a simple vista.
+   *
+   * Las unidades APARTADAS cuentan como stock para las dos cosas. Con todo
+   * apartado un producto tiene `stock` 0 y parece un duplicado vacío, pero esas
+   * unidades están en el estante con el nombre de un cliente: borrarlo deja al
+   * apartado sin adónde devolverlas si se cancela. Este lote borra con un batch
+   * directo, sin pasar por `deleteProduct` —que sí lo frena—, así que el filtro
+   * tiene que estar acá. Y el que se conserva es el de más unidades FÍSICAS: el
+   * de más `stock` a secas podía ser justo el vacío.
    */
   const duplicados = React.useMemo(() => {
     const porNombre = new Map<string, Product[]>();
@@ -173,12 +182,13 @@ export default function Settings() {
       porNombre.get(clave)!.push(p);
     });
 
+    const fisicas = (p: Product) => (p.stock || 0) + (p.apartadas || 0);
     const borrables: Product[] = [];
     const conStock: Product[] = [];
     porNombre.forEach((grupo) => {
       if (grupo.length < 2) return;
-      const orden = [...grupo].sort((a, b) => (b.stock - a.stock) || (b.createdAt - a.createdAt));
-      orden.slice(1).forEach((p) => (p.stock > 0 ? conStock : borrables).push(p));
+      const orden = [...grupo].sort((a, b) => (fisicas(b) - fisicas(a)) || (b.createdAt - a.createdAt));
+      orden.slice(1).forEach((p) => (p.stock > 0 || (p.apartadas || 0) > 0 ? conStock : borrables).push(p));
     });
     return { borrables, conStock };
   }, [products]);
@@ -385,6 +395,11 @@ export default function Settings() {
         />
       </div>
 
+      {/* Política de apartados: prima mínima y plazo (doc `config/apartados`). */}
+      <div className="mt-8">
+        <ApartadosSettings />
+      </div>
+
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mt-8">
         <div className="p-8 space-y-4">
           <h3 className="text-sm font-bold text-rose-500 uppercase flex items-center gap-2">
@@ -392,8 +407,9 @@ export default function Settings() {
           </h3>
           <p className="text-xs text-zinc-400">
             Busca productos con el <strong className="text-zinc-200">mismo nombre exacto</strong> y
-            conserva el de mayor stock. Los duplicados que tengan stock NO se borran acá:
-            se listan para que los revises de a uno desde Inventario.
+            conserva el que tiene más unidades (en stock más apartadas). Los duplicados que tengan
+            stock o unidades apartadas NO se borran acá: se listan para que los revises de a uno
+            desde Inventario.
           </p>
 
           {duplicados.borrables.length === 0 && duplicados.conStock.length === 0 && (
@@ -403,13 +419,16 @@ export default function Settings() {
           {duplicados.conStock.length > 0 && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1.5">
               <p className="text-[11px] uppercase tracking-wider font-bold text-amber-400">
-                {duplicados.conStock.length} con stock · no se borran acá
+                {duplicados.conStock.length} con stock o apartadas · no se borran acá
               </p>
               <ul className="text-xs text-zinc-300 space-y-0.5 list-none">
                 {duplicados.conStock.map((p) => (
                   <li key={p.id} className="flex justify-between gap-3">
                     <span className="truncate">{p.name}</span>
-                    <span className="text-zinc-400 shrink-0 tabular-nums">{p.sku} · {p.stock} en stock</span>
+                    <span className="text-zinc-400 shrink-0 tabular-nums">
+                      {p.sku} · {p.stock} en stock
+                      {(p.apartadas || 0) > 0 && ` · ${p.apartadas} ${p.apartadas === 1 ? 'apartada' : 'apartadas'}`}
+                    </span>
                   </li>
                 ))}
               </ul>
