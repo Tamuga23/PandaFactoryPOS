@@ -13,6 +13,7 @@
 *   **📦 Gestión de Inventario Avanzada:** Control estricto de existencias, cálculo automático de costo promedio ponderado y alertas de stock bajo.
 *   **🚢 Logística de Importación (Landed Cost):** Registro de compras, trackings, fletes marítimos/aéreos y prorrateo automático de gastos aduaneros para obtener el costo real del producto puesto en tienda.
 *   **🤝 CRM Integrado:** Gestión de clientes y proveedores, historial de ventas y seguimientos.
+*   **🧾 Apartados y saldos pendientes:** El cliente reserva productos dejando una prima y paga el resto en abonos. El stock queda reservado, cada abono se registra con su forma de pago y su comprobante, y la factura se emite al entregar, con el saldo en cero.
 *   **📱 Ecosistema Omnicanal:** Alimenta directamente a **PandaLink** (la PWA utilizada en las tablets del piso de venta) proyectando catálogos, fichas técnicas y manejo de objeciones comerciales.
 
 ---
@@ -63,7 +64,8 @@ El proyecto está construido con un enfoque moderno, priorizando la velocidad y 
 | `npm run dev` | Inicia el servidor de desarrollo local. |
 | `npm run build` | Compila la aplicación para producción en la carpeta `dist/`. |
 | `npm run lint` | Ejecuta TypeScript (`tsc --noEmit`) para validar tipos de datos. |
-| `npm run test:rules` | Ejecuta las pruebas de seguridad de Firestore (requiere Emulador). |
+| `npm run apartados:test` | Prueba la cuenta de los apartados: saldo, prima, abonos y redondeo igual al de la factura impresa. |
+| `npm run test:rules` | Ejecuta las pruebas de seguridad de Firestore (requiere Emulador y Java 21 o más nuevo). |
 
 ---
 

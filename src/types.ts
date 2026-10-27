@@ -1,5 +1,6 @@
 import type { FinanciamientoOverride } from './lib/financiamiento';
-export type { FinanciamientoOverride };
+import type { EstadoApartado, MetodoAbono } from './lib/apartados';
+export type { FinanciamientoOverride, EstadoApartado, MetodoAbono };
 
 export interface Product {
   id: string;
@@ -9,6 +10,20 @@ export interface Product {
   price: number;
   cost: number;
   stock: number;
+  /**
+   * Unidades APARTADAS: reservadas para un cliente que todavía está pagando.
+   *
+   * Ya NO están en `stock` —que es lo disponible para vender, y lo que lee el
+   * catálogo público para decir "disponible"—, pero SIGUEN FÍSICAMENTE EN LA
+   * TIENDA. Un conteo de inventario encuentra `stock + apartadas`, y si el
+   * número contado se escribiera tal cual en `stock`, las unidades del cliente
+   * volverían a estar a la venta. Por eso `adjustStock` lo lee del servidor y
+   * descuenta.
+   *
+   * Lo escriben SÓLO las transacciones de apartados (crear, entregar, cancelar)
+   * con datos del servidor. `updateProduct` no lo toca nunca, igual que `stock`.
+   */
+  apartadas?: number;
   minStockAlert: number;
   category: string;
   imageBase64?: string;
@@ -133,10 +148,102 @@ export interface Sale {
    */
   financiamiento?: VentaFinanciamiento;
   notes?: string;
-  
+  /**
+   * Si la venta se emitió al ENTREGAR un apartado: su id. El stock de esa venta
+   * salió al apartar, no al facturar, y los pagos están en el apartado (abono
+   * por abono) y resumidos en `notes`.
+   */
+  apartadoId?: string;
+
   ownerId: string;
   status: 'completed' | 'returned' | 'cancelled';
 }
+
+/**
+ * Un pago a cuenta de un apartado. INMUTABLE: una vez escrito no se edita ni se
+ * borra (las reglas lo hacen cumplir). Si se cargó mal, se le agrega una
+ * `AnulacionAbono` y queda impreso tachado.
+ */
+export interface AbonoApartado {
+  /** uuid que nace al ABRIR el diálogo: un reintento del mismo abono no lo duplica. */
+  id: string;
+  fecha: number;
+  /** En córdobas, redondeado como lo imprime el papel (ver lib/apartados.ts). */
+  montoNio: number;
+  metodo: MetodoAbono;
+  /** N° de transferencia o voucher. */
+  referencia?: string;
+}
+
+/** La corrección de un abono cargado por error. Se agrega; nunca se borra. */
+export interface AnulacionAbono {
+  abonoId: string;
+  motivo: string;
+  fecha: number;
+}
+
+/**
+ * Apartado: el cliente reserva productos dejando una prima y paga el resto en
+ * abonos. Colección `apartados`.
+ *
+ * NO es una venta. El stock sale al apartar (kardex `apartado`) y la factura
+ * —un RECIBO_OFICIAL normal, con su correlativo A-— recién se emite al entregar,
+ * con el saldo en cero (decisión del dueño, 2026-10-26: no se entrega debiendo).
+ * Mientras tanto el cliente se lleva un comprobante que dice que no es factura.
+ */
+export interface Apartado {
+  id: string;
+  /** `AP-000001`. Serie propia: contador `counters/apartados`. */
+  numero: string;
+  fecha: number;
+  /** Final del día local de la fecha límite de PAGO. Se puede mover. */
+  fechaLimite: number;
+  /** Las líneas del carrito, saneadas como las de una venta y SIN la foto. */
+  items: CartItem[];
+  /** USD, igual que en Sale. */
+  subtotal: number;
+  tax: number;
+  /** USD, igual que en Sale: subtotal + envío/tasa − descuento/tasa. */
+  total: number;
+  /** NIO, como lo tipeó el operador (igual que en Sale). */
+  discount?: number;
+  /** NIO, como lo tipeó el operador (igual que en Sale). */
+  shipping?: number;
+  exchangeRate: number;
+  /** Lo que el cliente paga en total, en córdobas. CONGELADO al apartar. */
+  totalNio: number;
+  /** El primero es la prima. Sólo crece al final. */
+  abonos: AbonoApartado[];
+  /** Sólo crece al final. */
+  anulaciones: AnulacionAbono[];
+  customerId?: string;
+  customerName: string;
+  /** Obligatorio: es el canal de cobro mientras dura el apartado. */
+  customerPhone: string;
+  customerEmail?: string;
+  customerAddress?: string;
+  transport?: string;
+  /** La "Nota en la factura" del POS: la ve el cliente en el comprobante y en la factura. */
+  notes?: string;
+  status: EstadoApartado;
+  /** Venta (RECIBO_OFICIAL) emitida al entregar. */
+  saleId?: string;
+  invoiceNumber?: string;
+  entregadoEn?: number;
+  canceladoEn?: number;
+  motivoCancelacion?: string;
+  /** Lo que se le devolvió al cancelar, de 0 a todo lo abonado. Se decide en cada caso. */
+  devueltoNio?: number;
+  ownerId: string;
+  updatedAt: number;
+}
+
+/** Lo que el POS manda para crear un apartado; el resto lo pone la transacción. */
+export type NuevoApartado = Omit<
+  Apartado,
+  | 'numero' | 'status' | 'ownerId' | 'updatedAt' | 'anulaciones'
+  | 'saleId' | 'invoiceNumber' | 'entregadoEn' | 'canceladoEn' | 'motivoCancelacion' | 'devueltoNio'
+>;
 
 export interface Supplier {
   id: string;
@@ -241,7 +348,12 @@ export interface Movimiento {
   productId: string;
   productName?: string;
   sku?: string;
-  tipo: 'venta' | 'devolucion' | 'compra' | 'reversion' | 'ajuste';
+  /**
+   * `apartado`: unidades que salen de `stock` reservadas para un cliente.
+   * `liberacion`: vuelven a `stock` porque el apartado se canceló.
+   * Entregar un apartado no mueve `stock` (ya había salido), así que no deja fila.
+   */
+  tipo: 'venta' | 'devolucion' | 'compra' | 'reversion' | 'ajuste' | 'apartado' | 'liberacion';
   /** Cambio de stock (+entra / -sale). */
   delta: number;
   /** Stock resultante después del movimiento (si se conoce). */
@@ -255,7 +367,13 @@ export interface Movimiento {
 
 export interface DashboardStats {
   totalProducts: number;
+  /** Valor a costo de lo que hay en la tienda: lo disponible MÁS lo apartado. */
   totalStockValue: number;
+  /**
+   * La parte de `totalStockValue` que está apartada, valuada al costo con que
+   * salió del stock (el `cost` que quedó congelado en el ítem del apartado).
+   */
+  totalApartadoValue: number;
   lowStockItems: Product[];
   recentSales: Sale[];
   totalSalesValue: number;

@@ -1,6 +1,6 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BarChart3, Store, LogOut, History, ShoppingBag, Settings as SettingsIcon, PackageOpen, Menu, X, Users, HelpCircle, Tag, AlertTriangle, HandCoins } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../context/StoreContext';
 import { logout } from '../lib/db';
@@ -8,6 +8,8 @@ import { logout } from '../lib/db';
 const navigation = [
   { name: 'Panel Principal', href: '/', icon: LayoutDashboard },
   { name: 'Terminal POS', href: '/pos', icon: ShoppingCart },
+  // Pegado al POS: un apartado nace en el carrito y se cobra acá.
+  { name: 'Apartados', href: '/apartados', icon: HandCoins },
   { name: 'Catálogo Maestro', href: '/catalog', icon: PackageOpen },
   { name: 'Control de Inventario', href: '/inventory', icon: Package },
   { name: 'Compras', href: '/purchases', icon: ShoppingBag },

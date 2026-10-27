@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, where } from 'firebase/firestore';
 import { db } from './db';
 
 /*
@@ -90,4 +90,36 @@ export const maximoFacturaEmitido = async (): Promise<number> => {
   }
 
   return max;
+};
+
+/**
+ * Siembra del contador de FACTURAS la primera vez: arranca desde el número
+ * máximo ya usado, para no reiniciar la numeración de un negocio en marcha. El
+ * número definitivo igual se asigna DENTRO de la transacción que emite.
+ *
+ * Vivía adentro de `recordSale`. Salió cuando apareció un segundo emisor de
+ * facturas —`entregarApartado`, que factura al entregar un apartado— para que
+ * los dos dependan del MISMO invariante y no de dos copias que el día de mañana
+ * divergen.
+ *
+ * El barrido que había antes ordenaba por `invoiceNumber` descendente y se
+ * quedaba con 30 filas. Como 'P' (0x50) > 'A' (0x41), las proformas se ordenan
+ * por encima de TODAS las facturas: con treinta proformas emitidas la ventana
+ * entera eran proformas, el filtro las descartaba, el máximo quedaba en 0, no
+ * se sembraba nada y la primera factura de un negocio en marcha salía
+ * `A-000001` OTRA VEZ, en silencio. `maximoFacturaEmitido` lo calcula por rango
+ * de prefijo, que es lo único que hace que el orden lexicográfico sea el
+ * numérico. Los apartados (`AP-`) caen fuera de los dos rangos.
+ *
+ * LANZA si no pudo leer o escribir: quien llama decide cómo avisarlo, porque si
+ * la siembra falla la transacción arranca desde 0 y los números salen repetidos.
+ */
+export const sembrarContadorFacturas = async (): Promise<void> => {
+  const ref = doc(db, 'counters', 'invoices');
+  const probe = await getDoc(ref);
+  if (probe.exists()) return;
+  const maxNum = await maximoFacturaEmitido();
+  if (maxNum > 0) {
+    await setDoc(ref, { value: maxNum, updatedAt: Date.now() });
+  }
 };

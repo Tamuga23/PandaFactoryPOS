@@ -23,15 +23,23 @@ service cloud.firestore {
     function isStaff() { return request.auth != null && request.auth.token.admin == true; }
     
     // Product Validation Blueprint
+    // El hasOnly de abajo tiene un espejo en src/lib/validations.ts
+    // (CAMPOS_PRODUCTO), que las transacciones usan para decir QUÉ campo sobra
+    // en vez de un permission-denied que culpa al deploy. Si cambia uno, cambia
+    // el otro.
     function isValidProduct(data) {
       return data.keys().hasAll(['sku', 'name', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'createdAt', 'updatedAt', 'ownerId'])
-        && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
+        && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
             'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'])
         && data.sku is string && data.sku.size() <= 50
         && data.name is string && data.name.size() <= 100
         && data.price is number && data.price >= 0
         && data.cost is number && data.cost >= 0
         && data.stock is number && data.stock >= 0
+        // Unidades reservadas para clientes que están pagando un apartado:
+        // fuera de `stock`, pero en la tienda. Lo escriben sólo las
+        // transacciones de apartados.
+        && (!('apartadas' in data) || (data.apartadas is number && data.apartadas >= 0))
         && data.minStockAlert is number && data.minStockAlert >= 0
         && data.category is string && data.category.size() <= 50
         && (data.ownerId is string)
@@ -71,7 +79,9 @@ service cloud.firestore {
 
     function isValidSale(data) {
       return data.keys().hasAll(['date', 'items', 'subtotal', 'tax', 'total', 'invoiceNumber', 'ownerId'])
-        && data.keys().hasOnly(['date', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'transport', 'invoiceNumber', 'ownerId', 'id', 'status', 'documentType', 'clientDocumentType', 'currency', 'exchangeRate', 'paymentMethod', 'clientDocumentNumber', 'paymentReference', 'notes', 'customerId', 'financiamiento'])
+        && data.keys().hasOnly(['date', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'transport', 'invoiceNumber', 'ownerId', 'id', 'status', 'documentType', 'clientDocumentType', 'currency', 'exchangeRate', 'paymentMethod', 'clientDocumentNumber', 'paymentReference', 'notes', 'customerId', 'financiamiento', 'apartadoId'])
+        // La venta que se emite al entregar un apartado lleva su id.
+        && (!('apartadoId' in data) || (data.apartadoId is string && data.apartadoId.size() <= 128))
         && (data.ownerId is string)
         && (data.date is number || data.date is timestamp)
         && data.items is list && data.items.size() <= 100
@@ -253,7 +263,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().ownerId == existing().ownerId
         && incoming().diff(existing()).affectedKeys().hasOnly([
-            'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
+            'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
             'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'
         ]);
       allow delete: if isStaff() && isValidId(productId);
@@ -320,12 +330,29 @@ service cloud.firestore {
     // le cobra a la tienda vive en scripts/reporte_financiamiento.mjs, no aca).
     // Abrirlo evita que PandaLink/PandaWEB caigan en silencio a las condiciones
     // por defecto y le coticen al cliente cuotas que no son las vigentes.
+    // Política de apartados (doc `config/apartados`): prima mínima en % del
+    // total y plazo en días. No hay nada privado acá: es la condición que se le
+    // dice al cliente al apartar.
+    function isValidConfigApartados(data) {
+      return data.keys().hasAll(['primaMinimaPct', 'plazoDias'])
+        && data.keys().hasOnly(['primaMinimaPct', 'plazoDias', 'actualizadoEn'])
+        && data.primaMinimaPct is number && data.primaMinimaPct >= 0 && data.primaMinimaPct <= 100
+        // El SDK manda todo entero como integerValue, así que `is int` acepta
+        // lo que escribe el POS y rechaza un 30.5.
+        && data.plazoDias is int && data.plazoDias >= 1 && data.plazoDias <= 365
+        && (!('actualizadoEn' in data) || data.actualizadoEn is number);
+    }
+
     match /config/{docId} {
       allow get: if true;
       allow list: if true;
-      allow write: if isStaff()
-        && docId == 'financiamiento'
-        && isValidConfigFinanciamiento(incoming());
+      // `isStaff()` envuelve las DOS ramas con paréntesis. Escrita como
+      // `isStaff() && A || B`, la rama B quedaba sin isStaff(): `&&` liga más
+      // fuerte que `||`, y la lectura de config ya es pública.
+      allow write: if isStaff() && (
+        (docId == 'financiamiento' && isValidConfigFinanciamiento(incoming()))
+        || (docId == 'apartados' && isValidConfigApartados(incoming()))
+      );
     }
 
     match /customers/{customerId} {
@@ -345,13 +372,163 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // Apartados: el cliente reserva productos dejando una prima y paga el
+    // resto en abonos. NO es una venta: el stock sale al apartar (kardex
+    // 'apartado') y la factura recién se emite al entregar, con el saldo en
+    // cero. Es un registro de plata: no se borra nunca, igual que el kardex.
+    //
+    // Tres garantías que el código del cliente solo no alcanza a dar:
+    //  1. Abonos y anulaciones sólo CRECEN AL FINAL, de a un elemento válido
+    //     por escritura. Un abono no se edita ni se borra: si se cargó mal se
+    //     anula, y queda impreso tachado. Sin el chequeo de prefijo, validar
+    //     `abonos[0]` (lo único que permite un lenguaje sin bucles) volvía a
+    //     mirar la prima en cada escritura y nunca el abono que entraba.
+    //  2. Cada transición de estado toca SÓLO sus campos (affectedKeys). Lo
+    //     pactado —líneas, totales, tasa, número— no está en ninguna de las
+    //     listas, así que no cambia nunca.
+    //  3. Entregado y cancelado son terminales: no reciben abonos ni cambian
+    //     su devolución ni su factura.
+    // ---------------------------------------------------------------------
+    function isValidAbono(a) {
+      return a is map
+        && a.keys().hasAll(['id', 'fecha', 'montoNio', 'metodo'])
+        && a.keys().hasOnly(['id', 'fecha', 'montoNio', 'metodo', 'referencia'])
+        && a.id is string && a.id.size() > 0 && a.id.size() <= 128
+        && a.fecha is number
+        && a.montoNio is number && a.montoNio > 0
+        && a.metodo in ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']
+        && (!('referencia' in a) || (a.referencia is string && a.referencia.size() <= 100));
+    }
+
+    function isValidAnulacion(x) {
+      return x is map
+        && x.keys().hasAll(['abonoId', 'motivo', 'fecha'])
+        && x.keys().hasOnly(['abonoId', 'motivo', 'fecha'])
+        && x.abonoId is string && x.abonoId.size() > 0 && x.abonoId.size() <= 128
+        && x.motivo is string && x.motivo.size() > 0 && x.motivo.size() <= 300
+        && x.fecha is number;
+    }
+
+    // `nuevo` es `viejo` sin tocar, o `viejo` más UN elemento válido al final.
+    //
+    // El `viejo.size() == 0 ||` NO es redundante: con la lista vieja vacía,
+    // `nuevo[0:0]` no da la lista vacía, da "Index out of bound" y la regla
+    // rechaza. Medido en el emulador: sin esa guarda no entraba NUNCA la
+    // primera anulación, y como las demás van detrás de ella, ninguna.
+    function abonosSoloCrecen(nuevo, viejo) {
+      return nuevo == viejo
+        || (nuevo.size() == viejo.size() + 1
+            && (viejo.size() == 0 || nuevo[0:viejo.size()] == viejo)
+            && isValidAbono(nuevo[viejo.size()]));
+    }
+
+    function anulacionesSoloCrecen(nuevo, viejo) {
+      return nuevo == viejo
+        || (nuevo.size() == viejo.size() + 1
+            && (viejo.size() == 0 || nuevo[0:viejo.size()] == viejo)
+            && isValidAnulacion(nuevo[viejo.size()]));
+    }
+
+    // Los topes del cliente son los de isValidSale: al entregar, estos datos se
+    // copian a una venta que tiene que pasar esa regla. Un apartado aceptado
+    // tiene que ser una factura que se pueda emitir.
+    function isValidApartado(data) {
+      return data.keys().hasAll(['numero', 'fecha', 'fechaLimite', 'items', 'subtotal', 'tax', 'total', 'exchangeRate', 'totalNio', 'abonos', 'anulaciones', 'customerName', 'customerPhone', 'status', 'ownerId', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'numero', 'fecha', 'fechaLimite', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'exchangeRate', 'totalNio', 'abonos', 'anulaciones',
+            'customerId', 'customerName', 'customerPhone', 'customerEmail', 'customerAddress', 'transport', 'notes', 'status',
+            'saleId', 'invoiceNumber', 'entregadoEn', 'canceladoEn', 'motivoCancelacion', 'devueltoNio', 'ownerId', 'updatedAt'])
+        && (data.ownerId is string)
+        && data.numero is string && data.numero.size() > 0 && data.numero.size() <= 20
+        && data.fecha is number
+        && data.fechaLimite is number
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 100
+        // Igual que en sales: sin bucles, sólo se puede validar el primer
+        // renglón. La defensa de los demás es Zod (ApartadoSchema).
+        && isValidSaleItem(data.items[0])
+        && data.subtotal is number && data.tax is number
+        && data.total is number && data.total >= 0
+        && data.exchangeRate is number && data.exchangeRate >= 0.01
+        && data.totalNio is number && data.totalNio > 0
+        && data.abonos is list && data.abonos.size() > 0 && data.abonos.size() <= 200
+        && data.anulaciones is list && data.anulaciones.size() <= 200
+        && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100
+        && data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 50
+        && data.status in ['activo', 'entregado', 'cancelado']
+        && data.updatedAt is number
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('discount' in data) || (data.discount is number && data.discount >= 0))
+        && (!('shipping' in data) || (data.shipping is number && data.shipping >= 0))
+        && (!('customerId' in data) || (data.customerId is string && data.customerId.size() <= 128))
+        && (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 100))
+        && (!('customerAddress' in data) || (data.customerAddress is string && data.customerAddress.size() <= 500))
+        && (!('transport' in data) || (data.transport is string && data.transport.size() <= 100))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000))
+        && (!('saleId' in data) || (data.saleId is string && data.saleId.size() <= 128))
+        && (!('invoiceNumber' in data) || (data.invoiceNumber is string && data.invoiceNumber.size() <= 50))
+        && (!('entregadoEn' in data) || data.entregadoEn is number)
+        && (!('canceladoEn' in data) || data.canceladoEn is number)
+        && (!('motivoCancelacion' in data) || (data.motivoCancelacion is string && data.motivoCancelacion.size() <= 300))
+        && (!('devueltoNio' in data) || (data.devueltoNio is number && data.devueltoNio >= 0));
+    }
+
+    function creaApartadoValido(data) {
+      return isValidApartado(data)
+        && data.status == 'activo'
+        // Nace con la prima y nada más.
+        && data.abonos.size() == 1 && isValidAbono(data.abonos[0])
+        && data.anulaciones.size() == 0
+        && !('saleId' in data) && !('invoiceNumber' in data) && !('entregadoEn' in data)
+        && !('canceladoEn' in data) && !('motivoCancelacion' in data) && !('devueltoNio' in data);
+    }
+
+    function actualizaApartadoValido(despues, antes, apartadoId) {
+      let k = despues.diff(antes).affectedKeys();
+      return isValidApartado(despues)
+        && abonosSoloCrecen(despues.abonos, antes.abonos)
+        && anulacionesSoloCrecen(despues.anulaciones, antes.anulaciones)
+        && (
+          // Sigue activo: abonar, anular un abono, mover la fecha límite,
+          // corregir la nota o el teléfono de contacto.
+          (antes.status == 'activo' && despues.status == 'activo'
+            && k.hasOnly(['abonos', 'anulaciones', 'fechaLimite', 'notes', 'customerPhone', 'updatedAt']))
+          // Entrega: sólo los datos de la factura emitida, y esa venta tiene
+          // que existir al terminar la transacción que la escribe Y ser la de
+          // ESTE apartado. Con `existsAfter` a secas, apuntar `saleId` a
+          // cualquier venta vieja daba el apartado por entregado.
+          || (antes.status == 'activo' && despues.status == 'entregado'
+            && k.hasOnly(['status', 'saleId', 'invoiceNumber', 'entregadoEn', 'updatedAt'])
+            && k.hasAll(['status', 'saleId', 'invoiceNumber', 'entregadoEn'])
+            && isValidId(despues.saleId)
+            && getAfter(/databases/$(database)/documents/sales/$(despues.saleId)).data.get('apartadoId', '') == apartadoId)
+          // Cancelación: con lo que se le devolvió, que puede ser 0.
+          || (antes.status == 'activo' && despues.status == 'cancelado'
+            && k.hasOnly(['status', 'canceladoEn', 'motivoCancelacion', 'devueltoNio', 'updatedAt'])
+            && k.hasAll(['status', 'canceladoEn', 'devueltoNio']))
+          // Cerrado (entregado o cancelado): sólo la nota y el teléfono.
+          || (antes.status != 'activo' && despues.status == antes.status
+            && k.hasOnly(['notes', 'customerPhone', 'updatedAt']))
+        );
+    }
+
+    match /apartados/{apartadoId} {
+      allow get: if isStaff() && isValidId(apartadoId);
+      allow list: if isStaff();
+      allow create: if isStaff() && isValidId(apartadoId) && creaApartadoValido(incoming());
+      allow update: if isStaff() && isValidId(apartadoId) && actualizaApartadoValido(incoming(), existing(), apartadoId);
+      // Registro de plata: un apartado cancelado se queda, con lo que se devolvió.
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // Kardex (P2.7): movimientos de inventario. LEDGER INMUTABLE — solo create.
     // ---------------------------------------------------------------------
     function isValidMovimiento(data) {
       return data.keys().hasAll(['productId', 'tipo', 'delta', 'fecha', 'ownerId'])
         && data.keys().hasOnly(['id', 'productId', 'productName', 'sku', 'tipo', 'delta', 'stockDespues', 'motivo', 'refId', 'fecha', 'ownerId'])
         && data.productId is string && data.productId.size() <= 128
-        && data.tipo in ['venta', 'devolucion', 'compra', 'reversion', 'ajuste']
+        // 'apartado': salen de stock reservadas para un cliente; 'liberacion':
+        // vuelven porque el apartado se canceló.
+        && data.tipo in ['venta', 'devolucion', 'compra', 'reversion', 'ajuste', 'apartado', 'liberacion']
         && data.delta is number
         && data.fecha is number
         && (data.ownerId is string)
@@ -369,9 +546,13 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
-    // Contadores transaccionales (P1.1): numeración correlativa de facturas
-    // y proformas. Docs: counters/invoices, counters/proformas → { value, updatedAt }.
-    // Se escriben SOLO dentro de la transacción de recordSale.
+    // Contadores transaccionales (P1.1): numeración correlativa de facturas,
+    // proformas y apartados. Docs: counters/invoices, counters/proformas,
+    // counters/apartados → { value, updatedAt }.
+    // Se escriben SOLO dentro de transacciones: recordSale (facturas y
+    // proformas), entregarApartado (facturas: la venta que se emite al
+    // entregar) y crearApartado (apartados). Más el "Fijar" de Configuración,
+    // que sólo deja SALTAR hacia adelante.
     // ---------------------------------------------------------------------
     match /counters/{counterId} {
       allow get: if isStaff();

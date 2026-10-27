@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Product, PublicCatalogProduct } from '../types';
+import { saldoNio, totalNioDe, validarTelefono } from './apartados';
 
 // Pilar 2: Zod Schemas and Validations
 
@@ -110,6 +111,8 @@ export const ProductSchema = z.object({
   price: z.number().min(0, "Price must be non-negative"),
   cost: z.number().min(0, "Cost must be non-negative"),
   stock: z.number().min(0, "Stock cannot be negative"),
+  // Unidades apartadas: fuera de `stock`, pero en la tienda. Ver Product en types.ts.
+  apartadas: z.number().int().min(0).optional(),
   minStockAlert: z.number().min(0, "Min stock alert must be non-negative"),
   category: z.string().min(1, "Category is required"),
   imageBase64: z.string().optional(),
@@ -213,6 +216,8 @@ export const SaleSchema = z.object({
   financiamiento: VentaFinanciamientoSchema.optional(),
   paymentReference: z.string().optional(),
   notes: z.string().optional(),
+  // La venta que se emite al entregar un apartado lleva su id.
+  apartadoId: z.string().max(128).optional(),
 
   ownerId: z.string().min(1),
   status: z.enum(['completed', 'returned', 'cancelled']),
@@ -318,7 +323,7 @@ export const MovimientoSchema = z.object({
   productId: z.string().min(1),
   productName: z.string().optional(),
   sku: z.string().optional(),
-  tipo: z.enum(['venta', 'devolucion', 'compra', 'reversion', 'ajuste']),
+  tipo: z.enum(['venta', 'devolucion', 'compra', 'reversion', 'ajuste', 'apartado', 'liberacion']),
   delta: z.number(),
   stockDespues: z.number().optional(),
   motivo: z.string().max(300).optional(),
@@ -326,6 +331,142 @@ export const MovimientoSchema = z.object({
   fecha: z.number(),
   ownerId: z.string().min(1),
 });
+
+// ---------------------------------------------------------------------------
+// Apartados
+// ---------------------------------------------------------------------------
+//
+// OJO con cómo se arman. CartItemSchema y SaleSchema llevan `.refine`, y en
+// Zod 4 un objeto refinado no se deja derivar: `.omit()`, `.pick()` y
+// `.partial()` lanzan siempre, `.extend()` lanza si pisa una clave, y `.merge()`
+// no lanza pero BORRA el refine sin avisar. Y como estos schemas viven a nivel
+// de módulo, el error saltaría al importar este archivo, que lo importa
+// useStoreData.ts: la aplicación entera en blanco, con `tsc` en cero errores
+// porque los tipos permiten esos métodos. Por eso cada schema de acá es un
+// `z.object` propio, y los ítems reusan CartItemSchema tal cual.
+
+/** Las formas de pago de un abono: las del POS menos FINANCIAMIENTO (ver lib/apartados.ts). */
+export const MetodoAbonoSchema = z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CREDITO']);
+
+export const AbonoApartadoSchema = z.object({
+  id: z.string().min(1).max(128),
+  fecha: z.number(),
+  montoNio: z.number().positive('El abono tiene que ser mayor que cero'),
+  metodo: MetodoAbonoSchema,
+  referencia: z.string().max(100).optional(),
+});
+
+export const AnulacionAbonoSchema = z.object({
+  abonoId: z.string().min(1).max(128),
+  motivo: z.string().trim().min(1, 'Escribí por qué se anula el abono').max(300),
+  fecha: z.number(),
+});
+
+/**
+ * Un apartado completo.
+ *
+ * Los topes de los datos del cliente son EXACTAMENTE los de `isValidSale` en
+ * firestore.rules (nombre ≤100, correo ≤100, teléfono ≤50, dirección ≤500,
+ * transporte ≤100). No es prolijidad: al entregar, estos datos se copian a una
+ * venta que tiene que pasar esas reglas. Un apartado que se acepta hoy con un
+ * teléfono de 60 caracteres sería, dentro de un mes y con el cliente pagado,
+ * una factura que no se puede emitir.
+ */
+export const ApartadoSchema = z.object({
+  id: z.string().min(1).max(128),
+  numero: z.string().min(1).max(20),
+  fecha: z.number(),
+  fechaLimite: z.number(),
+  items: z.array(CartItemSchema).min(1, 'Un apartado necesita al menos un producto').max(100),
+  subtotal: z.number().min(0),
+  tax: z.number().min(0),
+  total: z.number().min(0),
+  discount: z.number().min(0).optional(),
+  shipping: z.number().min(0).optional(),
+  exchangeRate: z.number().min(0.01),
+  totalNio: z.number().positive(),
+  abonos: z.array(AbonoApartadoSchema).min(1, 'Falta la prima').max(200),
+  anulaciones: z.array(AnulacionAbonoSchema).max(200),
+  customerId: z.string().max(128).optional(),
+  customerName: z.string().trim().min(1, 'Falta el nombre del cliente').max(100),
+  customerPhone: z.string().trim().min(1, 'Falta el teléfono del cliente').max(50),
+  customerEmail: z.string().email().max(100).optional().or(z.literal('')),
+  customerAddress: z.string().max(500).optional(),
+  transport: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
+  status: z.enum(['activo', 'entregado', 'cancelado']),
+  saleId: z.string().max(128).optional(),
+  invoiceNumber: z.string().max(50).optional(),
+  entregadoEn: z.number().optional(),
+  canceladoEn: z.number().optional(),
+  motivoCancelacion: z.string().max(300).optional(),
+  devueltoNio: z.number().min(0).optional(),
+  ownerId: z.string().min(1),
+  updatedAt: z.number(),
+})
+  .refine((ap) => ap.fechaLimite >= ap.fecha, {
+    message: 'La fecha límite no puede ser anterior al apartado',
+    path: ['fechaLimite'],
+  })
+  // El total congelado ES el que imprime el papel: misma cuenta que InvoicePreview.
+  .refine(
+    (ap) => Math.abs(totalNioDe(ap.items, ap.exchangeRate, ap.shipping || 0, ap.discount || 0) - ap.totalNio) < 0.005,
+    { message: 'El total en córdobas no coincide con las líneas, la tasa, el envío y el descuento', path: ['totalNio'] },
+  )
+  .refine((ap) => saldoNio(ap) >= 0, { message: 'Lo abonado pasa del total del apartado', path: ['abonos'] })
+  .refine((ap) => validarTelefono(ap.customerPhone) === null, {
+    message: 'El teléfono tiene que tener 8 dígitos (o el número internacional completo)',
+    path: ['customerPhone'],
+  });
+
+/** Lo único que se edita de un apartado ya creado. Ver `actualizarApartado`. */
+export const ActualizacionApartadoSchema = z.object({
+  fechaLimite: z.number().optional(),
+  notes: z.string().max(2000).optional(),
+  customerPhone: z
+    .string()
+    .trim()
+    .min(1)
+    .max(50)
+    .refine((t) => validarTelefono(t) === null, 'El teléfono tiene que tener 8 dígitos (o el número internacional completo)')
+    .optional(),
+});
+
+/** Doc `config/apartados`. Coincide con `normalizarConfigApartados` y con la regla. */
+export const ConfigApartadosSchema = z.object({
+  primaMinimaPct: z.number().min(0).max(100),
+  plazoDias: z.number().int('El plazo es en días enteros').min(1).max(365),
+  actualizadoEn: z.number().optional(),
+});
+
+/**
+ * Las claves de un producto que acepta `isValidProduct` en firestore.rules (el
+ * `hasOnly`). SI SE CAMBIA UNA, SE CAMBIA LA OTRA.
+ *
+ * Existe para el diagnóstico: un script con Admin SDK se saltea las reglas y
+ * puede dejar en un producto una clave fuera de esa lista (pasó con `specs` en
+ * la T800E). Desde ese momento TODA escritura a ese producto se rechaza, y el
+ * mensaje genérico de permisos culpa al deploy de reglas. Las transacciones de
+ * apartados escriben productos, así que antes de escribir revisan esto y dicen
+ * el nombre del campo.
+ */
+export const CAMPOS_PRODUCTO = [
+  'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'minStockAlert',
+  'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
+  'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio',
+  'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride',
+] as const;
+
+/** Las claves de un producto que las reglas NO aceptan. Vacío = se puede escribir. */
+export const camposFueraDeReglas = (data: Record<string, unknown>): string[] =>
+  Object.keys(data).filter((k) => !(CAMPOS_PRODUCTO as readonly string[]).includes(k));
+
+/**
+ * Un correo que SaleSchema acepta. La ficha del cliente se guarda sin Zod y el
+ * `<input type="email">` deja pasar `juan@gmail` (sin punto en el dominio); ese
+ * correo, copiado a una venta, la hace rechazar.
+ */
+export const esEmailValido = (s?: string): boolean => !!s && z.string().email().safeParse(s).success;
 
 // ---------------------------------------------------------------------------
 // Objeciones

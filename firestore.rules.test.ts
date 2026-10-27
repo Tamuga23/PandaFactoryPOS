@@ -5,6 +5,8 @@
  *   PASO 1 — lectura pública de catalogo_publico, objeciones y config.
  *   PASO 3 — products, sales, purchases, customers, suppliers, movimientos,
  *            counters y company detrás del claim `admin` (isStaff()).
+ * Y los apartados (2026-10): la colección nueva, su política en
+ * config/apartados y lo que les sumaron a products, sales y movimientos.
  *
  * LA IDEA CENTRAL: antes, "tener sesión" alcanzaba para leer todo, y el POS
  * entraba con `signInAnonymously`. Así que cualquier visitante podía sacar un
@@ -12,12 +14,14 @@
  * clientes. Ahora el que manda es el custom claim `admin`, que una sesión
  * anónima NUNCA puede tener.
  *
- * Cómo correrlos (necesita firebase-tools y Java):
+ * Cómo correrlos (necesita firebase-tools y Java 21 o más nuevo: con un Java
+ * más viejo el emulador no arranca):
  *   npm run test:rules
  *   (equivale a: firebase emulators:exec --only firestore "vitest run")
  *
  * Los tests del grupo "CIERRA" fallan contra las reglas viejas y pasan con las
- * nuevas. Los de "REGRESIÓN" tienen que pasar con las dos.
+ * nuevas. Los de "REGRESIÓN" tienen que pasar con las dos. Los de "APARTADOS"
+ * cubren la colección nueva: ver el comentario antes de ese grupo.
  */
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
@@ -53,6 +57,98 @@ const OBJ_UNIVERSAL_VALIDA = {
   titulo: 'Tiene garantia?',
   respuesta: 'Si, 3 meses con la factura.',
   ownerId: 'carlos',
+};
+
+// --- Apartados: datos de prueba ----------------------------------------------
+// Con la forma que escriben las transacciones de useStoreData.ts. Las fechas
+// son números chicos: las reglas sólo piden que sean `number`.
+
+const DIA = 86_400_000;
+
+/** La línea de un apartado: igual que la de una venta, sin la foto. */
+const LINEA_TV = {
+  id: 'p-tv', sku: 'TV55', name: 'Smart TV 55', price: 400, quantity: 1, cost: 250, category: 'tv',
+};
+
+/** Lo pactado al apartar. Las reglas no dejan cambiarlo nunca. */
+const PACTADO = {
+  fecha: 1_000,
+  fechaLimite: 1_000 + 30 * DIA,
+  items: [LINEA_TV],
+  subtotal: 400,
+  tax: 0,
+  total: 400,
+  exchangeRate: 36.6243,
+  totalNio: 14_650,
+  customerName: 'María López',
+  customerPhone: '50588887777',
+  ownerId: 'shared_store',
+};
+
+const PRIMA = { id: 'abono-prima', fecha: 1_000, montoNio: 3_000, metodo: 'EFECTIVO' };
+const SEGUNDO_ABONO = {
+  id: 'abono-2', fecha: 2_000, montoNio: 2_000, metodo: 'TRANSFERENCIA', referencia: 'BAC-778812',
+};
+/** El segundo abono se cargó mal: no se borra, se anula y queda impreso tachado. */
+const ANULACION_SEGUNDO = { abonoId: 'abono-2', motivo: 'La transferencia rebotó', fecha: 2_500 };
+/** El abono que el operador está registrando ahora. */
+const ABONO_NUEVO = {
+  id: 'abono-3', fecha: 3_000, montoNio: 1_500, metodo: 'TARJETA', referencia: 'VOUCHER-0042',
+};
+/** La anulación que el operador está registrando ahora. */
+const ANULACION_PRIMA = { abonoId: 'abono-prima', motivo: 'El billete era falso', fecha: 3_000 };
+
+/** Lo que escribe crearApartado: activo, con la prima como único abono. */
+const apartadoNuevo = (id: string, numero: string) => ({
+  ...PACTADO, id, numero, abonos: [PRIMA], anulaciones: [], status: 'activo', updatedAt: 1_000,
+});
+
+/** Activo y con historia: la prima, un segundo abono y la anulación de ese segundo. */
+const AP_ACTIVO = {
+  ...PACTADO, id: 'ap-activo', numero: 'AP-000001',
+  abonos: [PRIMA, SEGUNDO_ABONO], anulaciones: [ANULACION_SEGUNDO],
+  status: 'activo', updatedAt: 2_500,
+};
+const AP_ENTREGADO = {
+  ...PACTADO, id: 'ap-entregado', numero: 'AP-000002',
+  abonos: [PRIMA, { id: 'abono-saldo', fecha: 4_000, montoNio: 11_650, metodo: 'EFECTIVO' }],
+  anulaciones: [],
+  status: 'entregado', saleId: 'venta-ap-entregado', invoiceNumber: 'A-000400', entregadoEn: 5_000,
+  updatedAt: 5_000,
+};
+const AP_CANCELADO = {
+  ...PACTADO, id: 'ap-cancelado', numero: 'AP-000003',
+  abonos: [PRIMA], anulaciones: [],
+  status: 'cancelado', canceladoEn: 5_000, devueltoNio: 1_000, motivoCancelacion: 'Ya no lo quiere',
+  updatedAt: 5_000,
+};
+
+/** La factura que emite entregarApartado para AP_ACTIVO (ver armarVentaDeApartado). */
+const VENTA_DE_AP_ACTIVO = {
+  id: 'venta-ap-activo',
+  date: 6_000,
+  items: [LINEA_TV],
+  subtotal: 400,
+  tax: 0,
+  total: 400,
+  documentType: 'RECIBO_OFICIAL',
+  clientDocumentType: 'NINGUNO',
+  customerName: 'María López',
+  customerPhone: '50588887777',
+  invoiceNumber: 'A-000413',
+  currency: 'USD',
+  exchangeRate: 36.6243,
+  paymentMethod: 'EFECTIVO',
+  paymentReference: 'Apartado AP-000001',
+  notes: 'Prima C$ 3,000 efectivo',
+  status: 'completed',
+  apartadoId: 'ap-activo',
+  ownerId: 'shared_store',
+};
+
+/** Lo que entregarApartado escribe en el apartado: sólo los datos de esa factura. */
+const ENTREGA_AP_ACTIVO = {
+  status: 'entregado', saleId: 'venta-ap-activo', invoiceNumber: 'A-000413', entregadoEn: 6_000, updatedAt: 6_000,
 };
 
 beforeAll(async () => {
@@ -107,6 +203,19 @@ beforeEach(async () => {
     await db.collection('config').doc('financiamiento').set({
       minUsd: 100, plazos: [3, 6], recargoPorDefecto: { 3: 3, 6: 6 },
     });
+    // Apartados: el producto con la unidad que tiene apartada AP_ACTIVO, un
+    // apartado en cada estado guardado, y la política por defecto.
+    await db.collection('products').doc('p-tv').set({
+      sku: 'TV55', name: 'Smart TV 55', price: 400, cost: 250, stock: 2, apartadas: 1,
+      minStockAlert: 1, category: 'tv', createdAt: 1, updatedAt: 1, ownerId: 'shared_store',
+    });
+    await db.collection('apartados').doc('ap-activo').set(AP_ACTIVO);
+    // Recién creado: la prima sola y la lista de anulaciones VACÍA. Es el caso
+    // borde del chequeo de prefijo (`nuevo[0:0] == []`).
+    await db.collection('apartados').doc('ap-recien').set(apartadoNuevo('ap-recien', 'AP-000004'));
+    await db.collection('apartados').doc('ap-entregado').set(AP_ENTREGADO);
+    await db.collection('apartados').doc('ap-cancelado').set(AP_CANCELADO);
+    await db.collection('config').doc('apartados').set({ primaMinimaPct: 0, plazoDias: 30 });
   });
 });
 
@@ -261,5 +370,340 @@ describe('REGRESIÓN · el staff con claim admin sigue trabajando igual', () => 
     await assertFails(visitante().collection('coleccion_inventada').get());
     await assertFails(anonimo().collection('coleccion_inventada').get());
     await assertFails(staff().collection('coleccion_inventada').get());
+  });
+});
+
+// =============================================================================
+// APARTADOS (2026-10)
+//
+// Prueban las tres garantías del bloque de apartados en firestore.rules: los
+// abonos y las anulaciones sólo crecen al final y de a uno, cada transición
+// toca sólo sus campos, y entregado y cancelado son terminales.
+//
+// Lo que NO se prueba, porque las reglas no lo pueden ver: las cuentas. Sin
+// bucles no se suman los abonos, así que "se entrega con el saldo en cero",
+// "un abono no se pasa del saldo" y "no se devuelve más de lo abonado" los
+// cuida la transacción del hook contra el servidor (useStoreData.ts). Por eso
+// acá AP_ACTIVO se entrega sin estar pagado: las reglas lo dejan, el hook no.
+// =============================================================================
+
+describe('APARTADOS · sólo el staff los lee y los crea, y nadie los borra', () => {
+  it('nadie sin el claim admin lee, lista ni crea apartados — nombre, teléfono y plata del cliente', async () => {
+    await assertFails(visitante().collection('apartados').doc('ap-activo').get());
+    await assertFails(visitante().collection('apartados').get());
+    await assertFails(anonimo().collection('apartados').doc('ap-activo').get());
+    await assertFails(anonimo().collection('apartados').get());
+    await assertFails(registradoSinClaim().collection('apartados').get());
+    await assertFails(
+      anonimo().collection('apartados').doc('ap-nuevo').set(apartadoNuevo('ap-nuevo', 'AP-000005')),
+    );
+  });
+
+  it('el staff los lee y los lista', async () => {
+    await assertSucceeds(staff().collection('apartados').doc('ap-activo').get());
+    await assertSucceeds(staff().collection('apartados').get());
+  });
+
+  it('el staff crea uno válido: activo, con la prima como único abono y sin anulaciones', async () => {
+    await assertSucceeds(
+      staff().collection('apartados').doc('ap-nuevo').set(apartadoNuevo('ap-nuevo', 'AP-000005')),
+    );
+  });
+
+  it('no nace con dos abonos, ni entregado, ni con una factura colgada', async () => {
+    const nuevo = staff().collection('apartados').doc('ap-nuevo');
+    const base = apartadoNuevo('ap-nuevo', 'AP-000005');
+    // Al apartar entra la prima y nada más.
+    await assertFails(nuevo.set({ ...base, abonos: [PRIMA, ABONO_NUEVO] }));
+    await assertFails(nuevo.set({ ...base, status: 'entregado' }));
+    await assertFails(nuevo.set({ ...base, saleId: 'venta-ap-nuevo' }));
+  });
+
+  it('nadie lo borra, ni el staff: es un registro de plata, igual que el kardex', async () => {
+    await assertFails(staff().collection('apartados').doc('ap-activo').delete());
+    // Un cancelado tampoco: se queda con lo que se le devolvió al cliente.
+    await assertFails(staff().collection('apartados').doc('ap-cancelado').delete());
+  });
+});
+
+describe('APARTADOS · los abonos sólo crecen al final, de a uno', () => {
+  const abonar = (abonos: unknown[], id = 'ap-activo') =>
+    staff().collection('apartados').doc(id).update({ abonos, updatedAt: 3_000 });
+
+  it('agregar UN abono válido al final pasa: el primero después de la prima y los siguientes', async () => {
+    await assertSucceeds(abonar([PRIMA, ABONO_NUEVO], 'ap-recien'));
+    await assertSucceeds(abonar([PRIMA, SEGUNDO_ABONO, ABONO_NUEVO]));
+  });
+
+  it('un abono con FINANCIAMIENTO falla: las cuotas las paga el banco al vender, y un apartado no es una venta', async () => {
+    await assertFails(abonar([PRIMA, SEGUNDO_ABONO, { ...ABONO_NUEVO, metodo: 'FINANCIAMIENTO' }]));
+  });
+
+  it('un abono de C$ 0 o con un campo de más no entra', async () => {
+    await assertFails(abonar([PRIMA, SEGUNDO_ABONO, { ...ABONO_NUEVO, montoNio: 0 }]));
+    await assertFails(abonar([PRIMA, SEGUNDO_ABONO, { ...ABONO_NUEVO, cajero: 'Carlos' }]));
+  });
+
+  it('dos abonos en la misma escritura no entran', async () => {
+    await assertFails(abonar([PRIMA, SEGUNDO_ABONO, ABONO_NUEVO, { ...ABONO_NUEVO, id: 'abono-4' }]));
+  });
+
+  it('reescribir un abono ya registrado falla, aunque la lista crezca', async () => {
+    // Bajarle la prima y, en la misma escritura, agregar uno válido: el tamaño
+    // da +1 y el último es válido. Lo frena sólo el chequeo de prefijo.
+    await assertFails(abonar([{ ...PRIMA, montoNio: 300 }, SEGUNDO_ABONO, ABONO_NUEVO]));
+    await assertFails(abonar([{ ...PRIMA, montoNio: 300 }, SEGUNDO_ABONO]));
+  });
+
+  it('el abono nuevo va AL FINAL: meterlo adelante falla', async () => {
+    await assertFails(abonar([ABONO_NUEVO, PRIMA, SEGUNDO_ABONO]));
+  });
+
+  it('sacar un abono falla: uno mal cargado se anula, no se borra', async () => {
+    await assertFails(abonar([PRIMA]));
+    await assertFails(abonar([SEGUNDO_ABONO]));
+  });
+});
+
+describe('APARTADOS · las anulaciones tampoco se reescriben', () => {
+  const anular = (anulaciones: unknown[], id = 'ap-activo') =>
+    staff().collection('apartados').doc(id).update({ anulaciones, updatedAt: 3_000 });
+
+  it('agregar una anulación válida al final pasa', async () => {
+    await assertSucceeds(anular([ANULACION_SEGUNDO, ANULACION_PRIMA]));
+  });
+
+  it('la PRIMERA anulación también pasa: el prefijo que se compara es la lista vacía', async () => {
+    // En el motor de reglas `lista[0:0]` no da la lista vacía: tira "Index out
+    // of bound error. Index: [-1]". Si el chequeo de prefijo no aparta el caso
+    // `viejo.size() == 0`, ningún apartado registra su primera anulación, y sin
+    // la primera no hay ninguna. (Visto en el emulador el 2026-10-27.)
+    await assertSucceeds(anular([ANULACION_PRIMA], 'ap-recien'));
+  });
+
+  it('una anulación sin motivo no entra: el motivo es lo que explica el tachado en el papel', async () => {
+    await assertFails(anular([ANULACION_SEGUNDO, { ...ANULACION_PRIMA, motivo: '' }]));
+  });
+
+  it('reescribir o sacar una anulación existente falla', async () => {
+    await assertFails(anular([{ ...ANULACION_SEGUNDO, motivo: 'Otro motivo' }]));
+    await assertFails(anular([{ ...ANULACION_SEGUNDO, motivo: 'Otro motivo' }, ANULACION_PRIMA]));
+    await assertFails(anular([]));
+  });
+});
+
+describe('APARTADOS · lo pactado al apartar no se toca', () => {
+  const cambiar = (campos: Record<string, unknown>) =>
+    staff().collection('apartados').doc('ap-activo').update({ ...campos, updatedAt: 3_000 });
+
+  it('cambiar las líneas, el total, el total en córdobas, la tasa o el número falla', async () => {
+    await assertFails(cambiar({ items: [{ ...LINEA_TV, price: 1 }] }));
+    await assertFails(cambiar({ total: 1 }));
+    await assertFails(cambiar({ totalNio: 1 }));
+    await assertFails(cambiar({ exchangeRate: 40 }));
+    await assertFails(cambiar({ numero: 'AP-000999' }));
+  });
+
+  it('activo: mover la fecha límite y corregir la nota o el teléfono sí pasa', async () => {
+    await assertSucceeds(cambiar({
+      fechaLimite: 1_000 + 45 * DIA, notes: 'Paga los viernes', customerPhone: '50588880000',
+    }));
+  });
+});
+
+describe('APARTADOS · entregar y cancelar', () => {
+  const apActivo = () => staff().collection('apartados').doc('ap-activo');
+
+  it('activo → entregado sin la venta escrita falla: no hay entrega sin factura', async () => {
+    await assertFails(apActivo().update(ENTREGA_AP_ACTIVO));
+  });
+
+  it('activo → entregado con la venta escrita en el MISMO batch pasa', async () => {
+    // existsAfter mira cómo queda la base al terminar la escritura entera.
+    const db = staff();
+    const batch = db.batch();
+    batch.set(db.collection('sales').doc('venta-ap-activo'), VENTA_DE_AP_ACTIVO);
+    batch.update(db.collection('apartados').doc('ap-activo'), ENTREGA_AP_ACTIVO);
+    await assertSucceeds(batch.commit());
+  });
+
+  it('activo → entregado con la venta ya escrita por un intento anterior pasa', async () => {
+    // El camino de entregarApartado cuando la venta ya existe: no emite otra,
+    // sólo cierra el apartado.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('sales').doc('venta-ap-activo').set(VENTA_DE_AP_ACTIVO);
+    });
+    await assertSucceeds(apActivo().update(ENTREGA_AP_ACTIVO));
+  });
+
+  it('activo → entregado apuntando a una venta AJENA falla: la factura tiene que ser la de este apartado', async () => {
+    // Antes bastaba con que `saleId` existiera: cualquier venta vieja daba el
+    // apartado por entregado sin emitir su factura. Ahora la venta tiene que
+    // llevar el `apartadoId` de este apartado.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const { apartadoId: _sinApartado, ...ajena } = VENTA_DE_AP_ACTIVO;
+      await ctx.firestore().collection('sales').doc('venta-ap-activo').set(ajena);
+      await ctx.firestore().collection('sales').doc('venta-de-otro').set({ ...VENTA_DE_AP_ACTIVO, apartadoId: 'ap-recien' });
+    });
+    await assertFails(apActivo().update(ENTREGA_AP_ACTIVO));
+    await assertFails(apActivo().update({ ...ENTREGA_AP_ACTIVO, saleId: 'venta-de-otro' }));
+  });
+
+  it('activo → cancelado con lo devuelto pasa, aunque sea 0', async () => {
+    await assertSucceeds(apActivo().update({
+      status: 'cancelado', canceladoEn: 6_000, devueltoNio: 0,
+      motivoCancelacion: 'No volvió a pagar', updatedAt: 6_000,
+    }));
+  });
+
+  it('activo → cancelado sin decir cuánto se devolvió falla', async () => {
+    await assertFails(apActivo().update({ status: 'cancelado', canceladoEn: 6_000, updatedAt: 6_000 }));
+  });
+});
+
+describe('APARTADOS · entregado y cancelado son terminales', () => {
+  const ap = (id: string) => staff().collection('apartados').doc(id);
+
+  it('cancelado: no recibe abonos, no anula abonos y no cambia lo devuelto', async () => {
+    await assertFails(ap('ap-cancelado').update({ abonos: [PRIMA, ABONO_NUEVO], updatedAt: 6_000 }));
+    await assertFails(ap('ap-cancelado').update({ anulaciones: [ANULACION_PRIMA], updatedAt: 6_000 }));
+    await assertFails(ap('ap-cancelado').update({ devueltoNio: 3_000, updatedAt: 6_000 }));
+  });
+
+  it('cancelado: la nota se sigue pudiendo corregir', async () => {
+    await assertSucceeds(ap('ap-cancelado').update({ notes: 'Se le devolvió en efectivo', updatedAt: 6_000 }));
+  });
+
+  it('cancelado no se reabre', async () => {
+    await assertFails(ap('ap-cancelado').update({ status: 'activo', updatedAt: 6_000 }));
+  });
+
+  it('entregado: no recibe abonos, no cambia su factura y no se cancela', async () => {
+    await assertFails(ap('ap-entregado').update({
+      abonos: [...AP_ENTREGADO.abonos, ABONO_NUEVO], updatedAt: 6_000,
+    }));
+    await assertFails(ap('ap-entregado').update({ invoiceNumber: 'A-000999', updatedAt: 6_000 }));
+    // Si el cliente devuelve el producto, se anula la factura en el Historial.
+    await assertFails(ap('ap-entregado').update({
+      status: 'cancelado', canceladoEn: 6_000, devueltoNio: 0, updatedAt: 6_000,
+    }));
+  });
+});
+
+describe('APARTADOS · config/apartados', () => {
+  const POLITICA = { primaMinimaPct: 20, plazoDias: 30, actualizadoEn: 1_000 };
+
+  it('se lee sin sesión, como financiamiento: es la condición que se le dice al cliente', async () => {
+    await assertSucceeds(visitante().collection('config').doc('apartados').get());
+  });
+
+  it('nadie sin el claim la escribe, aunque los datos sean válidos', async () => {
+    // Sin el paréntesis que envuelve las dos ramas (`isStaff() && A || B`), la
+    // de apartados no pediría el claim y estos tres pasarían.
+    await assertFails(visitante().collection('config').doc('apartados').set(POLITICA));
+    await assertFails(anonimo().collection('config').doc('apartados').set(POLITICA));
+    await assertFails(registradoSinClaim().collection('config').doc('apartados').set(POLITICA));
+  });
+
+  it('el staff escribe una política válida, con prima mínima o sin ella', async () => {
+    await assertSucceeds(staff().collection('config').doc('apartados').set(POLITICA));
+    await assertSucceeds(staff().collection('config').doc('apartados').set({ primaMinimaPct: 0, plazoDias: 30 }));
+  });
+
+  it('el plazo va en días enteros: 30.5 falla', async () => {
+    await assertFails(staff().collection('config').doc('apartados').set({ ...POLITICA, plazoDias: 30.5 }));
+  });
+
+  it('cada doc con su forma: financiamiento se sigue escribiendo, y nada entra por el doc equivocado', async () => {
+    const financiamiento = { minUsd: 150, plazos: [3, 6], recargoPorDefecto: { 3: 3, 6: 6 } };
+    await assertSucceeds(staff().collection('config').doc('financiamiento').set(financiamiento));
+    await assertFails(staff().collection('config').doc('financiamiento').set(POLITICA));
+    await assertFails(staff().collection('config').doc('apartados').set(financiamiento));
+    await assertFails(staff().collection('config').doc('otra_cosa').set(POLITICA));
+  });
+});
+
+describe('APARTADOS · lo que sumaron a products, movimientos y sales', () => {
+  it('el staff guarda las unidades apartadas de un producto; un número negativo falla', async () => {
+    await assertSucceeds(
+      staff().collection('products').doc('p1').update({ stock: 1, apartadas: 2, updatedAt: 2 }),
+    );
+    await assertFails(staff().collection('products').doc('p1').update({ apartadas: -1, updatedAt: 3 }));
+  });
+
+  it('el kardex acepta los tipos apartado y liberacion, y sigue rechazando uno inventado', async () => {
+    const mov = (tipo: string, delta: number) => ({
+      productId: 'p-tv', productName: 'Smart TV 55', sku: 'TV55', tipo, delta, stockDespues: 2 + delta,
+      refId: 'ap-activo', motivo: 'Apartado AP-000001 · María López', fecha: 6_000, ownerId: 'shared_store',
+    });
+    await assertSucceeds(staff().collection('movimientos').add(mov('apartado', -1)));
+    await assertSucceeds(staff().collection('movimientos').add(mov('liberacion', 1)));
+    await assertFails(staff().collection('movimientos').add(mov('regalo', -1)));
+  });
+
+  it('una venta con apartadoId pasa; con un apartadoId que no es texto, no', async () => {
+    await assertSucceeds(staff().collection('sales').doc('venta-ap-activo').set(VENTA_DE_AP_ACTIVO));
+    await assertFails(
+      staff().collection('sales').doc('venta-rara').set({ ...VENTA_DE_AP_ACTIVO, apartadoId: 42 }),
+    );
+  });
+
+  it('una línea que arrastra `apartadas` se rechaza: por eso TABLET_ONLY_SALE_ITEM_FIELDS lo saca', async () => {
+    // Es un dato del inventario, no de la línea vendida. isValidSaleItem no lo
+    // permite, y las líneas de un apartado pasan por la misma función.
+    const linea = { ...LINEA_TV, apartadas: 1 };
+    await assertFails(
+      staff().collection('sales').doc('venta-rara').set({ ...VENTA_DE_AP_ACTIVO, items: [linea] }),
+    );
+    await assertFails(staff().collection('apartados').doc('ap-nuevo').set({
+      ...apartadoNuevo('ap-nuevo', 'AP-000005'), items: [linea],
+    }));
+  });
+});
+
+describe('APARTADOS · lo que escribe cada transacción del hook pasa entero', () => {
+  // Cada transacción de useStoreData.ts escribe en varias colecciones, y basta
+  // con que UNA escritura no pase para que no se aparte, no se entregue o no se
+  // cancele nada. Un batch se evalúa con las mismas reglas que una transacción.
+
+  it('crearApartado: contador de apartados, producto, kardex y apartado', async () => {
+    const db = staff();
+    const batch = db.batch();
+    batch.set(db.collection('counters').doc('apartados'), { value: 5, updatedAt: 6_000 });
+    batch.update(db.collection('products').doc('p-tv'), { stock: 1, apartadas: 2, updatedAt: 6_000 });
+    batch.set(db.collection('movimientos').doc(), {
+      productId: 'p-tv', productName: 'Smart TV 55', sku: 'TV55', tipo: 'apartado', delta: -1,
+      stockDespues: 1, refId: 'ap-nuevo', fecha: 6_000, motivo: 'Apartado AP-000005 · María López',
+      ownerId: 'shared_store',
+    });
+    batch.set(db.collection('apartados').doc('ap-nuevo'), apartadoNuevo('ap-nuevo', 'AP-000005'));
+    await assertSucceeds(batch.commit());
+  });
+
+  it('entregarApartado: contador de facturas, venta, producto y apartado', async () => {
+    const db = staff();
+    const batch = db.batch();
+    batch.set(db.collection('counters').doc('invoices'), { value: 413, updatedAt: 6_000 });
+    batch.set(db.collection('sales').doc('venta-ap-activo'), VENTA_DE_AP_ACTIVO);
+    // No toca `stock` (las unidades salieron al apartar); sí baja `apartadas`.
+    batch.update(db.collection('products').doc('p-tv'), { apartadas: 0, updatedAt: 6_000 });
+    batch.update(db.collection('apartados').doc('ap-activo'), ENTREGA_AP_ACTIVO);
+    await assertSucceeds(batch.commit());
+  });
+
+  it('cancelarApartado: producto (stock, apartadas y costo promedio), kardex y apartado', async () => {
+    const db = staff();
+    const batch = db.batch();
+    batch.update(db.collection('products').doc('p-tv'), { stock: 3, apartadas: 0, cost: 250, updatedAt: 6_000 });
+    batch.set(db.collection('movimientos').doc(), {
+      productId: 'p-tv', productName: 'Smart TV 55', sku: 'TV55', tipo: 'liberacion', delta: 1,
+      stockDespues: 3, refId: 'ap-activo', fecha: 6_000,
+      motivo: 'Apartado AP-000001 cancelado · No volvió a pagar', ownerId: 'shared_store',
+    });
+    batch.update(db.collection('apartados').doc('ap-activo'), {
+      status: 'cancelado', canceladoEn: 6_000, devueltoNio: 3_000,
+      motivoCancelacion: 'No volvió a pagar', updatedAt: 6_000,
+    });
+    await assertSucceeds(batch.commit());
   });
 });

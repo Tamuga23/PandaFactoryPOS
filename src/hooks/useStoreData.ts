@@ -3,15 +3,36 @@ import { db, auth, handleFirestoreError, mensajeFirestore, tieneClaimStaff } fro
 import { toast } from '../components/Toast';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, getDoc, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { Product, Sale, Purchase, PurchaseItem, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento } from '../types';
-import { UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema } from '../lib/validations';
+import { Product, Sale, Purchase, PurchaseItem, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento, Apartado, AbonoApartado, NuevoApartado } from '../types';
+import {
+  UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema,
+  ApartadoSchema, AbonoApartadoSchema, AnulacionAbonoSchema, ActualizacionApartadoSchema, ConfigApartadosSchema,
+  camposFueraDeReglas, esEmailValido,
+} from '../lib/validations';
 import {
   CONFIG_FINANCIAMIENTO_DEFAULT,
   normalizarConfig,
   type ConfigFinanciamiento,
 } from '../lib/financiamiento';
-import { maximoFacturaEmitido } from '../lib/correlativos';
+import { sembrarContadorFacturas } from '../lib/correlativos';
 import { costoAlRecibir, costoAlRevertir } from '../lib/costoPromedio';
+import {
+  CONFIG_APARTADOS_DEFAULT,
+  abonadoNio,
+  estaPagado,
+  metodoPredominante,
+  normalizarConfigApartados,
+  numeroApartado,
+  redondearCordobas,
+  resumenPagos,
+  saldoNio,
+  validarAbono,
+  validarDevolucion,
+  type ConfigApartados,
+} from '../lib/apartados';
+import { formatCurrencyNIO } from '../lib/utils';
+import { etiquetaApartado } from '../lib/etiquetas';
+import { v5 as uuidv5 } from 'uuid';
 
 // Campos de catálogo/tablet que NO deben viajar en los renglones de venta:
 // isValidSaleItem (firestore.rules) no los permite y rechazaría la venta.
@@ -25,6 +46,10 @@ const TABLET_ONLY_SALE_ITEM_FIELDS = [
   // sería rechazada por las reglas. El plan cobrado va a nivel de VENTA, en
   // `Sale.financiamiento`, no en el renglón.
   'financiamientoOverride',
+  // Unidades apartadas del producto: mismo caso. Es un dato del inventario, no
+  // de la línea vendida, y sin sacarlo acá TODA venta de un producto con
+  // apartados la rechazarían las reglas.
+  'apartadas',
 ];
 
 // P2.7: arma el doc de un movimiento de kardex (sin claves undefined).
@@ -50,6 +75,125 @@ const zodErrorMsg = (result: { error?: { issues: Array<{ path: PropertyKey[]; me
     : 'error de validación';
 
 const SALES_PAGE_SIZE = 100;
+
+// ---------------------------------------------------------------------------
+// Apartados: helpers de módulo
+// ---------------------------------------------------------------------------
+
+/**
+ * Las líneas de un apartado se guardan como las de una venta pero SIN la foto.
+ * Un apartado vive semanas y la colección se suscribe entera: con fotos de
+ * ~100 KB por línea, cada carga de la app bajaría megas que nadie mira. El
+ * comprobante y la factura final toman la foto del catálogo vigente.
+ */
+const sanitizeApartadoItem = (item: any) => {
+  const clean = sanitizeSaleItem(item);
+  delete clean.imageBase64;
+  return clean;
+};
+
+/**
+ * Espacio de nombres fijo para derivar el id de la factura de un apartado. Es
+ * arbitrario pero ESTABLE, igual que el de proforma → factura en SalesHistory:
+ * dos intentos de entregar el mismo apartado caen sobre la MISMA venta.
+ */
+const NS_APARTADO_A_FACTURA = '5d0b8e2a-7c41-4f9e-b3a6-1e8d2c9f0a57';
+
+/** El id de la venta que se emite al entregar un apartado. */
+export const idVentaDeApartado = (apartadoId: string): string => uuidv5(apartadoId, NS_APARTADO_A_FACTURA);
+
+/**
+ * Si la siembra del contador de facturas falla, la transacción arranca desde 0
+ * y los números salen repetidos. Es barato avisarlo: el operador puede corregir
+ * el contador en Configuración ANTES de seguir facturando. Lo usan los dos
+ * caminos que emiten facturas: `recordSale` y `entregarApartado`.
+ */
+const avisarFallaSiembra = (e: unknown) => {
+  toast.error(
+    'No se pudo leer el último número de factura. Revisá el correlativo en ' +
+    'Configuración → Numeración de facturas antes de seguir facturando.',
+  );
+  console.error('siembra del contador de facturas', e);
+};
+
+/** Cantidad total por producto (por si el mismo producto viniera en dos líneas). */
+const cantidadesPorProducto = (items: { id: string; name: string; quantity: number; cost?: number }[]) => {
+  const m = new Map<string, { qty: number; name: string; cost?: number }>();
+  for (const i of items) {
+    const prev = m.get(i.id);
+    m.set(i.id, { qty: (prev?.qty || 0) + i.quantity, name: i.name, cost: prev?.cost ?? i.cost });
+  }
+  return m;
+};
+
+/**
+ * El diagnóstico exacto de un producto que las reglas no van a dejar escribir.
+ * Sin esto, una clave que dejó un script con Admin SDK (pasó con `specs`)
+ * tumba la transacción entera con "Sin permisos… probablemente falte desplegar
+ * las reglas", que manda a buscar el problema en otro lado.
+ */
+const errorCamposFuera = (p: Product & Record<string, unknown>): Error | null => {
+  const sobran = camposFueraDeReglas(p);
+  if (sobran.length === 0) return null;
+  return new Error(
+    `«${p.name}» tiene ${sobran.length === 1 ? 'el campo' : 'los campos'} ${sobran.join(', ')}, ` +
+    `que las reglas no permiten: cualquier escritura de ese producto se rechaza. ` +
+    `Hay que quitarlo con un script (Admin SDK) antes de seguir.`,
+  );
+};
+
+/**
+ * La venta (RECIBO_OFICIAL) que se emite al entregar un apartado.
+ *
+ * Se usa DOS veces, y la primera es la que importa: al CREAR el apartado se arma
+ * con un número de relleno y se pasa por SaleSchema. "Aceptado al apartar ⇒
+ * facturable al entregar": un dato que la venta rechazaría —un correo mal
+ * escrito en la ficha, un teléfono demasiado largo— se descubre hoy, con el
+ * cliente enfrente, y no dentro de un mes con el cliente pagado y sin forma de
+ * darle su factura.
+ */
+const armarVentaDeApartado = (
+  ap: Omit<Apartado, 'ownerId' | 'updatedAt' | 'status'>,
+  opts: { id: string; invoiceNumber: string; fecha: number; imagenes?: Map<string, string> },
+): Sale => {
+  const items = (ap.items || []).map((i) => {
+    const img = opts.imagenes?.get(i.id);
+    return img ? { ...i, imageBase64: img } : { ...i };
+  });
+  const venta: any = {
+    id: opts.id,
+    date: opts.fecha,
+    items,
+    subtotal: ap.subtotal,
+    tax: ap.tax,
+    total: ap.total,
+    discount: ap.discount,
+    shipping: ap.shipping,
+    documentType: 'RECIBO_OFICIAL',
+    clientDocumentType: 'NINGUNO',
+    customerId: ap.customerId,
+    customerName: ap.customerName,
+    // Un correo que la venta rechazaría se deja afuera en vez de trabar la
+    // entrega: el apartado ya está pagado, y un correo no vale una factura.
+    customerEmail: esEmailValido(ap.customerEmail) ? ap.customerEmail : undefined,
+    customerPhone: ap.customerPhone,
+    customerAddress: ap.customerAddress,
+    transport: ap.transport,
+    invoiceNumber: opts.invoiceNumber,
+    currency: 'USD',
+    exchangeRate: ap.exchangeRate,
+    // El recibo lleva UNA forma de pago: la que más plata movió. El desglose,
+    // con las referencias bancarias, va en la nota, que también se imprime.
+    paymentMethod: metodoPredominante(ap),
+    paymentReference: `Apartado ${ap.numero}`,
+    notes: [ap.notes?.trim(), resumenPagos(ap)].filter(Boolean).join(' · '),
+    status: 'completed',
+    apartadoId: ap.id,
+    ownerId: 'shared_store',
+  };
+  Object.keys(venta).forEach((k) => venta[k] === undefined && delete venta[k]);
+  return venta as Sale;
+};
 
 export function useStoreData() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -81,6 +225,21 @@ export function useStoreData() {
   const [configFinanciamiento, setConfigFinanciamiento] = useState<ConfigFinanciamiento>(
     CONFIG_FINANCIAMIENTO_DEFAULT,
   );
+  /*
+    Apartados: la colección ENTERA, sin `limit`. A diferencia de las ventas, lo
+    que más importa acá es lo más viejo: un apartado activo de hace dos meses es
+    justo el que hay que cobrar o liberar, y no puede caerse de una ventana de
+    "los últimos 100". El volumen es chico (una tienda, un operador) y los
+    documentos no llevan fotos.
+
+    `apartadosCargados` distingue "no hay apartados" de "todavía no llegaron":
+    una pantalla que decide algo con la lista vacía del primer render (por
+    ejemplo, que un producto no tiene unidades apartadas) estaría decidiendo
+    sobre una ausencia de datos.
+  */
+  const [apartados, setApartados] = useState<Apartado[]>([]);
+  const [apartadosCargados, setApartadosCargados] = useState(false);
+  const [configApartados, setConfigApartados] = useState<ConfigApartados>(CONFIG_APARTADOS_DEFAULT);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   // Sesión válida en Firebase pero SIN el claim `admin`: hay que decirlo con
@@ -108,6 +267,11 @@ export function useStoreData() {
       setCategoryObjections([]);
       setOlderSales([]);
       setHasMoreOlderSales(true);
+      // Nombres, teléfonos y saldos de clientes: no se quedan en memoria
+      // después de cerrar sesión.
+      setApartados([]);
+      setApartadosCargados(false);
+      setConfigApartados(CONFIG_APARTADOS_DEFAULT);
       setLoading(false);
     };
 
@@ -235,6 +399,28 @@ export function useStoreData() {
       if (snapshot.exists()) setConfigFinanciamiento(normalizarConfig(snapshot.data()));
     }, (error) => handleFirestoreError(error, 'get', 'config/financiamiento'));
 
+    const qApartados = query(collection(db, 'apartados'), orderBy('fecha', 'desc'));
+    const unsubApartados = onSnapshot(qApartados, (snapshot) => {
+      setApartados(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Apartado)));
+      setApartadosCargados(true);
+    }, (error) => fallaSuscripcion(error, 'apartados'));
+
+    /*
+      La política de apartados. NO se copia el patrón de `config/financiamiento`
+      de arriba, que le pasa `handleFirestoreError` al callback de error: esa
+      función siempre lanza, y lanzar ahí no lo atrapa nadie (ver el comentario
+      de `coleccionesCaidas`). Si este doc no se puede leer, se sigue con la
+      política de fábrica —sin prima mínima, 30 días— y se dice.
+    */
+    const unsubConfigApartados = onSnapshot(doc(db, 'config', 'apartados'), (snapshot) => {
+      setConfigApartados(snapshot.exists() ? normalizarConfigApartados(snapshot.data()) : CONFIG_APARTADOS_DEFAULT);
+    }, (error) => {
+      toast.error(
+        `No se pudo leer la política de apartados: ${mensajeFirestore(error, 'get', 'config/apartados')} ` +
+        `Mientras tanto se usa la de fábrica (sin prima mínima, 30 días).`,
+      );
+    });
+
     return () => {
       unsubProducts();
       unsubSales();
@@ -245,6 +431,8 @@ export function useStoreData() {
       unsubUniversalObjections();
       unsubCategoryObjections();
       unsubConfigFin();
+      unsubApartados();
+      unsubConfigApartados();
     };
   }, [user]);
 
@@ -352,6 +540,9 @@ export function useStoreData() {
         `adjustStock`; acá se cierra la puerta de atrás.
       */
       delete pData.stock;
+      // `apartadas` tiene el mismo problema y la misma solución: viene de la
+      // caché, y sólo lo escriben las transacciones de apartados.
+      delete pData.apartadas;
 
       const CLEARABLE = [
         'precioPromo', 'descEfectivoPct', 'campania',
@@ -377,8 +568,18 @@ export function useStoreData() {
     }
   };
 
-  const bulkUpdateProducts = async (ids: string[], updates: Partial<Product>, motivo?: string) => {
-    if (!user) return;
+  /**
+   * Devuelve los productos que NO se tocaron porque tienen unidades apartadas
+   * (sólo cuando el lote cambia stock). Ver el comentario de adentro.
+   */
+  const bulkUpdateProducts = async (
+    ids: string[],
+    updates: Partial<Product>,
+    motivo?: string,
+  ): Promise<{ conApartados: string[] }> => {
+    if (!user) return { conApartados: [] };
+    // Se reinicia dentro de cada vuelta de transacción: puede reintentarse.
+    const conApartados: string[] = [];
     try {
       const safeUpdates: any = { ...updates, updatedAt: Date.now() };
       Object.keys(safeUpdates).forEach(key => safeUpdates[key] === undefined && delete safeUpdates[key]);
@@ -404,7 +605,9 @@ export function useStoreData() {
         const LOTE = 200;
         for (let i = 0; i < ids.length; i += LOTE) {
           const tanda = ids.slice(i, i + LOTE);
+          const omitidosTanda: string[] = [];
           await runTransaction(db, async (transaction) => {
+            omitidosTanda.length = 0;
             const snaps = await Promise.all(
               tanda.map(id => transaction.get(doc(db, 'products', id))),
             );
@@ -412,6 +615,21 @@ export function useStoreData() {
               if (!snap.exists()) return; // borrado en el medio: se saltea
               const server = snap.data() as Product;
               const id = tanda[idx];
+              /*
+                Un producto con unidades APARTADAS no entra en el lote.
+
+                El lote escribe el MISMO stock absoluto en todos ("Ej. conteo
+                físico anual"), y en un producto con apartados el conteo físico
+                no es el stock: las unidades del cliente están en el estante
+                pero no están a la venta. Escribir el conteo tal cual las volvía
+                vendibles, y el POS podía vender la unidad de alguien que la está
+                pagando. Esos se ajustan de a uno, donde el formulario pide el
+                conteo y descuenta las apartadas.
+              */
+              if ((server.apartadas || 0) > 0) {
+                omitidosTanda.push(server.name);
+                return;
+              }
               transaction.update(doc(db, 'products', id), safeUpdates);
               const delta = (updates.stock as number) - (server.stock || 0);
               if (delta !== 0) {
@@ -423,16 +641,19 @@ export function useStoreData() {
               }
             });
           });
+          conApartados.push(...omitidosTanda);
         }
-        return;
+        return { conApartados };
       }
 
       // Sin stock de por medio no hay invariante que proteger: el batch alcanza.
       const batch = writeBatch(db);
       ids.forEach((id) => batch.update(doc(db, 'products', id), safeUpdates));
       await batch.commit();
+      return { conApartados: [] };
     } catch (e) {
       handleFirestoreError(e, 'update', `products/bulk`);
+      return { conApartados: [] };
     }
   };
 
@@ -440,12 +661,20 @@ export function useStoreData() {
    * P2.7: ajuste manual de stock CON motivo y rastro en el kardex.
    * `extraFields` permite actualizar en el mismo write otros campos del
    * producto (p.ej. minStockAlert desde el modal de stock).
+   *
+   * `conteoFisico`: el número que llega es lo que el operador CONTÓ en la
+   * tienda, y eso incluye las unidades apartadas, que están en el estante pero
+   * no a la venta. Se descuentan acá, con el `apartadas` del SERVIDOR leído en
+   * la misma transacción: si en el medio se apartó algo desde otro lado, la
+   * cuenta igual da. Sin esto, contar 5 con 1 apartada escribía stock 5 y el
+   * POS podía vender la unidad del cliente que la está pagando.
    */
   const adjustStock = async (
     product: Product,
     newStock: number,
     motivo: string,
     extraFields: Partial<Product> = {},
+    opciones: { conteoFisico?: boolean } = {},
   ) => {
     if (!user) return;
     const productRef = doc(db, 'products', product.id);
@@ -454,17 +683,35 @@ export function useStoreData() {
         const snap = await transaction.get(productRef);
         if (!snap.exists()) throw new Error('El producto ya no existe.');
         const server = snap.data() as Product;
-        const delta = newStock - (server.stock || 0);
 
-        const upd: any = { ...extraFields, stock: newStock, updatedAt: Date.now() };
+        let stockFinal = newStock;
+        let motivoFinal = motivo || 'Ajuste manual';
+        const apartadasServer = server.apartadas || 0;
+        if (opciones.conteoFisico && apartadasServer > 0) {
+          if (newStock < apartadasServer) {
+            throw new Error(
+              `Contaste ${newStock}, pero hay ${apartadasServer} ` +
+              `${apartadasServer === 1 ? 'unidad apartada' : 'unidades apartadas'} de clientes. ` +
+              `Falta mercadería que ya está pagándose: revisalo antes de ajustar.`,
+            );
+          }
+          stockFinal = newStock - apartadasServer;
+          motivoFinal = `${motivoFinal} (contadas ${newStock} − ${apartadasServer} ` +
+            `${apartadasServer === 1 ? 'apartada' : 'apartadas'})`;
+        }
+        const delta = stockFinal - (server.stock || 0);
+
+        const upd: any = { ...extraFields, stock: stockFinal, updatedAt: Date.now() };
         Object.keys(upd).forEach(k => upd[k] === undefined && delete upd[k]);
+        // Ni por `extraFields` se escribe esto: lo manejan sólo los apartados.
+        delete upd.apartadas;
         transaction.update(productRef, upd);
 
         if (delta !== 0) {
           transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
             productId: product.id, productName: server.name, sku: server.sku,
-            tipo: 'ajuste', delta, stockDespues: newStock,
-            fecha: Date.now(), motivo: motivo || 'Ajuste manual',
+            tipo: 'ajuste', delta, stockDespues: stockFinal,
+            fecha: Date.now(), motivo: motivoFinal.slice(0, 300),
           }));
         }
       });
@@ -488,10 +735,29 @@ export function useStoreData() {
     }
   };
 
+  /**
+   * No se borra un producto con unidades APARTADAS. Con todo apartado su stock
+   * es 0 y parece agotado, pero esas unidades están en el estante con el nombre
+   * de un cliente: si el producto desaparece, cancelar el apartado ya no tiene
+   * a dónde devolverlas y quedan fuera del sistema, sin kardex. Se lee del
+   * servidor en una transacción, no de la caché.
+   */
   const deleteProduct = async (id: string) => {
     if (!user) return;
+    const ref = doc(db, 'products', id);
     try {
-      await deleteDoc(doc(db, 'products', id));
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(ref);
+        if (!snap.exists()) return; // ya no está: no hay nada que borrar
+        const p = snap.data() as Product;
+        if ((p.apartadas || 0) > 0) {
+          throw new Error(
+            `«${p.name}» tiene ${p.apartadas} ${p.apartadas === 1 ? 'unidad apartada' : 'unidades apartadas'}. ` +
+            `Entregá o cancelá el apartado antes de borrarlo, o marcalo Inactivo.`,
+          );
+        }
+        transaction.delete(ref);
+      });
     } catch (e) {
       handleFirestoreError(e, 'delete', `products/${id}`);
     }
@@ -792,39 +1058,16 @@ export function useStoreData() {
     let assignedNumber = fullSale.invoiceNumber as string;
 
     /*
-      Siembra del contador de FACTURAS la primera vez: arranca desde el número
-      máximo ya usado, para no reiniciar la numeración de un negocio en marcha.
-      El número definitivo igual se asigna DENTRO de la transacción.
-
-      El barrido que había acá ordenaba por `invoiceNumber` descendente y se
-      quedaba con 30 filas. Como 'P' (0x50) > 'A' (0x41), las proformas se
-      ordenan por encima de TODAS las facturas: con treinta proformas emitidas
-      la ventana entera eran proformas, el filtro las descartaba, `maxNum`
-      quedaba en 0, el `if (maxNum > 0)` no sembraba nada y la primera factura
-      de un negocio en marcha salía `A-000001` OTRA VEZ. Con el `catch` vacío
-      de abajo, en silencio.
-
-      `maximoFacturaEmitido` lo calcula por rango de prefijo, que es lo único
-      que hace que el orden lexicográfico sea el numérico.
+      Siembra del contador de FACTURAS la primera vez. Vive en
+      `src/lib/correlativos.ts` (`sembrarContadorFacturas`), con la historia del
+      barrido que reiniciaba la numeración: la comparte con `entregarApartado`,
+      el otro camino que emite facturas.
     */
     if (!isProforma) {
       try {
-        const probe = await getDoc(counterRef);
-        if (!probe.exists()) {
-          const maxNum = await maximoFacturaEmitido();
-          if (maxNum > 0) {
-            await setDoc(counterRef, { value: maxNum, updatedAt: Date.now() });
-          }
-        }
+        await sembrarContadorFacturas();
       } catch (e) {
-        // Si la siembra falla, la transacción arranca desde 0 y los números
-        // salen repetidos. Es barato avisarlo: el operador puede corregir el
-        // contador en Configuración ANTES de seguir facturando.
-        toast.error(
-          'No se pudo leer el último número de factura. Revisá el correlativo en ' +
-          'Configuración → Numeración de facturas antes de seguir facturando.',
-        );
-        console.error('siembra del contador de facturas', e);
+        avisarFallaSiembra(e);
       }
     }
 
@@ -1508,6 +1751,544 @@ export function useStoreData() {
   };
 
   // ---------------------------------------------------------------------------
+  // Apartados
+  // ---------------------------------------------------------------------------
+  //
+  // Las escrituras de un apartado siguen el patrón de recordSale: Zod antes de
+  // escribir, todas las lecturas de la transacción antes de cualquier
+  // escritura, e IDEMPOTENCIA explícita. El SDK reintenta solo ante
+  // `unavailable` y `deadline-exceeded` volviendo a correr la función, y el
+  // operador reintenta a mano cuando el error no dice si se guardó: cobrar un
+  // abono dos veces, descontar el stock dos veces o emitir dos facturas por el
+  // mismo apartado tiene que ser imposible, no improbable.
+
+  /**
+   * Aparta: reserva el stock, consume el correlativo AP-xxxxxx y registra la
+   * prima. Devuelve el número asignado.
+   *
+   * El `id` del apartado nace UNA vez por diálogo, en el POS. Si la transacción
+   * falla de forma ambigua y el operador reintenta, cae sobre el mismo
+   * documento: la guarda de abajo devuelve el número sin volver a descontar
+   * stock ni a consumir otro correlativo.
+   */
+  /*
+    Devuelve también `guardado` cuando el apartado YA EXISTÍA (un reintento
+    después de un error ambiguo): entre un intento y otro el operador pudo
+    corregir la prima, y el aviso y el comprobante tienen que salir de lo que
+    quedó en el servidor, no de lo que se pidió la segunda vez.
+  */
+  const crearApartado = async (nuevo: NuevoApartado): Promise<{ numero: string; guardado: Apartado | null }> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    const ahora = Date.now();
+    const base: any = {
+      ...nuevo,
+      items: (nuevo.items || []).map(sanitizeApartadoItem),
+      anulaciones: [],
+      status: 'activo',
+      ownerId: 'shared_store',
+      updatedAt: ahora,
+    };
+    Object.keys(base).forEach((k) => base[k] === undefined && delete base[k]);
+    // Un correo que la venta final rechazaría no se guarda: ver armarVentaDeApartado.
+    if (base.customerEmail !== undefined && !esEmailValido(base.customerEmail)) delete base.customerEmail;
+
+    // Zod sobre una copia con número de relleno: el definitivo se asigna en la
+    // transacción, leyendo el contador (mismo truco que recordSale).
+    const parsed = ApartadoSchema.safeParse({ ...base, numero: 'AP-PENDIENTE' });
+    if (!parsed.success) throw new Error(`Apartado inválido — ${zodErrorMsg(parsed)}`);
+    /*
+      Se escribe la SALIDA de Zod, no el objeto que llegó. Zod no rechaza una
+      clave que no conoce: la deja pasar en la validación y la saca de su
+      salida. Si se escribiera el objeto crudo, una clave de más en un abono o
+      en una línea llegaría a Firestore, las reglas (que validan con `hasOnly`)
+      la rechazarían, y el operador leería "Sin permisos… falta desplegar las
+      reglas". Con la salida, lo que se valida es exactamente lo que se escribe.
+    */
+    const documento: any = { ...parsed.data };
+
+    // Aceptado al apartar ⇒ facturable al entregar: ver armarVentaDeApartado.
+    const prueba = SaleSchema.safeParse(
+      armarVentaDeApartado({ ...base, numero: 'AP-PENDIENTE' }, { id: 'prueba', invoiceNumber: 'PENDIENTE', fecha: ahora }),
+    );
+    if (!prueba.success) {
+      throw new Error(`Este apartado no se podría facturar al entregarlo — ${zodErrorMsg(prueba)}`);
+    }
+
+    const apRef = doc(db, 'apartados', nuevo.id);
+    const counterRef = doc(db, 'counters', 'apartados');
+    let numero = '';
+    let guardado = null as Apartado | null;
+    try {
+      await runTransaction(db, async (transaction) => {
+        guardado = null;
+        // 0. IDEMPOTENCIA: si ya existe, el stock ya bajó y el número ya se usó.
+        const apSnap = await transaction.get(apRef);
+        if (apSnap.exists()) {
+          guardado = { ...(apSnap.data() as Apartado), id: nuevo.id };
+          numero = String(guardado.numero || '');
+          return;
+        }
+
+        // 1. LECTURAS
+        const counterSnap = await transaction.get(counterRef);
+        const siguiente = ((counterSnap.exists() ? counterSnap.data().value : 0) || 0) + 1;
+        numero = numeroApartado(siguiente);
+
+        const porProducto = cantidadesPorProducto(base.items);
+        const ids = Array.from(porProducto.keys());
+        const snaps = await Promise.all(ids.map((id) => transaction.get(doc(db, 'products', id))));
+
+        // 2. VALIDACIONES
+        snaps.forEach((snap, i) => {
+          const { qty, name } = porProducto.get(ids[i])!;
+          if (!snap.exists()) throw new Error(`El producto ${name} ya no existe en la base de datos.`);
+          const p = snap.data() as Product & Record<string, unknown>;
+          const fuera = errorCamposFuera(p);
+          if (fuera) throw fuera;
+          if ((p.stock || 0) < qty) {
+            throw new Error(`Stock insuficiente de ${p.name}. Pedido: ${qty}, Disponible: ${p.stock}`);
+          }
+        });
+
+        // 3. ESCRITURAS
+        snaps.forEach((snap, i) => {
+          const p = snap.data() as Product;
+          const { qty } = porProducto.get(ids[i])!;
+          const stockNuevo = (p.stock || 0) - qty;
+          transaction.update(doc(db, 'products', ids[i]), {
+            stock: stockNuevo,
+            apartadas: (p.apartadas || 0) + qty,
+            updatedAt: ahora,
+          });
+          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: ids[i], productName: p.name, sku: p.sku,
+            tipo: 'apartado', delta: -qty, stockDespues: stockNuevo,
+            refId: nuevo.id, fecha: ahora,
+            motivo: `Apartado ${numero} · ${base.customerName}`.slice(0, 300),
+          }));
+        });
+        transaction.set(counterRef, { value: siguiente, updatedAt: ahora });
+        transaction.set(apRef, { ...documento, numero });
+      });
+      return { numero, guardado };
+    } catch (e) {
+      console.error('crearApartado', e);
+      handleFirestoreError(e, 'create', `apartados/${nuevo.id}`);
+      throw e;
+    }
+  };
+
+  /**
+   * Registra un abono. `abono.id` nace al ABRIR el diálogo, no al confirmar: si
+   * el error no dice si se guardó y el operador reintenta, la guarda reconoce el
+   * abono y no lo cobra dos veces. Devuelve el saldo según el SERVIDOR y si el
+   * abono ya estaba registrado.
+   */
+  const registrarAbono = async (
+    apartadoId: string,
+    abono: AbonoApartado,
+  ): Promise<{ saldoNio: number; yaEstaba: boolean; abono: AbonoApartado }> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    const limpio: any = { ...abono, montoNio: redondearCordobas(abono.montoNio) };
+    const referencia = (abono.referencia || '').trim();
+    if (referencia) limpio.referencia = referencia;
+    else delete limpio.referencia;
+    const parsed = AbonoApartadoSchema.safeParse(limpio);
+    if (!parsed.success) throw new Error(`Abono inválido — ${zodErrorMsg(parsed)}`);
+    // La salida de Zod, no el objeto crudo: ver el porqué en crearApartado.
+    const nuevoAbono = parsed.data;
+
+    const apRef = doc(db, 'apartados', apartadoId);
+    let saldo = 0;
+    let yaEstaba = false;
+    // El abono como quedó: si ya estaba, el GUARDADO, que puede tener otro
+    // monto si el operador lo corrigió entre un intento y otro.
+    let abonoFinal: AbonoApartado = nuevoAbono;
+    try {
+      await runTransaction(db, async (transaction) => {
+        yaEstaba = false;
+        abonoFinal = nuevoAbono;
+        const snap = await transaction.get(apRef);
+        if (!snap.exists()) throw new Error('El apartado ya no existe.');
+        const ap = snap.data() as Apartado;
+        const previo = (ap.abonos || []).find((a) => a.id === nuevoAbono.id);
+        if (previo) {
+          yaEstaba = true;
+          abonoFinal = previo;
+          saldo = saldoNio(ap);
+          return;
+        }
+        if (ap.status !== 'activo') {
+          throw new Error(
+            `El apartado ${ap.numero} está ${etiquetaApartado(ap.status).toLowerCase()}: ya no recibe abonos.`,
+          );
+        }
+        // Contra el saldo del SERVIDOR: si otro abono entró en el medio, éste
+        // ya no puede pasarse de lo que de verdad falta.
+        const error = validarAbono(nuevoAbono.montoNio, saldoNio(ap));
+        if (error) throw new Error(error);
+        const abonos = [...ap.abonos, nuevoAbono];
+        transaction.update(apRef, { abonos, updatedAt: Date.now() });
+        saldo = saldoNio({ ...ap, abonos });
+      });
+      return { saldoNio: saldo, yaEstaba, abono: abonoFinal };
+    } catch (e) {
+      handleFirestoreError(e, 'update', `apartados/${apartadoId}`);
+      throw e;
+    }
+  };
+
+  /**
+   * Anula un abono cargado por error. El abono NO se borra: se agrega una
+   * anulación y queda impreso tachado, con el motivo. El cliente puede tener en
+   * el teléfono un comprobante con ese abono; el siguiente tiene que explicarlo.
+   *
+   * Sólo en un apartado activo: uno entregado ya tiene una factura emitida con
+   * esos pagos, y uno cancelado ya calculó la devolución sobre ellos.
+   */
+  const anularAbono = async (
+    apartadoId: string,
+    abonoId: string,
+    motivo: string,
+  ): Promise<{ yaEstaba: boolean }> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    const anulacion = { abonoId, motivo: (motivo || '').trim(), fecha: Date.now() };
+    const parsed = AnulacionAbonoSchema.safeParse(anulacion);
+    if (!parsed.success) throw new Error(`Anulación inválida — ${zodErrorMsg(parsed)}`);
+
+    const apRef = doc(db, 'apartados', apartadoId);
+    let yaEstaba = false;
+    try {
+      await runTransaction(db, async (transaction) => {
+        yaEstaba = false;
+        const snap = await transaction.get(apRef);
+        if (!snap.exists()) throw new Error('El apartado ya no existe.');
+        const ap = snap.data() as Apartado;
+        const anulaciones = ap.anulaciones || [];
+        if (anulaciones.some((x) => x.abonoId === abonoId)) {
+          yaEstaba = true;
+          return;
+        }
+        if (ap.status !== 'activo') {
+          throw new Error(
+            `El apartado ${ap.numero} está ${etiquetaApartado(ap.status).toLowerCase()}: sus abonos ya no se pueden anular.`,
+          );
+        }
+        if (!(ap.abonos || []).some((a) => a.id === abonoId)) {
+          throw new Error('Ese abono no está en el apartado.');
+        }
+        transaction.update(apRef, { anulaciones: [...anulaciones, anulacion], updatedAt: Date.now() });
+      });
+      return { yaEstaba };
+    } catch (e) {
+      handleFirestoreError(e, 'update', `apartados/${apartadoId}`);
+      throw e;
+    }
+  };
+
+  /**
+   * Entrega un apartado pagado: emite la factura (RECIBO_OFICIAL, correlativo
+   * A-) y lo cierra.
+   *
+   * NO toca `stock` ni el kardex: las unidades salieron al apartar. Sí baja
+   * `apartadas`, porque recién ahora se van de la tienda. Si después esa venta
+   * se marca devuelta en el Historial, changeSaleStatus repone el stock, y está
+   * bien: las unidades habían salido.
+   *
+   * Idempotente por dos lados: el id de la venta se DERIVA del apartado, y un
+   * apartado ya entregado devuelve la venta que emitió en vez de emitir otra.
+   */
+  const entregarApartado = async (
+    apartadoId: string,
+  ): Promise<{ venta: Sale | null; yaEstaba: boolean; borrados: string[] }> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    try {
+      await sembrarContadorFacturas();
+    } catch (e) {
+      avisarFallaSiembra(e);
+    }
+
+    const apRef = doc(db, 'apartados', apartadoId);
+    const saleId = idVentaDeApartado(apartadoId);
+    const saleRef = doc(db, 'sales', saleId);
+    const counterRef = doc(db, 'counters', 'invoices');
+    // Las fotos salen del catálogo en memoria: es sólo para que la factura las
+    // imprima, no decide nada.
+    const imagenes = new Map<string, string>();
+    products.forEach((p) => { if (p.imageBase64) imagenes.set(p.id, p.imageBase64); });
+
+    // `as`: sin él TypeScript angosta estas variables a su valor inicial y no
+    // ve las asignaciones que hace el callback de la transacción.
+    let venta = null as Sale | null;
+    let yaEstaba = false;
+    let borrados: string[] = [];
+    try {
+      await runTransaction(db, async (transaction) => {
+        venta = null;
+        yaEstaba = false;
+        borrados = [];
+
+        // 1. LECTURAS
+        const apSnap = await transaction.get(apRef);
+        if (!apSnap.exists()) throw new Error('El apartado ya no existe.');
+        const ap = { ...(apSnap.data() as Apartado), id: apartadoId };
+        if (ap.status === 'cancelado') {
+          throw new Error(`El apartado ${ap.numero} está cancelado: no se puede entregar.`);
+        }
+        const saleSnap = await transaction.get(saleRef);
+        if (ap.status === 'entregado') {
+          yaEstaba = true;
+          venta = saleSnap.exists() ? ({ ...(saleSnap.data() as Sale), id: saleId }) : null;
+          return;
+        }
+        // Con el saldo del SERVIDOR: la pantalla pudo haber quedado vieja.
+        if (!saleSnap.exists() && !estaPagado(ap)) {
+          throw new Error(
+            `Falta cobrar ${formatCurrencyNIO(saldoNio(ap))} del apartado ${ap.numero}: ` +
+            `se entrega con el saldo en cero.`,
+          );
+        }
+        const porProducto = cantidadesPorProducto(ap.items);
+        const ids = Array.from(porProducto.keys());
+        const snaps = await Promise.all(ids.map((id) => transaction.get(doc(db, 'products', id))));
+        const counterSnap = saleSnap.exists() ? null : await transaction.get(counterRef);
+
+        // 2. VALIDACIONES
+        snaps.forEach((snap) => {
+          if (!snap.exists()) return;
+          const fuera = errorCamposFuera(snap.data() as Product & Record<string, unknown>);
+          if (fuera) throw fuera;
+        });
+        const ahora = Date.now();
+        let v: Sale;
+        if (saleSnap.exists()) {
+          // Las dos escrituras van en la misma transacción, así que esto no
+          // debería pasar. Si pasa (un script, un import a mano), la factura ya
+          // existe: no se emite otra, sólo se cierra el apartado.
+          v = { ...(saleSnap.data() as Sale), id: saleId };
+          yaEstaba = true;
+        } else {
+          const siguiente = ((counterSnap?.exists() ? counterSnap.data().value : 0) || 0) + 1;
+          v = armarVentaDeApartado(ap, {
+            id: saleId,
+            invoiceNumber: `A-${String(siguiente).padStart(6, '0')}`,
+            fecha: ahora,
+            imagenes,
+          });
+          const revision = SaleSchema.safeParse(v);
+          if (!revision.success) {
+            throw new Error(`La factura del apartado ${ap.numero} no pasa la validación — ${zodErrorMsg(revision)}`);
+          }
+          // 3. ESCRITURAS (venta y contador)
+          transaction.set(counterRef, { value: siguiente, updatedAt: ahora });
+          transaction.set(saleRef, v);
+        }
+
+        // 3. ESCRITURAS (productos y apartado)
+        snaps.forEach((snap, i) => {
+          const { qty, name } = porProducto.get(ids[i])!;
+          if (!snap.exists()) {
+            // Producto borrado: no hay `apartadas` que bajar. Se avisa; la
+            // factura igual sale, porque las unidades se entregan igual.
+            borrados.push(name);
+            return;
+          }
+          const p = snap.data() as Product;
+          transaction.update(doc(db, 'products', ids[i]), {
+            apartadas: Math.max(0, (p.apartadas || 0) - qty),
+            updatedAt: ahora,
+          });
+        });
+        transaction.update(apRef, {
+          status: 'entregado',
+          saleId,
+          invoiceNumber: v.invoiceNumber,
+          entregadoEn: ahora,
+          updatedAt: ahora,
+        });
+        venta = v;
+      });
+      return { venta, yaEstaba, borrados };
+    } catch (e) {
+      console.error('entregarApartado', e);
+      handleFirestoreError(e, 'create', `sales/${saleId}`);
+      throw e;
+    }
+  };
+
+  /**
+   * Cancela un apartado: las unidades vuelven al stock (kardex `liberacion`) y
+   * queda escrito cuánto se le devolvió al cliente. Eso se decide en cada caso,
+   * de 0 a todo lo abonado (decisión del dueño, 2026-10-26).
+   *
+   * Las unidades vuelven al COSTO con que salieron —el `cost` congelado en la
+   * línea—, no al promedio de hoy: si en el medio entró una caja a otro costo,
+   * el promedio se recalcula con `costoAlRecibir` como en cualquier entrada.
+   * Con plazos de 30 días eso es mucho más probable que en una devolución del
+   * mismo día.
+   *
+   * Un producto borrado no se puede reponer: se saltea y se devuelve en
+   * `borrados`, igual que en changeSaleStatus. (Borrar un producto con unidades
+   * apartadas está bloqueado; esto cubre lo que haya pasado por otro lado.)
+   */
+  const cancelarApartado = async (
+    apartadoId: string,
+    datos: { devueltoNio: number; motivo?: string },
+  ): Promise<{ borrados: string[]; yaEstaba: boolean; devueltoNio: number }> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    const apRef = doc(db, 'apartados', apartadoId);
+    const devuelto = redondearCordobas(datos.devueltoNio);
+    const motivo = (datos.motivo || '').trim().slice(0, 300);
+    let borrados: string[] = [];
+    let yaEstaba = false;
+    // Lo que QUEDÓ registrado como devuelto. En un reintento puede no ser lo
+    // que se pidió esta vez, y la pantalla tiene que decirlo: es plata que ya
+    // salió del cajón.
+    let devueltoFinal = devuelto;
+    try {
+      await runTransaction(db, async (transaction) => {
+        borrados = [];
+        yaEstaba = false;
+        devueltoFinal = devuelto;
+
+        // 1. LECTURAS
+        const snap = await transaction.get(apRef);
+        if (!snap.exists()) throw new Error('El apartado ya no existe.');
+        const ap = snap.data() as Apartado;
+        if (ap.status === 'cancelado') {
+          yaEstaba = true;
+          devueltoFinal = ap.devueltoNio ?? 0;
+          return;
+        }
+        if (ap.status === 'entregado') {
+          throw new Error(
+            `El apartado ${ap.numero} ya se entregó con la factura ${ap.invoiceNumber || ''}. ` +
+            `Si el cliente devuelve el producto, anulá esa factura en el Historial.`,
+          );
+        }
+        // Contra lo abonado según el SERVIDOR.
+        const errorDevolucion = validarDevolucion(devuelto, abonadoNio(ap));
+        if (errorDevolucion) throw new Error(errorDevolucion);
+
+        const porProducto = cantidadesPorProducto(ap.items);
+        const ids = Array.from(porProducto.keys());
+        const snaps = await Promise.all(ids.map((id) => transaction.get(doc(db, 'products', id))));
+
+        // 2. VALIDACIONES
+        snaps.forEach((s) => {
+          if (!s.exists()) return;
+          const fuera = errorCamposFuera(s.data() as Product & Record<string, unknown>);
+          if (fuera) throw fuera;
+        });
+
+        // 3. ESCRITURAS
+        const ahora = Date.now();
+        snaps.forEach((s, i) => {
+          const { qty, name, cost } = porProducto.get(ids[i])!;
+          if (!s.exists()) {
+            borrados.push(name);
+            return;
+          }
+          const p = s.data() as Product;
+          const stockAntes = p.stock || 0;
+          const stockNuevo = stockAntes + qty;
+          const cambios: any = {
+            stock: stockNuevo,
+            apartadas: Math.max(0, (p.apartadas || 0) - qty),
+            updatedAt: ahora,
+          };
+          if (typeof cost === 'number' && Number.isFinite(cost) && cost >= 0) {
+            cambios.cost = costoAlRecibir(stockAntes, p.cost || 0, qty, cost);
+          }
+          transaction.update(doc(db, 'products', ids[i]), cambios);
+          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: ids[i], productName: p.name, sku: p.sku,
+            tipo: 'liberacion', delta: qty, stockDespues: stockNuevo,
+            refId: apartadoId, fecha: ahora,
+            motivo: `Apartado ${ap.numero} cancelado${motivo ? ` · ${motivo}` : ''}`.slice(0, 300),
+          }));
+        });
+        const cierre: any = { status: 'cancelado', canceladoEn: ahora, devueltoNio: devuelto, updatedAt: ahora };
+        if (motivo) cierre.motivoCancelacion = motivo;
+        transaction.update(apRef, cierre);
+      });
+      return { borrados, yaEstaba, devueltoNio: devueltoFinal };
+    } catch (e) {
+      handleFirestoreError(e, 'update', `apartados/${apartadoId}`);
+      throw e;
+    }
+  };
+
+  /**
+   * Lo único que se edita de un apartado ya creado: la fecha límite (sólo si
+   * está activo), la nota y el teléfono de contacto. Se escriben SÓLO esos
+   * campos —nunca el array de abonos—, así que no pisan un abono que se esté
+   * registrando en el mismo momento. Lo pactado (líneas, total, tasa) no se
+   * toca: las reglas no lo dejan.
+   */
+  const actualizarApartado = async (
+    apartadoId: string,
+    cambios: { fechaLimite?: number; notes?: string; customerPhone?: string },
+  ) => {
+    if (!user) return;
+    const limpio: any = { ...cambios };
+    Object.keys(limpio).forEach((k) => limpio[k] === undefined && delete limpio[k]);
+    if (typeof limpio.customerPhone === 'string') limpio.customerPhone = limpio.customerPhone.trim();
+    if (Object.keys(limpio).length === 0) return;
+    const parsed = ActualizacionApartadoSchema.safeParse(limpio);
+    if (!parsed.success) throw new Error(`Cambio inválido — ${zodErrorMsg(parsed)}`);
+
+    const actual = apartados.find((a) => a.id === apartadoId);
+    if (actual && actual.status !== 'activo' && 'fechaLimite' in limpio) {
+      throw new Error(
+        `El apartado ${actual.numero} está ${etiquetaApartado(actual.status).toLowerCase()}: su fecha límite ya no se mueve.`,
+      );
+    }
+    if (actual && typeof limpio.fechaLimite === 'number' && limpio.fechaLimite < actual.fecha) {
+      throw new Error('La fecha límite no puede ser anterior al día en que se apartó.');
+    }
+    try {
+      await updateDoc(doc(db, 'apartados', apartadoId), { ...limpio, updatedAt: Date.now() });
+    } catch (e) {
+      handleFirestoreError(e, 'update', `apartados/${apartadoId}`);
+    }
+  };
+
+  /** Política de apartados (doc `config/apartados`): prima mínima y plazo. */
+  const guardarConfigApartados = async (config: ConfigApartados) => {
+    if (!user) return;
+    const paraGuardar = {
+      primaMinimaPct: config.primaMinimaPct,
+      plazoDias: config.plazoDias,
+      actualizadoEn: Date.now(),
+    };
+    const parsed = ConfigApartadosSchema.safeParse(paraGuardar);
+    if (!parsed.success) throw new Error(`Política inválida — ${zodErrorMsg(parsed)}`);
+    try {
+      await setDoc(doc(db, 'config', 'apartados'), paraGuardar);
+    } catch (e) {
+      handleFirestoreError(e, 'write', 'config/apartados');
+    }
+  };
+
+  /**
+   * Una venta por id, aunque esté fuera de la ventana de 100 en vivo: la
+   * factura de un apartado entregado hace meses también se reimprime.
+   */
+  const fetchVenta = async (saleId: string): Promise<Sale | null> => {
+    if (!user) return null;
+    const enMemoria = [...sales, ...olderSales].find((s) => s.id === saleId);
+    if (enMemoria) return enMemoria;
+    try {
+      const snap = await getDoc(doc(db, 'sales', saleId));
+      return snap.exists() ? ({ ...(snap.data() as Sale), id: snap.id }) : null;
+    } catch (e) {
+      handleFirestoreError(e, 'get', `sales/${saleId}`);
+      return null;
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // Objeciones universales
   // ---------------------------------------------------------------------------
 
@@ -1632,10 +2413,23 @@ export function useStoreData() {
   const stats: DashboardStats = useMemo(() => {
     const realSales = sales.filter(s => s.documentType !== 'PROFORMA');
     const todayStart = new Date().setHours(0, 0, 0, 0);
+    /*
+      Lo apartado sigue siendo inventario de la tienda hasta que se entrega, pero
+      ya no está en `stock`. Sin sumarlo, cuatro apartados de un proyector de
+      US$95 hacían desaparecer US$380 del valor de inventario durante todo el
+      plazo, sin haber entrado tampoco al costo de ventas: no estaban en
+      ninguna parte. Se valúa al costo con que salió del stock, que quedó
+      congelado en la línea del apartado.
+    */
+    const totalApartadoValue = apartados
+      .filter((a) => a.status === 'activo')
+      .reduce((acc, a) => acc + (a.items || []).reduce((s, i) => s + (i.cost || 0) * i.quantity, 0), 0);
     return {
       totalProducts: products.length,
       // Valor de inventario A COSTO (no a precio de venta); guards contra docs viejos sin cost/stock.
-      totalStockValue: products.reduce((acc, p) => acc + ((p.cost || 0) * (p.stock || 0)), 0),
+      totalStockValue:
+        products.reduce((acc, p) => acc + ((p.cost || 0) * (p.stock || 0)), 0) + totalApartadoValue,
+      totalApartadoValue,
       lowStockItems: products.filter(p => p.stock <= p.minStockAlert && !p.isReordering),
       recentSales: [...realSales].sort((a, b) => b.date - a.date).slice(0, 5),
       totalSalesValue: realSales.reduce((acc, s) => acc + ((s.status || 'completed') === 'completed' ? s.total : 0), 0),
@@ -1646,7 +2440,7 @@ export function useStoreData() {
         0,
       ),
     };
-  }, [products, sales]);
+  }, [products, sales, apartados]);
 
   return {
     user,
@@ -1698,6 +2492,18 @@ export function useStoreData() {
     addCategoryObjection,
     updateCategoryObjection,
     deleteCategoryObjection,
+    // Apartados
+    apartados,
+    apartadosCargados,
+    configApartados,
+    crearApartado,
+    registrarAbono,
+    anularAbono,
+    entregarApartado,
+    cancelarApartado,
+    actualizarApartado,
+    guardarConfigApartados,
+    fetchVenta,
     refreshMetrics: () => {}
   };
 }

@@ -171,6 +171,102 @@ worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de 
 - En iOS, un acceso directo agregado antes de este cambio conserva el ícono
   viejo. Hay que borrarlo y volver a agregarlo desde Safari.
 
+## Estado al 2026-10-26 — Apartados y saldos pendientes
+
+El cliente reserva productos dejando una **prima** y paga el resto en
+**abonos**. Botón **Apartar (F4)** en el POS (exige nombre y teléfono) y
+pantalla `/apartados` (barra lateral, después de Terminal POS). Sin commitear al
+escribir esto, en `feature/objeciones-tres-capas`.
+
+**Decisiones del dueño (2026-10-26), vinculantes:**
+
+- Sin prima mínima fija: cualquier prima > 0. Editable en Configuración →
+  Apartados (`config/apartados.primaMinimaPct`, 0 = sin mínimo).
+- Plazo por defecto 30 días (`config/apartados.plazoDias`). Es una fecha límite
+  de **pago** y se puede mover en cada apartado.
+- Al cancelar, cuánto se devuelve se decide **en cada caso** (de 0 a todo lo
+  abonado). Ningún papel promete una política de devolución.
+- Se entrega **sólo con el saldo en cero**. Entregar debiendo (crédito, cuentas
+  por cobrar) NO está hecho y sigue en el backlog.
+- Si el carrito tenía el precio de efectivo aplicado, se **quita** al apartar:
+  un apartado no es un pago de contado en efectivo.
+
+**Modelo (no es una venta hasta que se entrega):**
+
+- Colección `apartados` (`AP-000001`, contador `counters/apartados`). El stock
+  sale al apartar (kardex `apartado`); la factura —un RECIBO_OFICIAL normal, con
+  su A-— recién se emite al entregar (`Sale.apartadoId`, id derivado con uuidv5
+  para que reintentar no emita dos). Entregar no mueve `stock` ni el kardex.
+  Cancelar devuelve las unidades (kardex `liberacion`) **al costo con que
+  salieron** (`costoAlRecibir` con el `cost` congelado en la línea).
+- `Product.apartadas`: unidades reservadas, fuera de `stock` pero en la tienda.
+  Lo escriben SÓLO las transacciones de apartados; `updateProduct` lo descarta
+  igual que `stock`. **El Inventario pide conteo físico** cuando hay apartadas y
+  `adjustStock({conteoFisico})` graba `stock = conteo − apartadas` leyendo el
+  servidor. El ajuste masivo saltea esos productos y `deleteProduct` no los
+  borra. Sin esto, un conteo volvía vendible la unidad del cliente.
+- Abonos y anulaciones son listas que **sólo crecen**: las reglas lo verifican
+  con un chequeo de prefijo. Un abono mal cargado se anula y queda impreso
+  tachado, con el motivo.
+- La plata va en **centavos enteros** y se redondea **como el papel** (Intl,
+  igual que `formatCurrencyNIO`). El `round2` de `validations.ts` NO coincide
+  con lo impreso en casos reales: 3 × US$50 a 36.6243 → el papel dice
+  C$5,493.64 y `round2` 5,493.65. Toda la cuenta vive en `src/lib/apartados.ts`
+  con su prueba (`npm run apartados:test`).
+- "Aceptado al apartar ⇒ facturable al entregar": al crear, la venta que se
+  va a emitir se arma y se pasa por `SaleSchema`. Un dato que la factura
+  rechazaría se descubre con el cliente enfrente, no un mes después.
+- Idempotencia: el id del apartado, de la prima y de cada abono nacen al ABRIR
+  el diálogo y se reusan en los reintentos.
+
+**Trampas que ya mordieron (no repetir):**
+
+- **Zod 4 no deja derivar schemas con `.refine`**: `.omit()`, `.pick()` y
+  `.partial()` lanzan, `.extend()` lanza si pisa una clave y `.merge()` borra
+  el refine. Como los schemas viven a nivel de módulo, el error tumba la app al
+  importar `validations.ts`, con `tsc` en cero. Los schemas de apartados son
+  `z.object` propios. Después de tocar `validations.ts`, importalo con `npx tsx`
+  para ver que carga.
+- **Firestore rules: `lista[0:0]` NO es la lista vacía**, es "Index out of
+  bound". Va con una guarda `viejo.size() == 0 ||` delante. Sin ella no entraba
+  nunca la primera anulación. Lo encontró la suite en el emulador.
+- `CAMPOS_PRODUCTO` (validations.ts) es el espejo del `hasOnly` de
+  `isValidProduct`: si cambia uno, cambia el otro. Las transacciones lo usan
+  para decir qué campo sobra en vez del "Sin permisos" que culpa al deploy.
+
+**De paso se arreglaron tres bugs que ya existían:**
+
+- En el modal de stock de Inventario, guardar SÓLO la alerta mínima igual
+  llamaba a `adjustStock` con el número de cuando se abrió el diálogo: si en el
+  medio el POS vendía, ese guardado deshacía la venta. Sin cambio de conteo,
+  ahora se escriben sólo la alerta y la marca de re-orden.
+
+- F2/F3 facturaban el precio de ANTES de la negociación si se apretaban con
+  el precio de la línea en edición: el `setTimeout` llamaba al handler del
+  render anterior. Ahora el atajo es un pedido en estado que se ejecuta
+  después del render.
+- El "Total a cobrar" del POS (y el vuelto) podía diferir un centavo de la
+  factura cuando había envío. Ahora sale de la misma cuenta que el papel.
+
+**Pendiente del usuario, en este orden:**
+
+1. `npx firebase-tools deploy --only firestore:rules` **ANTES** de mergear a
+   `main`. El código nuevo se suscribe a `apartados` al iniciar sesión: sin las
+   reglas, esa suscripción se cae y el Layout muestra el cartel rojo en TODAS
+   las pantallas. Desplegar las reglas primero no rompe la versión de
+   producción: sólo agrega permisos.
+2. Probar el flujo en un Preview: apartar, abonar, anular, entregar, cancelar.
+3. Mergear a `main`.
+
+**Correr las pruebas de reglas en este equipo:** `npm run test:rules` (vía
+firebase-tools) pide Java 21+ y el `java` del PATH es 17. Lo que funcionó el
+2026-10-27: levantar el jar del emulador ya cacheado
+(`~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar`) con el
+Java 25 de Android Studio (`C:/Program Files/Android/Android Studio/jbr/bin/java.exe
+-jar <jar> --host 127.0.0.1 --port 8089`) y correr
+`npx vitest run firestore.rules.test.ts` con
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:8089`. Resultado: 66/66.
+
 ## Reglas de trabajo para el agente
 
 - **NUNCA** leas, muevas, copies ni pegues en el chat el JSON del service account. La rotación de la llave la hace el usuario a mano en Google Cloud Console.
@@ -179,7 +275,7 @@ worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de 
   sólo porque `@types/react` está instalado**: sin él, y con `strict` apagado
   como está, todo React resuelve a `any` y el typecheck no ve nada de las
   pantallas. Si alguna vez `npm run lint` pasa sospechosamente limpio, poné un
-  control positivo —una propiedad inventada— antes de creerle. Hay tres suites de pruebas de lógica pura, sin framework: `npm run costo:test` (costo promedio ponderado y su reversión), `npm run financiamiento:cuotas` y `npm run financiamiento:test`. Las de reglas corren con `npm run test:rules` (requiere emulador). Si tocás una fórmula que decide plata, extraela a `src/lib/` y escribile su test — es lo que se hizo con `costoPromedio.ts`.
+  control positivo —una propiedad inventada— antes de creerle. Hay cuatro suites de pruebas de lógica pura, sin framework: `npm run costo:test` (costo promedio ponderado y su reversión), `npm run apartados:test` (saldo, prima, abonos y redondeo igual al papel), `npm run financiamiento:cuotas` y `npm run financiamiento:test`. Las de reglas corren con `npm run test:rules` (requiere emulador). Si tocás una fórmula que decide plata, extraela a `src/lib/` y escribile su test — es lo que se hizo con `costoPromedio.ts`.
 - Toda escritura nueva a Firestore debe pasar por Zod (`src/lib/validations.ts`) Y estar permitida en `firestore.rules` (validación por whitelist de campos — si agregás un campo, tocá tipo + schema + regla).
 - El proyecto se queda en plan **Spark**: no despliegues Cloud Functions ni sugieras Blaze salvo pedido explícito. `catalogo_publico` se sincroniza con `npm run backfill`.
 - No borres los `.md` de revisiones; actualizá su sección ESTADO cuando apliques algo.
@@ -195,8 +291,12 @@ worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de 
 5. **P2 que QUEDA** (proforma→factura, reimprimir, método de pago y kardex ya están hechos — estaban listados acá y en ESTADO a la vez):
    - seriales/IMEI: tipos y reglas ya lo soportan, falta la UI.
    - **garantías configurables**: la factura imprime el texto de `DEFAULT_WARRANTY_TEXT` (`src/lib/invoice.ts`), que dice "3 meses" fijo. El modelo ya tiene `garantiaMeses` por categoría en `src/lib/categorySpecs.ts`; falta que la factura lo lea y que se pueda fijar un default de tienda. Un campo en `company` obliga a tocar `hasOnly` en `firestore.rules` y por lo tanto a desplegar.
-   - cuentas por cobrar.
-   - caja / arqueo.
+   - cuentas por cobrar: entregar el producto con saldo pendiente. Los
+     APARTADOS (reserva con prima, entrega con el saldo en cero) ya están
+     hechos (2026-10-26); entregar debiendo NO, por decisión del dueño.
+   - caja / arqueo. Ojo al hacerlo: los abonos de apartados también son plata
+     que entra a caja (`cajaEntre` en `src/lib/apartados.ts` ya los cuenta,
+     neto de las devoluciones por cancelación).
 
 ## Comandos
 
@@ -205,6 +305,7 @@ npm run dev               # localhost:3000
 npm run lint              # typecheck (tsc --noEmit)
 npm run build             # build de producción (también sirve para ver el bundle)
 npm run costo:test        # costo promedio ponderado + reversión (13 casos)
+npm run apartados:test    # cuenta de los apartados: saldo, prima, abonos, redondeo
 npm run financiamiento:cuotas
 npm run financiamiento:test
 npm run test:rules        # reglas de Firestore (requiere emulador)
