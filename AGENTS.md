@@ -175,8 +175,14 @@ worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de 
 
 El cliente reserva productos dejando una **prima** y paga el resto en
 **abonos**. Botón **Apartar (F4)** en el POS (exige nombre y teléfono) y
-pantalla `/apartados` (barra lateral, después de Terminal POS). Commit
-`19774ed` en `feature/objeciones-tres-capas`: todavía NO está en `main`.
+pantalla `/apartados` (barra lateral, después de Terminal POS).
+
+**En producción desde el 2026-10-27**: merge `8ea38fc` a `main`, hecho a mano
+y no por PR porque el token de `gh` del keyring está vencido. Fue directo, sin
+pasar por un Preview, a pedido del dueño. Verificado: `panda-factory-pos.vercel.app`
+sirve `index-BYIEvHyT.js`, el mismo hash del build local, y `/apartados`
+responde 200. La red de este equipo estaba intermitente: `git push` y la CLI
+de Firebase necesitaron reintentos.
 
 **Decisiones del dueño (2026-10-26), vinculantes:**
 
@@ -257,8 +263,12 @@ pantalla `/apartados` (barra lateral, después de Terminal POS). Commit
    TODAS las pantallas. Ojo para el próximo deploy: el aviso "Unable to fetch
    the CLI MOTD" es sólo la bienvenida de la CLI; el primer intento falló una
    vez contra `cloudresourcemanager` y al reintentar pasó.
-2. Probar el flujo en un Preview: apartar, abonar, anular, entregar, cancelar.
-3. Mergear a `main`.
+2. ~~Probar el flujo en un Preview~~: se salteó a pedido del dueño. **Lo que
+   SIGUE pendiente es probarlo en producción** con un producto de prueba:
+   apartar, abonar, anular un abono, entregar, cancelar otro, y mirar las
+   apartadas en Inventario. Hasta entonces el flujo sólo está verificado por
+   typecheck, pruebas de lógica y de reglas, y revisión de código.
+3. ~~Mergear a `main`~~ **HECHO (2026-10-27)**, ver arriba.
 
 **Correr las pruebas de reglas en este equipo:** `npm run test:rules` (vía
 firebase-tools) pide Java 21+ y el `java` del PATH es 17. Lo que funcionó el
