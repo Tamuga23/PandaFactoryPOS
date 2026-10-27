@@ -175,8 +175,8 @@ worker, que precachea todo el build. Ícono nuevo: ver `DESIGN.md` § Ícono de 
 
 El cliente reserva productos dejando una **prima** y paga el resto en
 **abonos**. Botón **Apartar (F4)** en el POS (exige nombre y teléfono) y
-pantalla `/apartados` (barra lateral, después de Terminal POS). Sin commitear al
-escribir esto, en `feature/objeciones-tres-capas`.
+pantalla `/apartados` (barra lateral, después de Terminal POS). Commit
+`19774ed` en `feature/objeciones-tres-capas`: todavía NO está en `main`.
 
 **Decisiones del dueño (2026-10-26), vinculantes:**
 
@@ -250,11 +250,13 @@ escribir esto, en `feature/objeciones-tres-capas`.
 
 **Pendiente del usuario, en este orden:**
 
-1. `npx firebase-tools deploy --only firestore:rules` **ANTES** de mergear a
-   `main`. El código nuevo se suscribe a `apartados` al iniciar sesión: sin las
-   reglas, esa suscripción se cae y el Layout muestra el cartel rojo en TODAS
-   las pantallas. Desplegar las reglas primero no rompe la versión de
-   producción: sólo agrega permisos.
+1. ~~`npx firebase-tools deploy --only firestore:rules`~~ **HECHO
+   (2026-10-27)**: compiló y se publicó en la base nombrada. Tenía que ir ANTES
+   del merge: el código nuevo se suscribe a `apartados` al iniciar sesión, y
+   sin las reglas esa suscripción se cae y el Layout muestra el cartel rojo en
+   TODAS las pantallas. Ojo para el próximo deploy: el aviso "Unable to fetch
+   the CLI MOTD" es sólo la bienvenida de la CLI; el primer intento falló una
+   vez contra `cloudresourcemanager` y al reintentar pasó.
 2. Probar el flujo en un Preview: apartar, abonar, anular, entregar, cancelar.
 3. Mergear a `main`.
 
