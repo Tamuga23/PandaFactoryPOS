@@ -353,15 +353,18 @@ Verificado: `npm run lint` en cero con control positivo, las cuatro suites,
 `validations.ts` cargado con `npx tsx`, `medir:foco` 350/350, `npm run build`,
 y las reglas en el emulador **76/76** (diez pruebas nuevas de encargos).
 
-**Pendiente del usuario, en este orden:**
+**En producción desde el 2026-10-27**, a pedido del dueño ("producción de
+una"): reglas desplegadas primero (compilaron; sólo los dos avisos viejos de
+`isValidCompany`), después commit `148d67a` y merge `7408e46` a `main`, hecho
+a mano porque el token de `gh` sigue vencido. Verificado:
+`panda-factory-pos.vercel.app` sirve `index-DzXcFe0G.js`, el mismo hash del
+build local, y `/apartados` responde 200.
 
-1. `npx firebase-tools deploy --only firestore:rules` — ANTES del merge: sin
-   las reglas nuevas, `encargadas` en un producto y `encargo`/`llegadas` en un
-   apartado hacen rechazar toda escritura que los lleve.
-2. Mergear a `main` para que llegue a producción.
-3. Probarlo en producción con un producto de prueba: apartar con stock 0,
-   recibir la caja de una orden que lo trae, revertir esa recepción, volver a
-   recibirla, entregar; y cancelar otro encargo a medio llegar.
+**Pendiente del usuario:** probarlo en producción con un producto de prueba:
+apartar con stock 0, recibir la caja de una orden que lo trae, revertir esa
+recepción, volver a recibirla, entregar; y cancelar otro encargo a medio
+llegar. Hasta entonces está verificado por typecheck, pruebas de lógica y de
+reglas, y revisión de código, no en pantalla.
 
 ## Reglas de trabajo para el agente
 
