@@ -17,15 +17,17 @@ import {
   Plus,
   Printer,
   Search,
+  Truck,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import type { AbonoApartado, Apartado, Customer, Sale } from '../types';
+import type { AbonoApartado, Apartado, Customer, Purchase, Sale } from '../types';
 import {
   abonadoNio,
   cajaEntre,
   estadoVisible,
+  pendientesDe,
   progresoPct,
   redondearCordobas,
   saldoNio,
@@ -51,8 +53,11 @@ import { DialogoAbonar, DialogoAnularAbono, DialogoCancelar, DialogoEntregar } f
 import {
   BadgeEstado,
   BarraProgreso,
+  ListaFaltantes,
   diasDesde,
+  fechaCorta,
   plazoDe,
+  type Faltante,
   plural,
   resumenProductos,
   telefonoDeFicha,
@@ -72,10 +77,11 @@ import {
 
 const C$ = formatCurrencyNIO;
 
-type Pestana = 'activos' | 'vencidos' | 'listos' | 'entregados' | 'cancelados' | 'todos';
+type Pestana = 'activos' | 'esperando' | 'vencidos' | 'listos' | 'entregados' | 'cancelados' | 'todos';
 
 const PESTANAS: { valor: Pestana; texto: string }[] = [
   { valor: 'activos', texto: 'Activos' },
+  { valor: 'esperando', texto: 'Por llegar' },
   { valor: 'vencidos', texto: 'Vencidos' },
   { valor: 'listos', texto: 'Listos' },
   { valor: 'entregados', texto: 'Entregados' },
@@ -83,9 +89,10 @@ const PESTANAS: { valor: Pestana; texto: string }[] = [
   { valor: 'todos', texto: 'Todos' },
 ];
 
-/** "Activos" son los que siguen abiertos: con saldo, vencidos o pagados sin retirar. */
+/** "Activos" son los que siguen abiertos: con saldo, vencidos, pagados sin retirar o esperando mercadería. */
 const EN_PESTANA: Record<Pestana, (e: EstadoVisible) => boolean> = {
-  activos: (e) => e === 'activo' || e === 'vencido' || e === 'listo',
+  activos: (e) => e === 'activo' || e === 'vencido' || e === 'listo' || e === 'esperando',
+  esperando: (e) => e === 'esperando',
   vencidos: (e) => e === 'vencido',
   listos: (e) => e === 'listo',
   entregados: (e) => e === 'entregado',
@@ -95,6 +102,7 @@ const EN_PESTANA: Record<Pestana, (e: EstadoVisible) => boolean> = {
 
 const VACIO: Record<Pestana, string> = {
   activos: 'No hay apartados abiertos: nadie tiene productos reservados ahora.',
+  esperando: 'Ningún encargo está esperando mercadería.',
   vencidos: 'Ningún apartado pasó su fecha límite.',
   listos: 'No hay apartados pagados esperando que los retiren.',
   entregados: 'Todavía no se entregó ningún apartado.',
@@ -150,13 +158,16 @@ function coincide(ap: Apartado, q: string, telFicha?: string): boolean {
 }
 
 const desdeQuePago = (ap: Apartado) => ultimoAbonoEn(ap) ?? ap.fecha;
-const RANGO_ABIERTOS: Partial<Record<EstadoVisible, number>> = { vencido: 0, listo: 1, activo: 2 };
+// Los encargos van al final: no se les puede cobrar plazo ni entregar todavía.
+const RANGO_ABIERTOS: Partial<Record<EstadoVisible, number>> = { vencido: 0, listo: 1, activo: 2, esperando: 3 };
 
 /*
   Cada pestaña en el orden en que hay que atender. En "Activos": primero los
   vencidos (el más atrasado arriba), después los pagados sin retirar (el que más
   espera arriba: la tienda le debe el producto) y al final los que están en
-  plazo, el que vence antes arriba. Los cerrados, el más reciente primero.
+  plazo, el que vence antes arriba. Al final, los encargos que esperan
+  mercadería, el más viejo arriba (es el primero que la recepción atiende).
+  Los cerrados, el más reciente primero.
 */
 function ordenar(lista: Fila[], pestana: Pestana): Fila[] {
   const copia = [...lista];
@@ -167,8 +178,12 @@ function ordenar(lista: Fila[], pestana: Pestana): Fila[] {
           (RANGO_ABIERTOS[x.visible] ?? 9) - (RANGO_ABIERTOS[y.visible] ?? 9) ||
           (x.visible === 'listo'
             ? desdeQuePago(x.ap) - desdeQuePago(y.ap)
-            : x.ap.fechaLimite - y.ap.fechaLimite),
+            : x.visible === 'esperando'
+              ? x.ap.fecha - y.ap.fecha
+              : x.ap.fechaLimite - y.ap.fechaLimite),
       );
+    case 'esperando':
+      return copia.sort((x, y) => x.ap.fecha - y.ap.fecha);
     case 'vencidos':
       return copia.sort((x, y) => x.ap.fechaLimite - y.ap.fechaLimite);
     case 'listos':
@@ -218,8 +233,11 @@ export default function Apartados() {
     anularAbono,
     entregarApartado,
     cancelarApartado,
+    reservarEncargo,
     actualizarApartado,
     fetchVenta,
+    configApartados,
+    purchases,
   } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -272,6 +290,42 @@ export default function Apartados() {
 
   const fichas = useMemo(() => new Map<string, Customer>(customers.map((c) => [c.id, c])), [customers]);
 
+  // Encargos: de dónde puede salir lo que falta.
+  const stockDe = useMemo(() => new Map(products.map((p) => [p.id, p.stock || 0])), [products]);
+  /*
+    La orden de compra abierta MÁS VIEJA que trae cada producto, con lo que
+    todavía no recibió: es la respuesta a "¿y cuándo llega?". (El id de cada
+    renglón de una orden es el del producto.)
+  */
+  const ordenQueTrae = useMemo(() => {
+    const m = new Map<string, Purchase>();
+    [...purchases]
+      .filter((o) => o.status === 'OPEN' || o.status === 'PARTIAL')
+      .sort((a, b) => a.date - b.date)
+      .forEach((o) =>
+        (o.items || []).forEach((it) => {
+          if ((it.receivedQuantity || 0) < it.quantity && !m.has(it.id)) m.set(it.id, o);
+        }),
+      );
+    return m;
+  }, [purchases]);
+  const faltantesDe = (ap: Apartado): Faltante[] =>
+    ap.status !== 'activo'
+      ? []
+      : Array.from(pendientesDe(ap), ([productId, cantidad]) => {
+          const orden = ordenQueTrae.get(productId);
+          return {
+            productId,
+            nombre: (ap.items || []).find((i) => i.id === productId)?.name || productId,
+            cantidad,
+            enStock: stockDe.get(productId) || 0,
+            orden: orden
+              ? `orden de ${orden.supplier}${orden.orderNumber ? ` #${orden.orderNumber}` : ''} del ${fechaCorta(orden.date)}`
+              : null,
+          };
+        });
+  const [reservandoId, setReservandoId] = useState<string | null>(null);
+
   const filas = useMemo<Fila[]>(
     () => apartados.map((ap) => ({ ap, visible: estadoVisible(ap, ahora), saldo: saldoNio(ap) })),
     [apartados, ahora],
@@ -299,10 +353,18 @@ export default function Apartados() {
     let saldoVencido = 0;
     let listos = 0;
     let listoMasViejo: number | null = null;
+    let esperando = 0;
+    let porLlegar = 0;
     for (const f of filas) {
-      if (f.visible === 'activo' || f.visible === 'vencido') {
+      // Un encargo con saldo también es plata por cobrar, aunque su plazo
+      // todavía no corra.
+      if (f.visible === 'activo' || f.visible === 'vencido' || (f.visible === 'esperando' && f.saldo > 0)) {
         porCobrar += f.saldo;
         conSaldo++;
+      }
+      if (f.visible === 'esperando') {
+        esperando++;
+        pendientesDe(f.ap).forEach((n) => { porLlegar += n; });
       }
       if (f.visible === 'vencido') {
         vencidos++;
@@ -325,6 +387,8 @@ export default function Apartados() {
       saldoVencido: redondearCordobas(saldoVencido),
       listos,
       listoMasViejo,
+      esperando,
+      porLlegar,
       caja: cajaEntre(apartados, inicio.getTime(), fin.getTime()),
     };
   }, [filas, apartados, ahora]);
@@ -420,6 +484,56 @@ export default function Apartados() {
       return;
     }
     window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
+  /** "Ya llegó tu pedido": sólo texto, con el saldo y la fecha límite que la llegada acaba de fijar. */
+  const avisarLlegada = (apartadoId: string) => {
+    // Lo último que se sabe: la fecha límite la escribió la transacción.
+    const ap = apartadosRef.current.find((a) => a.id === apartadoId);
+    if (!ap) return;
+    const tel = telefonoVigente(ap, fichas);
+    const { link } = buildWhatsAppApartado(ap, 'llego', tel);
+    if (!link) {
+      toast.error(
+        `El teléfono de ${ap.numero} (${tel || 'vacío'}) no sirve para WhatsApp: tiene que tener 8 dígitos. ` +
+          'Corregilo en el detalle del apartado.',
+      );
+      return;
+    }
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
+  /**
+   * Reserva para un encargo el stock que apareció por otro camino que su caja
+   * (una devolución, un ajuste, un apartado cancelado). La transacción decide
+   * con el stock del servidor; acá sólo se dice qué pasó.
+   */
+  const reservar = async (ap: Apartado) => {
+    if (reservandoId) return;
+    setReservandoId(ap.id);
+    try {
+      const r = await reservarEncargo(ap.id);
+      const hecho = r.reservadas.map((x) => `${x.cantidad} × ${x.producto}`).join(', ');
+      if (r.reservadas.length === 0) {
+        toast.info(
+          r.completo
+            ? `${ap.numero} ya tenía todo reservado.`
+            : `No hay stock para ${ap.numero}: sigue esperando ${listaNombres(r.faltan)}.`,
+        );
+      } else if (r.completo) {
+        toast.accion(
+          `${ap.numero} ya tiene todo en la tienda: su plazo de pago empieza hoy.`,
+          { etiqueta: 'Avisarle por WhatsApp', alHacer: () => avisarLlegada(ap.id) },
+          `Reservado: ${hecho}.`,
+        );
+      } else {
+        toast.success(`Reservado para ${ap.numero}: ${hecho}. Sigue esperando ${listaNombres(r.faltan)}.`);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || `No se pudo reservar para ${ap.numero}.`);
+    } finally {
+      setReservandoId(null);
+    }
   };
 
   /** Con saldo, el recordatorio; si no, el comprobante, que se manda con el PDF desde el preview. */
@@ -710,7 +824,7 @@ export default function Apartados() {
     if (!base) return null;
     const ap = preview.abonoLocal ? conAbono(base, preview.abonoLocal) : base;
     return {
-      data: buildInvoiceDataFromApartado(ap, companyInfo, products, Date.now()),
+      data: buildInvoiceDataFromApartado(ap, companyInfo, products, Date.now(), configApartados.plazoDias),
       whatsApp: buildWhatsAppApartado(ap, 'comprobante', telefonoVigente(ap, fichas)),
     };
   }, [preview, apartados, companyInfo, products, fichas]);
@@ -770,7 +884,7 @@ export default function Apartados() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Kpi
               titulo="Por cobrar"
               icono={Wallet}
@@ -801,6 +915,18 @@ export default function Apartados() {
                 kpis.listoMasViejo === null
                   ? 'Ninguno esperando que lo retiren'
                   : `el más viejo, ${textoPagado(diasDesde(kpis.listoMasViejo, ahora))}`
+              }
+            />
+            {/* Encargos: lo prometido que la tienda todavía no tiene. */}
+            <Kpi
+              titulo="Por llegar"
+              icono={Truck}
+              valor={String(kpis.esperando)}
+              tono={kpis.esperando > 0 ? 'text-amber-400' : 'text-zinc-100'}
+              sub={
+                kpis.esperando === 0
+                  ? 'Ningún encargo esperando mercadería'
+                  : `${plural(kpis.porLlegar, 'unidad encargada', 'unidades encargadas')}`
               }
             />
             {/* Neto: un día con una devolución no puede mostrar más plata de
@@ -885,6 +1011,9 @@ export default function Apartados() {
                       ahora={ahora}
                       telefono={telefonoVigente(f.ap, fichas)}
                       buscandoFactura={buscandoFactura === f.ap.id}
+                      faltantes={faltantesDe(f.ap)}
+                      reservando={reservandoId === f.ap.id}
+                      onReservar={() => void reservar(f.ap)}
                       onDetalle={() => setDetalleId(f.ap.id)}
                       onAbonar={() => abrirAbono(f.ap)}
                       onEntregar={() => abrirEntrega(f.ap)}
@@ -910,6 +1039,9 @@ export default function Apartados() {
           activo={!accion && !reservada}
           telefonoFicha={telefonoDeFicha(apDetalle, fichas)}
           buscandoFactura={buscandoFactura === apDetalle.id}
+          faltantes={faltantesDe(apDetalle)}
+          reservando={reservandoId === apDetalle.id}
+          onReservar={() => void reservar(apDetalle)}
           onCerrar={() => setDetalleId(null)}
           onAbonar={() => abrirAbono(apDetalle)}
           onAnular={(abono) => abrirAnular(apDetalle, abono)}
@@ -1006,6 +1138,9 @@ function TarjetaApartado({
   ahora,
   telefono,
   buscandoFactura,
+  faltantes,
+  reservando,
+  onReservar,
   onDetalle,
   onAbonar,
   onEntregar,
@@ -1018,6 +1153,10 @@ function TarjetaApartado({
   /** El vigente: el de la ficha si sirve, si no el del apartado. */
   telefono: string;
   buscandoFactura: boolean;
+  /** Lo que le falta a un encargo; vacío si no espera nada. */
+  faltantes: Faltante[];
+  reservando: boolean;
+  onReservar: () => void;
   onDetalle: () => void;
   onAbonar: () => void;
   onEntregar: () => void;
@@ -1027,7 +1166,11 @@ function TarjetaApartado({
 }) {
   const { ap, visible, saldo } = fila;
   const plazo = plazoDe(ap, visible, ahora);
-  const conSaldo = visible === 'activo' || visible === 'vencido';
+  // Un encargo con saldo recibe abonos, pero no recordatorios: su plazo no corre.
+  const recuerdaSaldo = visible === 'activo' || visible === 'vencido';
+  const conSaldo = recuerdaSaldo || (visible === 'esperando' && saldo > 0);
+  // Apareció stock de lo que espera: reservarlo es lo urgente, antes de que se venda.
+  const reservable = visible === 'esperando' && faltantes.some((f) => f.enStock > 0);
   const pct = progresoPct(ap);
   const idTitulo = `apartado-${ap.id}`;
 
@@ -1051,6 +1194,8 @@ function TarjetaApartado({
       </div>
 
       <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{resumenProductos(ap)}</p>
+
+      <ListaFaltantes faltantes={faltantes} />
 
       <p className={`text-xs flex items-center gap-1.5 ${plazo.tono}`}>
         <CalendarClock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1102,7 +1247,21 @@ function TarjetaApartado({
       </div>
 
       <div className="flex items-center gap-2">
-        {conSaldo ? (
+        {reservable ? (
+          <button
+            type="button"
+            onClick={onReservar}
+            disabled={reservando}
+            className="flex-1 h-9 px-3 bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          >
+            {reservando ? (
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <PackageCheck className="w-4 h-4" aria-hidden="true" />
+            )}
+            Reservar ahora
+          </button>
+        ) : conSaldo ? (
           <button
             type="button"
             onClick={onAbonar}
@@ -1157,11 +1316,11 @@ function TarjetaApartado({
           type="button"
           onClick={onWhatsApp}
           aria-label={
-            conSaldo
+            recuerdaSaldo
               ? `Recordarle el saldo de ${ap.numero} por WhatsApp`
               : `Mandar el comprobante de ${ap.numero} por WhatsApp`
           }
-          title={conSaldo ? 'Recordatorio por WhatsApp' : 'Comprobante por WhatsApp'}
+          title={recuerdaSaldo ? 'Recordatorio por WhatsApp' : 'Comprobante por WhatsApp'}
           className="h-9 w-9 shrink-0 flex items-center justify-center text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500"
         >
           <MessageCircle className="w-4 h-4" aria-hidden="true" />

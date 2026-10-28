@@ -64,13 +64,52 @@ export interface CuentaApartado {
   anulaciones?: { abonoId: string }[];
 }
 
+/** Lo que NO se pudo reservar al apartar porque no había stock: un ENCARGO. */
+export interface LineaEncargo {
+  productId: string;
+  cantidad: number;
+}
+
+/**
+ * De dónde salió una unidad encargada que pasó a estar reservada:
+ * - `compra`: llegó en una caja de una orden de compra; la recepción la asigna sola.
+ * - `stock`: apareció stock por otro camino (una devolución, un ajuste, otro
+ *   apartado cancelado) y se reservó con "Reservar ahora".
+ * - `reversion`: se revirtió la recepción de la caja que la había traído y
+ *   vuelve a estar por llegar. Cantidad NEGATIVA: deshace sin borrar.
+ */
+export type OrigenLlegada = 'compra' | 'stock' | 'reversion';
+
+export interface LlegadaEncargo {
+  productId: string;
+  /** > 0 para `compra` y `stock`; < 0 para `reversion`. */
+  cantidad: number;
+  fecha: number;
+  origen: OrigenLlegada;
+  /**
+   * USD por unidad: el costo promedio del producto cuando la unidad pasó a
+   * estar reservada; el de una reversión es el de lo que deshace. Con él se
+   * factura al entregar y vuelve al stock si se cancela (ver costoDeLinea).
+   */
+  costoUnitario?: number;
+  /** La orden y la caja que la trajeron (o la que se revirtió). */
+  compraId?: string;
+  trackingId?: string;
+}
+
+/** Lo que las cuentas de encargos necesitan de un apartado. `Apartado` (types.ts) lo cumple. */
+export interface ConEncargo {
+  encargo?: LineaEncargo[];
+  llegadas?: LlegadaEncargo[];
+}
+
 export type EstadoApartado = 'activo' | 'entregado' | 'cancelado';
 /**
- * El estado que se MUESTRA. `listo` y `vencido` no se guardan: no hay un
- * servidor que los cambie a medianoche (plan Spark, sin Cloud Functions), así
- * que se derivan cada vez que se pinta la pantalla.
+ * El estado que se MUESTRA. `listo`, `vencido` y `esperando` no se guardan: no
+ * hay un servidor que los cambie a medianoche (plan Spark, sin Cloud
+ * Functions), así que se derivan cada vez que se pinta la pantalla.
  */
-export type EstadoVisible = EstadoApartado | 'listo' | 'vencido';
+export type EstadoVisible = EstadoApartado | 'listo' | 'vencido' | 'esperando';
 
 // ---------------------------------------------------------------------------
 // Redondeo y centavos
@@ -238,6 +277,226 @@ export const validarTelefono = (telefono: string): string | null =>
       'es por donde se le recuerda el saldo.';
 
 // ---------------------------------------------------------------------------
+// Encargos: lo que se apartó sin estar en la tienda
+// ---------------------------------------------------------------------------
+
+/*
+  Un ENCARGO es un apartado con unidades que la tienda todavía no tiene: vienen
+  en una orden de compra o son un pedido especial del cliente. Se cobra igual
+  (prima, abonos, comprobante), pero esas unidades no se reservan al apartar
+  porque no hay qué reservar. Lo que se hacía antes —subir el stock a mano para
+  que el POS dejara apartar— era un stock fantasma: el POS lo podía vender, la
+  tablet lo mostraba disponible y el conteo físico no lo encontraba.
+
+  Dos listas en el apartado, y todo lo demás se deriva de ellas:
+
+  - `encargo`: lo que NO se reservó al apartar, por producto. Se escribe al
+    crear y no cambia nunca, como las líneas.
+  - `llegadas`: cada vez que una parte pasó a estar reservada (llegó en una
+    caja, o apareció stock por otro lado) o volvió a estar por llegar (se
+    revirtió la recepción). Sólo crece, como los abonos y por la misma razón: el
+    historial explica el estado en vez de contradecirlo.
+
+  Lo pendiente es encargo − llegadas, y NO se guarda: un tercer número al lado
+  de las dos listas es un dato que puede quedar desfasado de ellas.
+*/
+
+const sumaPorProducto = (lista?: { productId: string; cantidad: number }[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const x of lista || []) m.set(x.productId, (m.get(x.productId) || 0) + x.cantidad);
+  return m;
+};
+
+/** Lo que falta que llegue, por producto. Sólo los productos que todavía esperan algo. */
+export const pendientesDe = (ap: ConEncargo): Map<string, number> => {
+  const llegado = sumaPorProducto(ap.llegadas);
+  const faltan = new Map<string, number>();
+  sumaPorProducto(ap.encargo).forEach((encargado, productId) => {
+    const falta = encargado - (llegado.get(productId) || 0);
+    if (falta > 0) faltan.set(productId, falta);
+  });
+  return faltan;
+};
+
+/** Le falta mercadería: no se puede entregar y su plazo de pago todavía no corre. */
+export const tienePendientes = (ap: ConEncargo): boolean => pendientesDe(ap).size > 0;
+
+const porFechaEId = (a: { id: string; fecha: number }, b: { id: string; fecha: number }): number =>
+  a.fecha - b.fecha || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * Reparte las unidades que llegaron entre los apartados que las esperan, del
+ * más viejo al más nuevo. Es la fila del mostrador: el que encargó primero
+ * recibe primero, y el reparto no depende del orden en que la pantalla tenía
+ * cargada la lista (el desempate por id es sólo para que sea determinista).
+ * Devuelve sólo los que reciben algo; lo que sobra queda a la venta.
+ */
+export const asignarLlegadas = (
+  candidatos: { id: string; fecha: number; pendiente: number }[],
+  unidades: number,
+): { id: string; cantidad: number }[] => {
+  let quedan = Number.isFinite(unidades) ? Math.max(0, Math.floor(unidades)) : 0;
+  // Copia: ordenar en el lugar le desordenaría la lista a quien la pasó.
+  const vistos = new Set<string>();
+  const fila: { id: string; fecha: number; pendiente: number }[] = [];
+  for (const c of candidatos) {
+    if (vistos.has(c.id)) continue; // el mismo apartado dos veces no cobra dos veces
+    vistos.add(c.id);
+    fila.push(c);
+  }
+  fila.sort(porFechaEId);
+  const reparto: { id: string; cantidad: number }[] = [];
+  for (const c of fila) {
+    if (quedan <= 0) break;
+    const espera = Number.isFinite(c.pendiente) ? Math.floor(c.pendiente) : 0;
+    if (espera <= 0) continue;
+    const cantidad = Math.min(espera, quedan);
+    reparto.push({ id: c.id, cantidad });
+    quedan -= cantidad;
+  }
+  return reparto;
+};
+
+/**
+ * El costo unitario (USD) de las unidades reservadas de un producto: las que
+ * salieron del stock al apartar, al costo congelado en la línea, y las que
+ * llegaron después, cada una al costo con que pasó a estar reservada.
+ *
+ * Es el costo con que se FACTURA al entregar —el margen de Reportes sale de la
+ * línea de la venta— y con el que las unidades vuelven al stock si se cancela.
+ * Con el costo congelado al apartar, un encargo apartado cuando el producto
+ * costaba $80 que llegó en una caja de $95 declararía $15 de margen que no
+ * existe.
+ *
+ * Se calcula como desvío sobre el costo de la línea (c0 + Σ q·(c − c0) / N) y
+ * no como cociente de valores: con un desvío de cero el resultado es c0 EXACTO.
+ * Así un apartado común, o uno cuya caja se revirtió, se factura con el mismo
+ * número de siempre y no con uno que difiere en el decimal 17.
+ *
+ * No se redondea a centavos, igual que el costo promedio de costoPromedio.ts
+ * del que sale: es un costo, no un cobro, y redondearlo haría que el margen no
+ * cuadre con el valor del inventario.
+ */
+export const costoDeLinea = (
+  costoAlCrear: number,
+  reservadasAlCrear: number,
+  llegadas: { cantidad: number; costoUnitario?: number }[],
+): number => {
+  let unidades = Math.max(0, reservadasAlCrear);
+  let desvio = 0;
+  for (const l of llegadas) {
+    const costo = typeof l.costoUnitario === 'number' && Number.isFinite(l.costoUnitario) ? l.costoUnitario : costoAlCrear;
+    unidades += l.cantidad;
+    desvio += l.cantidad * (costo - costoAlCrear);
+  }
+  if (unidades <= 0 || desvio === 0) return costoAlCrear;
+  const costo = costoAlCrear + desvio / unidades;
+  return Number.isFinite(costo) && costo >= 0 ? costo : costoAlCrear;
+};
+
+/** Lo que un apartado tiene de un producto, separado por de dónde salió. */
+export interface ParteDeProducto {
+  productId: string;
+  /** Unidades del producto en el apartado, sumando todas sus líneas. */
+  total: number;
+  /** Encargadas al apartar: no había stock. */
+  encargadas: number;
+  /** Llegadas netas: compras y stock, menos reversiones. */
+  llegadas: number;
+  /** Encargadas que todavía no llegaron. NO están en la tienda. */
+  pendiente: number;
+  /** En la tienda con el nombre del cliente (cuentan en `Product.apartadas`). */
+  reservadas: number;
+  /** Costo de la línea al apartar (USD). */
+  costoAlCrear?: number;
+  /** Costo unitario de las reservadas: ver costoDeLinea. */
+  costo?: number;
+}
+
+/**
+ * Cada producto del apartado partido en reservado y pendiente. Es lo que
+ * necesitan cancelar (lo reservado vuelve al stock a su costo; lo pendiente sólo
+ * baja `encargadas`), entregar (el costo de la factura) y el valor de
+ * inventario (lo pendiente no está en la tienda).
+ */
+export const partesDeApartado = (
+  ap: ConEncargo & { items: { id: string; quantity: number; cost?: number }[] },
+): Map<string, ParteDeProducto> => {
+  const total = new Map<string, number>();
+  // El costo de la PRIMERA línea que lo tenga, como `cantidadesPorProducto` del
+  // hook: dos líneas del mismo producto salen del mismo catálogo en el mismo
+  // momento.
+  const costoAlCrear = new Map<string, number>();
+  for (const i of ap.items || []) {
+    total.set(i.id, (total.get(i.id) || 0) + i.quantity);
+    if (!costoAlCrear.has(i.id) && typeof i.cost === 'number' && Number.isFinite(i.cost)) costoAlCrear.set(i.id, i.cost);
+  }
+  const encargo = sumaPorProducto(ap.encargo);
+  const llegadasDe = new Map<string, LlegadaEncargo[]>();
+  for (const l of ap.llegadas || []) llegadasDe.set(l.productId, [...(llegadasDe.get(l.productId) || []), l]);
+
+  const partes = new Map<string, ParteDeProducto>();
+  total.forEach((t, productId) => {
+    const encargadas = Math.min(t, Math.max(0, encargo.get(productId) || 0));
+    const suyas = llegadasDe.get(productId) || [];
+    const llegadas = suyas.reduce((s, l) => s + l.cantidad, 0);
+    const pendiente = Math.max(0, encargadas - llegadas);
+    const c0 = costoAlCrear.get(productId);
+    partes.set(productId, {
+      productId,
+      total: t,
+      encargadas,
+      llegadas,
+      pendiente,
+      reservadas: t - pendiente,
+      costoAlCrear: c0,
+      costo: c0 === undefined ? undefined : costoDeLinea(c0, t - encargadas, suyas),
+    });
+  });
+  return partes;
+};
+
+/**
+ * Lo que una caja le dejó a un apartado, por producto, neto de reversiones
+ * anteriores (una caja se puede recibir, revertir y volver a recibir). Es
+ * exactamente lo que hay que deshacer si se revierte esa recepción.
+ *
+ * Con el costo y no sólo la cantidad: la reversión tiene que salir al MISMO
+ * costo con que entró, para que el costo de la línea vuelva a ser el de antes
+ * de que llegara la caja. Si todas las llegadas tienen el mismo costo se
+ * devuelve ése tal cual, sin pasar por un cociente que lo corra un decimal.
+ */
+export const llegadasDeCaja = (
+  ap: ConEncargo,
+  compraId: string,
+  trackingId: string,
+): Map<string, { cantidad: number; costoUnitario?: number }> => {
+  const suma = new Map<string, { cantidad: number; valor: number; costos: Set<number>; sinCosto: boolean }>();
+  for (const l of ap.llegadas || []) {
+    if (l.compraId !== compraId || l.trackingId !== trackingId) continue;
+    const prev = suma.get(l.productId) ?? { cantidad: 0, valor: 0, costos: new Set<number>(), sinCosto: false };
+    const tieneCosto = typeof l.costoUnitario === 'number' && Number.isFinite(l.costoUnitario);
+    if (tieneCosto) prev.costos.add(l.costoUnitario as number);
+    suma.set(l.productId, {
+      cantidad: prev.cantidad + l.cantidad,
+      valor: prev.valor + (tieneCosto ? l.cantidad * (l.costoUnitario as number) : 0),
+      costos: prev.costos,
+      sinCosto: prev.sinCosto || !tieneCosto,
+    });
+  }
+  const netas = new Map<string, { cantidad: number; costoUnitario?: number }>();
+  suma.forEach((v, productId) => {
+    if (v.cantidad <= 0) return;
+    // Sin costo en alguna, la reversión tampoco lo lleva: así costoDeLinea las
+    // valúa igual (al costo de la línea) y se anulan entre sí.
+    if (v.sinCosto) netas.set(productId, { cantidad: v.cantidad });
+    else if (v.costos.size === 1) netas.set(productId, { cantidad: v.cantidad, costoUnitario: [...v.costos][0] });
+    else netas.set(productId, { cantidad: v.cantidad, costoUnitario: Math.max(0, v.valor / v.cantidad) });
+  });
+  return netas;
+};
+
+// ---------------------------------------------------------------------------
 // Fechas
 // ---------------------------------------------------------------------------
 
@@ -288,12 +547,18 @@ export const diasRestantes = (fechaLimite: number, ahora: number): number =>
  * `listo` gana sobre `vencido`: si el cliente ya pagó todo, la tienda le debe
  * el producto, y mostrarlo como "vencido" invitaría a liberarlo. Por eso un
  * `listo` nunca vence y necesita su propia alarma (días desde `ultimoAbonoEn`).
+ *
+ * Y `esperando` gana sobre los dos: mientras falte mercadería, el apartado no
+ * se puede entregar aunque esté pagado, y no vence porque el plazo de pago
+ * corre desde que llega (decisión del dueño, 2026-10-27). La `fechaLimite` que
+ * tiene guardada mientras espera es provisoria y no se muestra.
  */
 export const estadoVisible = (
-  ap: CuentaApartado & { status: EstadoApartado; fechaLimite: number },
+  ap: CuentaApartado & ConEncargo & { status: EstadoApartado; fechaLimite: number },
   ahora: number,
 ): EstadoVisible => {
   if (ap.status !== 'activo') return ap.status;
+  if (tienePendientes(ap)) return 'esperando';
   if (estaPagado(ap)) return 'listo';
   if (ahora > ap.fechaLimite) return 'vencido';
   return 'activo';
@@ -373,7 +638,11 @@ export const apartadosConProducto = <T extends { status: string; numero: string;
     .filter((ap) => ap.status === 'activo')
     .map((ap) => ({
       apartado: ap,
-      unidades: (ap.items || []).filter((i) => i.id === productId).reduce((s, i) => s + i.quantity, 0),
+      // Sólo lo que está en la tienda: lo encargado que no llegó no se cuenta
+      // en el estante (es lo que lee el conteo físico del Inventario).
+      unidades:
+        (ap.items || []).filter((i) => i.id === productId).reduce((s, i) => s + i.quantity, 0) -
+        (pendientesDe(ap as ConEncargo).get(productId) || 0),
     }))
     .filter((x) => x.unidades > 0);
 

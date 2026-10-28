@@ -29,7 +29,7 @@ service cloud.firestore {
     // el otro.
     function isValidProduct(data) {
       return data.keys().hasAll(['sku', 'name', 'price', 'cost', 'stock', 'minStockAlert', 'category', 'createdAt', 'updatedAt', 'ownerId'])
-        && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
+        && data.keys().hasOnly(['id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'encargadas', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
             'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'])
         && data.sku is string && data.sku.size() <= 50
         && data.name is string && data.name.size() <= 100
@@ -40,6 +40,8 @@ service cloud.firestore {
         // fuera de `stock`, pero en la tienda. Lo escriben sólo las
         // transacciones de apartados.
         && (!('apartadas' in data) || (data.apartadas is number && data.apartadas >= 0))
+        // Unidades prometidas a clientes que todavía no llegaron (encargos).
+        && (!('encargadas' in data) || (data.encargadas is number && data.encargadas >= 0))
         && data.minStockAlert is number && data.minStockAlert >= 0
         && data.category is string && data.category.size() <= 50
         && (data.ownerId is string)
@@ -263,7 +265,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().ownerId == existing().ownerId
         && incoming().diff(existing()).affectedKeys().hasOnly([
-            'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
+            'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'encargadas', 'minStockAlert', 'category', 'imageBase64', 'isReordering', 'updatedAt', 'createdAt', 'ownerId',
             'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio', 'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride'
         ]);
       allow delete: if isStaff() && isValidId(productId);
@@ -422,6 +424,48 @@ service cloud.firestore {
             && isValidAbono(nuevo[viejo.size()]));
     }
 
+    // Encargos: lo que no se reservó al apartar porque no había stock.
+    function isValidLineaEncargo(e) {
+      return e is map
+        && e.keys().hasAll(['productId', 'cantidad'])
+        && e.keys().hasOnly(['productId', 'cantidad'])
+        && e.productId is string && e.productId.size() > 0 && e.productId.size() <= 128
+        && e.cantidad is int && e.cantidad > 0;
+    }
+
+    // Una parte de un encargo que pasó a estar reservada (o volvió atrás, con
+    // cantidad negativa, si se revirtió la recepción que la trajo).
+    function isValidLlegada(l) {
+      return l is map
+        && l.keys().hasAll(['productId', 'cantidad', 'fecha', 'origen'])
+        && l.keys().hasOnly(['productId', 'cantidad', 'fecha', 'origen', 'costoUnitario', 'compraId', 'trackingId'])
+        && l.productId is string && l.productId.size() > 0 && l.productId.size() <= 128
+        && l.cantidad is int && l.cantidad != 0
+        && l.fecha is number
+        && l.origen in ['compra', 'stock', 'reversion']
+        && (!('costoUnitario' in l) || (l.costoUnitario is number && l.costoUnitario >= 0))
+        && (!('compraId' in l) || (l.compraId is string && l.compraId.size() <= 128))
+        && (!('trackingId' in l) || (l.trackingId is string && l.trackingId.size() <= 128));
+    }
+
+    // Como abonosSoloCrecen, pero de a hasta CINCO por escritura: una sola caja
+    // puede traer varios productos encargados por el mismo cliente, y la
+    // recepción los asigna en la misma transacción.
+    //
+    // Se validan la PRIMERA y la ÚLTIMA nuevas, no las cinco: validarlas todas
+    // pasaba el tope de 1000 expresiones por pedido del motor de reglas (medido
+    // en el emulador: con cinco, el pedido se rechazaba aunque fueran válidas).
+    // Con una o dos nuevas —el caso de casi toda caja— quedan todas validadas;
+    // las del medio las cuida Zod (LlegadaEncargoSchema), igual que los
+    // renglones de una venta después del primero.
+    function llegadasSoloCrecen(nuevo, viejo) {
+      return nuevo == viejo
+        || (nuevo.size() > viejo.size() && nuevo.size() <= viejo.size() + 5
+            && (viejo.size() == 0 || nuevo[0:viejo.size()] == viejo)
+            && isValidLlegada(nuevo[viejo.size()])
+            && isValidLlegada(nuevo[nuevo.size() - 1]));
+    }
+
     function anulacionesSoloCrecen(nuevo, viejo) {
       return nuevo == viejo
         || (nuevo.size() == viejo.size() + 1
@@ -434,7 +478,7 @@ service cloud.firestore {
     // tiene que ser una factura que se pueda emitir.
     function isValidApartado(data) {
       return data.keys().hasAll(['numero', 'fecha', 'fechaLimite', 'items', 'subtotal', 'tax', 'total', 'exchangeRate', 'totalNio', 'abonos', 'anulaciones', 'customerName', 'customerPhone', 'status', 'ownerId', 'updatedAt'])
-        && data.keys().hasOnly(['id', 'numero', 'fecha', 'fechaLimite', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'exchangeRate', 'totalNio', 'abonos', 'anulaciones',
+        && data.keys().hasOnly(['id', 'numero', 'fecha', 'fechaLimite', 'items', 'subtotal', 'tax', 'total', 'discount', 'shipping', 'exchangeRate', 'totalNio', 'abonos', 'anulaciones', 'encargo', 'llegadas',
             'customerId', 'customerName', 'customerPhone', 'customerEmail', 'customerAddress', 'transport', 'notes', 'status',
             'saleId', 'invoiceNumber', 'entregadoEn', 'canceladoEn', 'motivoCancelacion', 'devueltoNio', 'ownerId', 'updatedAt'])
         && (data.ownerId is string)
@@ -451,6 +495,9 @@ service cloud.firestore {
         && data.totalNio is number && data.totalNio > 0
         && data.abonos is list && data.abonos.size() > 0 && data.abonos.size() <= 200
         && data.anulaciones is list && data.anulaciones.size() <= 200
+        && (!('encargo' in data) || (data.encargo is list && data.encargo.size() <= 100
+            && (data.encargo.size() == 0 || isValidLineaEncargo(data.encargo[0]))))
+        && (!('llegadas' in data) || (data.llegadas is list && data.llegadas.size() <= 200))
         && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100
         && data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 50
         && data.status in ['activo', 'entregado', 'cancelado']
@@ -477,6 +524,8 @@ service cloud.firestore {
         // Nace con la prima y nada más.
         && data.abonos.size() == 1 && isValidAbono(data.abonos[0])
         && data.anulaciones.size() == 0
+        // Nada llegó todavía: las llegadas las escribe la recepción, después.
+        && (!('llegadas' in data) || data.llegadas.size() == 0)
         && !('saleId' in data) && !('invoiceNumber' in data) && !('entregadoEn' in data)
         && !('canceladoEn' in data) && !('motivoCancelacion' in data) && !('devueltoNio' in data);
     }
@@ -486,11 +535,14 @@ service cloud.firestore {
       return isValidApartado(despues)
         && abonosSoloCrecen(despues.abonos, antes.abonos)
         && anulacionesSoloCrecen(despues.anulaciones, antes.anulaciones)
+        && llegadasSoloCrecen(despues.get('llegadas', []), antes.get('llegadas', []))
         && (
-          // Sigue activo: abonar, anular un abono, mover la fecha límite,
-          // corregir la nota o el teléfono de contacto.
+          // Sigue activo: abonar, anular un abono, registrar que llegó (o se
+          // revirtió) mercadería encargada, mover la fecha límite —que la fija
+          // la llegada en un encargo—, corregir la nota o el teléfono.
+          // `encargo` no está acá: lo encargado no cambia después de apartar.
           (antes.status == 'activo' && despues.status == 'activo'
-            && k.hasOnly(['abonos', 'anulaciones', 'fechaLimite', 'notes', 'customerPhone', 'updatedAt']))
+            && k.hasOnly(['abonos', 'anulaciones', 'llegadas', 'fechaLimite', 'notes', 'customerPhone', 'updatedAt']))
           // Entrega: sólo los datos de la factura emitida, y esa venta tiene
           // que existir al terminar la transacción que la escribe Y ser la de
           // ESTE apartado. Con `existsAfter` a secas, apuntar `saleId` a

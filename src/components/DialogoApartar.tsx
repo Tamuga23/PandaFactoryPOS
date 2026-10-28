@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { HandCoins, Loader2, AlertTriangle } from 'lucide-react';
+import { HandCoins, Loader2, AlertTriangle, Truck } from 'lucide-react';
 import { CartItem } from '../types';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -129,6 +129,16 @@ export default function DialogoApartar({
   const lineas = items.length;
   const unidades = items.reduce((s, i) => s + i.quantity, 0);
 
+  /*
+    ENCARGO: lo que no está en la tienda no se reserva hoy; queda esperando la
+    caja. Con el stock que ve la pantalla —el servidor decide con el suyo, y
+    el aviso final dice lo que de verdad quedó—.
+  */
+  const porLlegar = items
+    .map((i) => ({ id: i.id, nombre: i.name, cantidad: Math.max(0, i.quantity - Math.max(0, i.stock || 0)) }))
+    .filter((x) => x.cantidad > 0);
+  const esEncargo = porLlegar.length > 0;
+
   const primaNum = prima.trim() === '' ? NaN : Number(prima);
   const errorPrima = validarPrima(primaNum, totalNio, config.primaMinimaPct);
   const mostrarErrorPrima = errorPrima !== null && (prima.trim() !== '' || intentado);
@@ -142,10 +152,18 @@ export default function DialogoApartar({
     abonos: [{ id: 'prima', fecha: ahora, metodo, montoNio: legible ? montoTipeado : 0 }],
   };
   const saldo = saldoNio(cuenta);
-  const pagaTodo = errorPrima === null && estaPagado(cuenta);
+  // En un encargo, pagar todo de entrada es lo normal (un pedido especial
+  // prepagado) y no se lo puede llevar hoy: la pregunta de abajo no aplica.
+  const pagaTodo = errorPrima === null && estaPagado(cuenta) && !esEncargo;
 
   const hoy = aFechaInput(ahora);
-  const fechaLimite = finDelDia(fecha);
+  /*
+    Decisión del dueño (2026-10-27): el plazo de un encargo corre DESDE QUE
+    LLEGA. Hoy no hay fecha que elegir; se guarda una provisoria (la de
+    siempre) que no se muestra mientras espera, y la recepción de la caja la
+    reescribe con el día en que llegó.
+  */
+  const fechaLimite = esEncargo ? fechaLimiteDesde(ahora, config.plazoDias) : finDelDia(fecha);
   const errorFecha =
     fechaLimite === null
       ? 'Elegí una fecha límite válida.'
@@ -346,27 +364,48 @@ export default function DialogoApartar({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="apartar-fecha" className={ETIQUETA}>Fecha límite de pago</label>
-            {/* `color-scheme: dark`: sin eso el ícono del calendario es gris oscuro sobre carbón. */}
-            <input
-              ref={fechaRef}
-              id="apartar-fecha"
-              type="date"
-              min={hoy}
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              aria-invalid={errorFecha ? true : undefined}
-              aria-describedby="apartar-fecha-ayuda"
-              className={`${CAMPO} focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 ${errorFecha ? 'border-rose-500/60' : 'border-zinc-700'} text-sm [color-scheme:dark]`}
-            />
-            <p
-              id="apartar-fecha-ayuda"
-              className={`text-[11px] leading-snug ${errorFecha ? 'text-rose-400' : 'text-zinc-400'}`}
-            >
-              {errorFecha || `Plazo de la tienda: ${config.plazoDias} días. Se puede mover después.`}
-            </p>
-          </div>
+          {esEncargo ? (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-amber-400 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5" aria-hidden="true" />
+                Encargo · se reserva cuando llegue
+              </p>
+              <ul className="text-xs text-zinc-200 space-y-0.5">
+                {porLlegar.map((x) => (
+                  <li key={x.id} className="flex gap-2 tabular-nums">
+                    <span className="text-amber-400 font-bold shrink-0">{x.cantidad} ×</span>
+                    <span className="min-w-0 break-words">{x.nombre}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-zinc-300 leading-snug">
+                {unidades > porLlegar.reduce((s, x) => s + x.cantidad, 0) && 'Lo que está en la tienda se reserva hoy. '}
+                La fecha límite de pago se fija cuando llegue: {config.plazoDias} días después de recibirla.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label htmlFor="apartar-fecha" className={ETIQUETA}>Fecha límite de pago</label>
+              {/* `color-scheme: dark`: sin eso el ícono del calendario es gris oscuro sobre carbón. */}
+              <input
+                ref={fechaRef}
+                id="apartar-fecha"
+                type="date"
+                min={hoy}
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                aria-invalid={errorFecha ? true : undefined}
+                aria-describedby="apartar-fecha-ayuda"
+                className={`${CAMPO} focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 ${errorFecha ? 'border-rose-500/60' : 'border-zinc-700'} text-sm [color-scheme:dark]`}
+              />
+              <p
+                id="apartar-fecha-ayuda"
+                className={`text-[11px] leading-snug ${errorFecha ? 'text-rose-400' : 'text-zinc-400'}`}
+              >
+                {errorFecha || `Plazo de la tienda: ${config.plazoDias} días. Se puede mover después.`}
+              </p>
+            </div>
+          )}
 
           {/*
             El saldo va al pie, pegado al botón: es la última cifra que se lee

@@ -1,5 +1,15 @@
 # Revisión completa PandaFactoryPOS — 2026-07-07
 
+## ESTADO — P2.3: apartado por encargo, sin stock (2026-10-27)
+
+Un apartado puede incluir productos que la tienda todavía no tiene (vienen en
+una orden de compra o son un pedido especial). Lo que falta queda encargado
+(`Product.encargadas`, `Apartado.encargo`), la recepción de la caja lo reserva
+sola al cliente que lo esperaba y su plazo de pago corre desde ese día
+(decisión del dueño). Reemplaza la mala práctica de subir el stock a mano para
+poder apartar. Detalle en `AGENTS.md` § "Estado al 2026-10-27 — Apartado por
+ENCARGO".
+
 ## ESTADO — P2.3: apartados con prima y abonos (2026-10-26/27)
 
 La parte de P2.3 que decía "el apartado/layaway es común en Nicaragua y encaja

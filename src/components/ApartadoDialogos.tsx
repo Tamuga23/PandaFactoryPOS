@@ -7,6 +7,7 @@ import {
   abonosVigentes,
   estaPagado,
   metodoPredominante,
+  partesDeApartado,
   redondearCordobas,
   saldoNio,
   validarAbono,
@@ -605,7 +606,14 @@ export function DialogoCancelar({
         : null
       : validarDevolucion(devuelto, abonado);
   const retenido = devuelto !== null && !errorDevuelto ? redondearCordobas(abonado - devuelto) : null;
-  const unidades = unidadesDe(ap);
+  // Sólo vuelve al stock lo que está en la tienda; lo encargado que no llegó
+  // nunca estuvo en el stock.
+  let unidades = 0;
+  let porLlegar = 0;
+  partesDeApartado(ap).forEach((p) => {
+    unidades += p.reservadas;
+    porLlegar += p.pendiente;
+  });
 
   const cancelar = async () => {
     if (enviando) return;
@@ -723,9 +731,13 @@ export function DialogoCancelar({
         <ul className="space-y-2 list-none">
           <li className="text-xs leading-relaxed flex gap-2 text-zinc-400">
             <span>
-              {unidades === 1
-                ? 'La unidad vuelve al stock y queda a la venta.'
-                : `Las ${unidades} unidades vuelven al stock y quedan a la venta.`}
+              {unidades === 0
+                ? ''
+                : unidades === 1
+                  ? 'La unidad vuelve al stock y queda a la venta.'
+                  : `Las ${unidades} unidades vuelven al stock y quedan a la venta.`}
+              {porLlegar > 0 &&
+                `${unidades > 0 ? ' ' : ''}${porLlegar === 1 ? 'La que estaba por llegar deja' : `Las ${porLlegar} que estaban por llegar dejan`} de estar encargada${porLlegar === 1 ? '' : 's'}: si llega${porLlegar === 1 ? '' : 'n'}, queda${porLlegar === 1 ? '' : 'n'} a la venta.`}
             </span>
           </li>
           <li className="text-xs leading-relaxed flex gap-2 text-amber-400">

@@ -770,6 +770,18 @@ export default function Inventory() {
                         <span className="sr-only">, más {apartadasDe(product)} {apartadasDe(product) === 1 ? 'apartada' : 'apartadas'}</span>
                       </span>
                     )}
+                    {/* Encargadas: prometidas a clientes y TODAVÍA NO en la tienda.
+                        Sin "+": no suman al conteo, y un "+" haría buscarlas en
+                        el estante. Se reservan solas al recibir la caja. */}
+                    {(product.encargadas || 0) > 0 && (
+                      <span
+                        className="ml-1.5 text-[10px] font-bold text-zinc-400"
+                        title={`${product.encargadas} ${product.encargadas === 1 ? 'unidad encargada' : 'unidades encargadas'} por clientes: todavía no llegaron, no están en la tienda`}
+                      >
+                        <span aria-hidden="true">· {product.encargadas} encarg.</span>
+                        <span className="sr-only">, {product.encargadas} {product.encargadas === 1 ? 'encargada' : 'encargadas'} por llegar</span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-col items-center justify-center gap-1.5">

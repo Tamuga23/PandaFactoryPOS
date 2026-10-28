@@ -1,6 +1,6 @@
 import type { FinanciamientoOverride } from './lib/financiamiento';
-import type { EstadoApartado, MetodoAbono } from './lib/apartados';
-export type { FinanciamientoOverride, EstadoApartado, MetodoAbono };
+import type { EstadoApartado, MetodoAbono, LineaEncargo, LlegadaEncargo } from './lib/apartados';
+export type { FinanciamientoOverride, EstadoApartado, MetodoAbono, LineaEncargo, LlegadaEncargo };
 
 export interface Product {
   id: string;
@@ -24,6 +24,15 @@ export interface Product {
    * con datos del servidor. `updateProduct` no lo toca nunca, igual que `stock`.
    */
   apartadas?: number;
+  /**
+   * Unidades ENCARGADAS: prometidas a clientes en apartados activos y que
+   * todavía NO LLEGARON a la tienda (vienen en una compra o son un pedido
+   * especial). No son físicas: no están ni en `stock` ni en `apartadas`, y el
+   * conteo físico no las encuentra. Cuando llega la caja, la recepción se las
+   * da primero a esos clientes y recién el resto queda a la venta.
+   * Lo escriben SÓLO los apartados y la recepción/reversión de compras.
+   */
+  encargadas?: number;
   minStockAlert: number;
   category: string;
   imageBase64?: string;
@@ -216,6 +225,13 @@ export interface Apartado {
   abonos: AbonoApartado[];
   /** Sólo crece al final. */
   anulaciones: AnulacionAbono[];
+  /**
+   * ENCARGO: lo que no se pudo reservar al apartar porque no había stock, por
+   * producto. Se escribe al crear y no cambia nunca. Ver src/lib/apartados.ts.
+   */
+  encargo?: LineaEncargo[];
+  /** Cada parte del encargo que pasó a estar reservada (o volvió atrás). Sólo crece. */
+  llegadas?: LlegadaEncargo[];
   customerId?: string;
   customerName: string;
   /** Obligatorio: es el canal de cobro mientras dura el apartado. */
@@ -241,7 +257,7 @@ export interface Apartado {
 /** Lo que el POS manda para crear un apartado; el resto lo pone la transacción. */
 export type NuevoApartado = Omit<
   Apartado,
-  | 'numero' | 'status' | 'ownerId' | 'updatedAt' | 'anulaciones'
+  | 'numero' | 'status' | 'ownerId' | 'updatedAt' | 'anulaciones' | 'encargo' | 'llegadas'
   | 'saleId' | 'invoiceNumber' | 'entregadoEn' | 'canceladoEn' | 'motivoCancelacion' | 'devueltoNio'
 >;
 

@@ -1,7 +1,7 @@
 import { Sale, CompanyInfo, Apartado, Product } from '../types';
 import { InvoiceData } from '../components/InvoicePreview';
 import { DEFAULT_EXCHANGE_RATE, formatCurrencyNIO, telefonoWhatsApp } from './utils';
-import { abonadoNio, estaPagado, saldoNio } from './apartados';
+import { abonadoNio, estaPagado, pendientesDe, saldoNio, tienePendientes } from './apartados';
 import { etiquetaMetodo } from './etiquetas';
 
 /**
@@ -127,10 +127,19 @@ export function buildInvoiceDataFromApartado(
   companyInfo?: CompanyInfo | null,
   products: Product[] = [],
   ahora: number = Date.now(),
+  /** El plazo de la tienda: un encargo lo imprime en vez de una fecha. */
+  plazoDias?: number,
 ): InvoiceData {
   const rate = ap.exchangeRate || companyInfo?.defaultExchangeRate || DEFAULT_EXCHANGE_RATE;
   const fotos = new Map(products.map((p) => [p.id, p.imageBase64]));
   const anulaciones = new Map((ap.anulaciones || []).map((x) => [x.abonoId, x]));
+  /*
+    Encargo: lo que todavía no llegó se marca línea por línea. Mientras algo
+    falta, la fecha límite guardada es provisoria (ver crearApartado) y NO se
+    imprime: el papel diría una fecha que la tienda todavía no fijó.
+  */
+  const esperando = ap.status === 'activo' && tienePendientes(ap);
+  const faltan = pendientesDe(ap);
 
   return {
     type: 'APARTADO',
@@ -151,15 +160,21 @@ export function buildInvoiceDataFromApartado(
           logo: companyInfo.logoBase64,
         }
       : undefined,
-    items: (ap.items || []).map((i) => ({
-      id: i.id,
-      productName: i.name,
-      quantity: i.quantity,
-      priceNIO: i.price * rate,
-      priceUSD: i.price,
-      image: fotos.get(i.id) || undefined,
-      sku: i.sku,
-    })),
+    items: (ap.items || []).map((i) => {
+      // Si el producto viene en dos líneas, lo que falta se reparte en orden.
+      const falta = Math.min(i.quantity, faltan.get(i.id) || 0);
+      if (falta > 0) faltan.set(i.id, (faltan.get(i.id) || 0) - falta);
+      return {
+        id: i.id,
+        productName: i.name,
+        quantity: i.quantity,
+        priceNIO: i.price * rate,
+        priceUSD: i.price,
+        image: fotos.get(i.id) || undefined,
+        sku: i.sku,
+        ...(esperando && falta > 0 ? { porLlegar: falta } : {}),
+      };
+    }),
     shippingCostNIO: ap.shipping || 0,
     discountNIO: ap.discount || 0,
     customNote: ap.notes || '',
@@ -170,6 +185,7 @@ export function buildInvoiceDataFromApartado(
     apartado: {
       estado: ap.status,
       fechaLimite: fechaCorta(ap.fechaLimite),
+      ...(esperando ? { esperando: true, plazoDias } : {}),
       saldoAl: fechaCorta(ahora),
       totalNio: ap.totalNio,
       abonadoNio: abonadoNio(ap),
@@ -203,7 +219,8 @@ export function buildInvoiceDataFromApartado(
  */
 export function buildWhatsAppApartado(
   ap: Apartado,
-  tipo: 'comprobante' | 'recordatorio',
+  /** `llego`: el aviso de que un encargo ya está en la tienda y su plazo empezó. */
+  tipo: 'comprobante' | 'recordatorio' | 'llego',
   telefono?: string,
 ): { text: string; link: string | null } {
   const phone = telefonoWhatsApp(telefono || ap.customerPhone);
@@ -217,6 +234,19 @@ export function buildWhatsAppApartado(
   } else if (ap.status === 'entregado') {
     text = `Hola ${nombre}! Te comparto el comprobante de tu apartado ${ap.numero} en Panda Store: ` +
       `ya está entregado${ap.invoiceNumber ? `, con la factura ${ap.invoiceNumber}` : ''}. ¡Gracias por tu compra!`;
+  } else if (tienePendientes(ap)) {
+    // Encargo esperando: no hay fecha que recordar todavía (corre desde que
+    // llega), así que ni el comprobante ni un recordatorio la mencionan.
+    text = `Hola ${nombre}! Te comparto el comprobante de tu pedido ${ap.numero} en Panda Store. ` +
+      `Total ${formatCurrencyNIO(ap.totalNio)}, abonado ${formatCurrencyNIO(abonadoNio(ap))}` +
+      (saldo > 0
+        ? `, saldo pendiente ${formatCurrencyNIO(saldo)}. Te avisamos cuando llegue; el plazo para completar el saldo empieza ese día.`
+        : `: ya está pagado. Te avisamos cuando llegue.`);
+  } else if (tipo === 'llego') {
+    text = estaPagado(ap)
+      ? `Hola ${nombre}! Ya llegó tu pedido ${ap.numero} a Panda Store y está pagado: pasá a retirarlo. ¡Te esperamos!`
+      : `Hola ${nombre}! Ya llegó tu pedido ${ap.numero} a Panda Store y quedó reservado a tu nombre. ` +
+        `Te queda un saldo de ${formatCurrencyNIO(saldo)}, y la fecha límite para completarlo es el ${vence}. ¡Te esperamos!`;
   } else if (estaPagado(ap)) {
     // Sin "cuando quieras": el dueño decidió un plazo de PAGO, no uno de retiro,
     // y un mensaje escrito que promete un retiro sin límite es una promesa que

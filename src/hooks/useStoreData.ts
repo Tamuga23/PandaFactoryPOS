@@ -3,11 +3,11 @@ import { db, auth, handleFirestoreError, mensajeFirestore, tieneClaimStaff } fro
 import { toast } from '../components/Toast';
 import { collection, onSnapshot, query, setDoc, doc, updateDoc, deleteDoc, writeBatch, runTransaction, where, limit, orderBy, increment, deleteField, getDocs, getDoc, startAfter } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { Product, Sale, Purchase, PurchaseItem, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento, Apartado, AbonoApartado, NuevoApartado } from '../types';
+import { Product, Sale, Purchase, PurchaseItem, CompanyInfo, DashboardStats, Customer, Supplier, UniversalObjection, CategoryObjection, Movimiento, Apartado, AbonoApartado, NuevoApartado, LineaEncargo, LlegadaEncargo } from '../types';
 import {
   UniversalObjectionSchema, CategoryObjectionSchema, SaleSchema, ProductSchema, PurchaseSchema, CustomerSchema, SupplierSchema,
   ApartadoSchema, AbonoApartadoSchema, AnulacionAbonoSchema, ActualizacionApartadoSchema, ConfigApartadosSchema,
-  camposFueraDeReglas, esEmailValido,
+  LlegadaEncargoSchema, camposFueraDeReglas, esEmailValido,
 } from '../lib/validations';
 import {
   CONFIG_FINANCIAMIENTO_DEFAULT,
@@ -19,13 +19,19 @@ import { costoAlRecibir, costoAlRevertir } from '../lib/costoPromedio';
 import {
   CONFIG_APARTADOS_DEFAULT,
   abonadoNio,
+  asignarLlegadas,
   estaPagado,
+  fechaLimiteDesde,
+  llegadasDeCaja,
   metodoPredominante,
   normalizarConfigApartados,
   numeroApartado,
+  partesDeApartado,
+  pendientesDe,
   redondearCordobas,
   resumenPagos,
   saldoNio,
+  tienePendientes,
   validarAbono,
   validarDevolucion,
   type ConfigApartados,
@@ -50,6 +56,8 @@ const TABLET_ONLY_SALE_ITEM_FIELDS = [
   // de la línea vendida, y sin sacarlo acá TODA venta de un producto con
   // apartados la rechazarían las reglas.
   'apartadas',
+  // Unidades prometidas a clientes que todavía no llegaron (encargos): idem.
+  'encargadas',
 ];
 
 // P2.7: arma el doc de un movimiento de kardex (sin claves undefined).
@@ -101,6 +109,29 @@ const NS_APARTADO_A_FACTURA = '5d0b8e2a-7c41-4f9e-b3a6-1e8d2c9f0a57';
 
 /** El id de la venta que se emite al entregar un apartado. */
 export const idVentaDeApartado = (apartadoId: string): string => uuidv5(apartadoId, NS_APARTADO_A_FACTURA);
+
+/**
+ * Cuántas llegadas nuevas acepta un apartado en una sola escritura. Es el tope
+ * de `llegadasSoloCrecen` en firestore.rules: pasarlo hace rechazar la
+ * transacción ENTERA, y la que asigna llegadas es la recepción de una caja.
+ * Lo que no entra queda por llegar y se reserva después desde Apartados.
+ */
+const MAX_LLEGADAS_POR_ESCRITURA = 5;
+
+/** Una parte de un encargo que una recepción reservó (o que su reversión devolvió a esperar). */
+export interface EncargoReservado {
+  apartadoId: string;
+  numero: string;
+  cliente: string;
+  producto: string;
+  cantidad: number;
+  /** Con esto el apartado ya no espera nada: su plazo de pago empezó a correr. */
+  completo: boolean;
+}
+
+/** El nombre de un producto según las líneas del apartado (sirve aunque el producto se haya borrado). */
+const nombreEnApartado = (ap: Pick<Apartado, 'items'>, productId: string): string =>
+  (ap.items || []).find((i) => i.id === productId)?.name || productId;
 
 /**
  * Si la siembra del contador de facturas falla, la transacción arranca desde 0
@@ -540,9 +571,11 @@ export function useStoreData() {
         `adjustStock`; acá se cierra la puerta de atrás.
       */
       delete pData.stock;
-      // `apartadas` tiene el mismo problema y la misma solución: viene de la
-      // caché, y sólo lo escriben las transacciones de apartados.
+      // `apartadas` y `encargadas` tienen el mismo problema y la misma
+      // solución: vienen de la caché, y sólo los escriben las transacciones de
+      // apartados y la recepción de compras.
       delete pData.apartadas;
+      delete pData.encargadas;
 
       const CLEARABLE = [
         'precioPromo', 'descEfectivoPct', 'campania',
@@ -705,6 +738,7 @@ export function useStoreData() {
         Object.keys(upd).forEach(k => upd[k] === undefined && delete upd[k]);
         // Ni por `extraFields` se escribe esto: lo manejan sólo los apartados.
         delete upd.apartadas;
+        delete upd.encargadas;
         transaction.update(productRef, upd);
 
         if (delta !== 0) {
@@ -754,6 +788,14 @@ export function useStoreData() {
           throw new Error(
             `«${p.name}» tiene ${p.apartadas} ${p.apartadas === 1 ? 'unidad apartada' : 'unidades apartadas'}. ` +
             `Entregá o cancelá el apartado antes de borrarlo, o marcalo Inactivo.`,
+          );
+        }
+        // Un encargo apunta al producto por id: si se borra, la caja que lo
+        // trae no tiene a quién reservárselo y el cliente se queda esperando.
+        if ((p.encargadas || 0) > 0) {
+          throw new Error(
+            `«${p.name}» tiene ${p.encargadas} ${p.encargadas === 1 ? 'unidad encargada' : 'unidades encargadas'} ` +
+            `por clientes que la están esperando. Cancelá el encargo antes de borrarlo, o marcalo Inactivo.`,
           );
         }
         transaction.delete(ref);
@@ -1202,14 +1244,24 @@ export function useStoreData() {
    */
   const updatePurchase = async (
     purchase: Purchase,
-  ): Promise<{ faltantes: string[]; unidadesNoEntraron: number }> => {
-    if (!user) return { faltantes: [], unidadesNoEntraron: 0 };
+  ): Promise<{
+    faltantes: string[];
+    unidadesNoEntraron: number;
+    /** Encargos que esta recepción dejó reservados: de quién, qué y cuánto. */
+    asignados: EncargoReservado[];
+    /** Productos con clientes esperando cuyas unidades igual quedaron a la venta. */
+    sinReservar: string[];
+  }> => {
+    if (!user) return { faltantes: [], unidadesNoEntraron: 0, asignados: [], sinReservar: [] };
     // Se reinician dentro del callback: la transacción puede reintentarse.
     let faltantes: string[] = [];
     let unidadesNoEntraron = 0;
+    let asignados: EncargoReservado[] = [];
+    let sinReservar: string[] = [];
     try {
-      // Copia profunda de lo que vamos a mutar (items/trackings) para no tocar el estado de React.
-      const updatedPurchase: Purchase = {
+      // Copia profunda, limpia de `undefined`: la PLANTILLA de cada intento
+      // de la transacción, que hace su propia copia (`updatedPurchase`).
+      const limpia: Purchase = {
         ...purchase,
         items: (purchase.items || []).map(i => ({ ...i })),
         trackings: (purchase.trackings || []).map(t => ({
@@ -1244,18 +1296,18 @@ export function useStoreData() {
         'platform', 'orderNumber', 'financing',
       ];
       const aVaciar: string[] = [];
-      Object.keys(updatedPurchase).forEach(key => {
-        if ((updatedPurchase as any)[key] === undefined) {
+      Object.keys(limpia).forEach(key => {
+        if ((limpia as any)[key] === undefined) {
           if (VACIABLES.includes(key)) aVaciar.push(key);
-          delete (updatedPurchase as any)[key];
+          delete (limpia as any)[key];
         }
       });
-      updatedPurchase.items.forEach(item => {
+      limpia.items.forEach(item => {
         Object.keys(item).forEach(key => {
           if ((item as any)[key] === undefined) delete (item as any)[key];
         });
       });
-      updatedPurchase.trackings.forEach((tracking: any) => {
+      limpia.trackings.forEach((tracking: any) => {
         Object.keys(tracking).forEach(key => tracking[key] === undefined && delete tracking[key]);
         if (tracking.itemsInBox) {
           tracking.itemsInBox.forEach((iib: any) => {
@@ -1270,6 +1322,24 @@ export function useStoreData() {
       // SERVIDOR, no del estado local del cliente. Si dos dispositivos reciben
       // mercadería a la vez, Firestore reintenta y nadie doble-cuenta stock.
       await runTransaction(db, async (transaction) => {
+        /*
+          Una copia NUEVA por intento. El SDK vuelve a correr este callback
+          cuando algo que leyó cambió antes del commit (una venta en otro
+          equipo, un abono a un encargo), y el intento anterior ya había
+          marcado las cajas `isReceived` y sumado `receivedQuantity` sobre su
+          copia. Con una sola copia afuera, el reintento no encontraba nada que
+          recibir: la caja quedaba "recibida" sin que sus unidades entraran al
+          stock ni a los encargos que la esperaban.
+        */
+        const updatedPurchase: Purchase = {
+          ...limpia,
+          items: limpia.items.map(i => ({ ...i })),
+          trackings: limpia.trackings.map(t => ({
+            ...t,
+            itemsInBox: (t.itemsInBox || []).map(b => ({ ...b })),
+          })),
+        };
+
         // --- 1. LECTURAS (Firestore exige hacerlas todas antes de escribir) ---
         const serverSnap = await transaction.get(purchaseRef);
         if (!serverSnap.exists()) {
@@ -1295,6 +1365,25 @@ export function useStoreData() {
         const serverProducts = new Map<string, Product>();
         productSnaps.forEach((snap, i) => {
           if (snap.exists()) serverProducts.set(productIds[i], { ...(snap.data() as Product), id: productIds[i] });
+        });
+
+        /*
+          Encargos: los apartados activos que esperan algo de lo que trae esta
+          recepción. Una transacción no admite consultas, así que los candidatos
+          salen de la lista en vivo y se LEEN acá, por id, para decidir con lo
+          que dice el servidor. Sólo para productos con `encargadas` en el
+          servidor: es lo que dice que alguien está esperando.
+        */
+        const conEncargo = new Set(productIds.filter(pid => (serverProducts.get(pid)?.encargadas || 0) > 0));
+        const idsEsperando = conEncargo.size === 0 ? [] : apartados
+          .filter(a => a.status === 'activo' && Array.from(pendientesDe(a).keys()).some(pid => conEncargo.has(pid)))
+          .map(a => a.id);
+        const esperandoSnaps = await Promise.all(idsEsperando.map(id => transaction.get(doc(db, 'apartados', id))));
+        const esperando = new Map<string, Apartado>();
+        esperandoSnaps.forEach((snap, i) => {
+          if (!snap.exists()) return;
+          const ap = { ...(snap.data() as Apartado), id: idsEsperando[i] };
+          if (ap.status === 'activo') esperando.set(ap.id, ap);
         });
 
         // --- 2. CÁLCULOS ---
@@ -1493,21 +1582,119 @@ export function useStoreData() {
           updatedPurchase.status = 'CANCELLED';
         }
 
+        /*
+          --- 2b. ENCARGOS ---
+
+          Lo que llegó para clientes que lo estaban esperando se reserva acá,
+          en la misma transacción que lo recibe: entre "entró al stock" y "quedó
+          a nombre del cliente" no hay un momento en que el POS lo pueda vender.
+
+          Caja por caja y del encargo más viejo al más nuevo (asignarLlegadas):
+          cada llegada guarda de qué caja vino, para que revertir esa recepción
+          sepa exactamente qué deshacer. Al costo promedio que queda después de
+          recibir, que es el costo con que sale cualquier unidad del stock —una
+          venta o un apartado común—.
+        */
+        const ahora = Date.now();
+        const pendienteVivo = new Map<string, Map<string, number>>();
+        esperando.forEach((ap, id) => pendienteVivo.set(id, pendientesDe(ap)));
+        const encargadasVivas = new Map<string, number>();
+        conEncargo.forEach(pid => encargadasVivas.set(pid, serverProducts.get(pid)?.encargadas || 0));
+        const nuevasLlegadas = new Map<string, LlegadaEncargo[]>();
+        const reservadoDe = new Map<string, number>();
+        const recibidoDe = new Map<string, number>();
+        toProcess.forEach(tracking => {
+          const enCaja = new Map<string, number>();
+          (tracking.itemsInBox || []).forEach(b => {
+            if (!productChanges.has(b.itemId)) return; // producto borrado: no entró nada
+            enCaja.set(b.itemId, (enCaja.get(b.itemId) || 0) + b.quantity);
+          });
+          enCaja.forEach((qty, pid) => {
+            recibidoDe.set(pid, (recibidoDe.get(pid) || 0) + qty);
+            const espera = encargadasVivas.get(pid) || 0;
+            if (espera <= 0) return;
+            const candidatos: { id: string; fecha: number; pendiente: number }[] = [];
+            pendienteVivo.forEach((pend, apId) => {
+              const falta = pend.get(pid) || 0;
+              if (falta > 0 && (nuevasLlegadas.get(apId)?.length || 0) < MAX_LLEGADAS_POR_ESCRITURA) {
+                candidatos.push({ id: apId, fecha: esperando.get(apId)!.fecha, pendiente: falta });
+              }
+            });
+            asignarLlegadas(candidatos, Math.min(qty, espera)).forEach(({ id: apId, cantidad }) => {
+              const pend = pendienteVivo.get(apId)!;
+              pend.set(pid, (pend.get(pid) || 0) - cantidad);
+              encargadasVivas.set(pid, (encargadasVivas.get(pid) || 0) - cantidad);
+              reservadoDe.set(pid, (reservadoDe.get(pid) || 0) + cantidad);
+              const llegada = LlegadaEncargoSchema.safeParse({
+                productId: pid, cantidad, fecha: ahora, origen: 'compra',
+                costoUnitario: productChanges.get(pid)!.newCost,
+                compraId: purchase.id, trackingId: tracking.id,
+              });
+              if (!llegada.success) throw new Error(`Llegada inválida — ${zodErrorMsg(llegada)}`);
+              nuevasLlegadas.set(apId, [...(nuevasLlegadas.get(apId) || []), llegada.data]);
+            });
+          });
+        });
+        // Unidades que pudieron ir a un cliente y quedaron a la venta: la lista
+        // en vivo no tenía el encargo, o el apartado llegó al tope por escritura.
+        sinReservar = [];
+        conEncargo.forEach(pid => {
+          const debia = Math.min(recibidoDe.get(pid) || 0, serverProducts.get(pid)?.encargadas || 0);
+          if ((reservadoDe.get(pid) || 0) < debia) sinReservar.push(serverProducts.get(pid)!.name);
+        });
+
         // --- 3. ESCRITURAS ---
         productChanges.forEach((change, pid) => {
-          transaction.update(doc(db, 'products', pid), {
-            stock: increment(change.addStock),
+          const reservado = reservadoDe.get(pid) || 0;
+          const sp = serverProducts.get(pid);
+          const cambios: any = {
+            stock: increment(change.addStock - reservado),
             cost: change.newCost,
             updatedAt: Date.now(),
-          });
+          };
+          if (reservado > 0) {
+            cambios.apartadas = (sp?.apartadas || 0) + reservado;
+            cambios.encargadas = Math.max(0, (sp?.encargadas || 0) - reservado);
+          }
+          transaction.update(doc(db, 'products', pid), cambios);
           // P2.7: kardex (stockDespues calculado sobre el stock del servidor)
-          const sp = serverProducts.get(pid);
           transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
             productId: pid, productName: sp?.name, sku: sp?.sku,
             tipo: 'compra', delta: change.addStock,
             stockDespues: sp ? (sp.stock || 0) + change.addStock : undefined,
             refId: purchase.id, fecha: Date.now(),
           }));
+        });
+
+        // Los encargos que esta recepción dejó reservados, con su salida del
+        // stock en el kardex: la compra entra entera y la reserva sale aparte.
+        const stockCorriendo = new Map<string, number>();
+        productChanges.forEach((c, pid) => stockCorriendo.set(pid, (serverProducts.get(pid)?.stock || 0) + c.addStock));
+        asignados = [];
+        nuevasLlegadas.forEach((llegadas, apId) => {
+          const ap = esperando.get(apId)!;
+          const todas = [...(ap.llegadas || []), ...llegadas];
+          const completo = !tienePendientes({ ...ap, llegadas: todas });
+          const upd: any = { llegadas: todas, updatedAt: ahora };
+          // Decisión del dueño (2026-10-27): el plazo de pago de un encargo
+          // corre desde que llega la mercadería, no desde que se apartó.
+          if (completo) upd.fechaLimite = fechaLimiteDesde(ahora, configApartados.plazoDias);
+          transaction.update(doc(db, 'apartados', apId), upd);
+          llegadas.forEach(l => {
+            const sp = serverProducts.get(l.productId);
+            const stockDespues = (stockCorriendo.get(l.productId) || 0) - l.cantidad;
+            stockCorriendo.set(l.productId, stockDespues);
+            transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+              productId: l.productId, productName: sp?.name, sku: sp?.sku,
+              tipo: 'apartado', delta: -l.cantidad, stockDespues,
+              refId: apId, fecha: ahora,
+              motivo: `Llegó para ${ap.numero} · ${ap.customerName}`.slice(0, 300),
+            }));
+            asignados.push({
+              apartadoId: apId, numero: ap.numero, cliente: ap.customerName,
+              producto: sp?.name || nombreEnApartado(ap, l.productId), cantidad: l.cantidad, completo,
+            });
+          });
         });
         /*
           Validar ANTES de escribir, como hace `recordPurchase`. Era la única
@@ -1531,10 +1718,10 @@ export function useStoreData() {
         transaction.update(purchaseRef, escritura);
         }
       });
-      return { faltantes, unidadesNoEntraron };
+      return { faltantes, unidadesNoEntraron, asignados, sinReservar };
     } catch (e) {
       handleFirestoreError(e, 'update', `purchases/${purchase.id}`);
-      return { faltantes: [], unidadesNoEntraron: 0 };
+      return { faltantes: [], unidadesNoEntraron: 0, asignados: [], sinReservar: [] };
     }
   };
 
@@ -1597,13 +1784,22 @@ export function useStoreData() {
     topeados: string[];
     costoSinRevertir: string[];
     costoAproximado: string[];
+    /** Encargos que esta caja había reservado y vuelven a esperar mercadería. */
+    vuelvenAEncargo: EncargoReservado[];
+    /** Apartados que recibieron unidades de esta caja y ya se entregaron o cancelaron. */
+    encargosCerrados: string[];
   }> => {
-    if (!user) return { borrados: [], topeados: [], costoSinRevertir: [], costoAproximado: [] };
+    const vacio = {
+      borrados: [], topeados: [], costoSinRevertir: [], costoAproximado: [], vuelvenAEncargo: [], encargosCerrados: [],
+    };
+    if (!user) return vacio;
     // Se reinician dentro del callback: la transacción puede reintentarse.
     let borrados: string[] = [];
     let topeados: string[] = [];
     let costoSinRevertir: string[] = [];
     let costoAproximado: string[] = [];
+    let vuelvenAEncargo: EncargoReservado[] = [];
+    let encargosCerrados: string[] = [];
     const purchaseRef = doc(db, 'purchases', purchaseId);
     try {
       await runTransaction(db, async (transaction) => {
@@ -1620,6 +1816,17 @@ export function useStoreData() {
         topeados = [];
         costoSinRevertir = [];
         costoAproximado = [];
+        vuelvenAEncargo = [];
+        encargosCerrados = [];
+
+        // Los apartados que recibieron algo de esta caja (ver updatePurchase).
+        // Como allá: los candidatos de la lista en vivo, leídos por id.
+        const idsConLlegadas = apartados
+          .filter(a => llegadasDeCaja(a, purchaseId, trackingId).size > 0)
+          .map(a => a.id);
+        const conLlegadasSnaps = await Promise.all(
+          idsConLlegadas.map(id => transaction.get(doc(db, 'apartados', id))),
+        );
 
         const boxItems = tracking.itemsInBox || [];
         const removeByProduct = new Map<string, number>();
@@ -1657,6 +1864,55 @@ export function useStoreData() {
           if (s.exists()) serverProducts.set(productIds[i], s.data() as Product);
         });
 
+        /*
+          Lo que esta caja dejó reservado para clientes se deshace PRIMERO: las
+          unidades vuelven al stock al costo con que salieron, y recién ahí la
+          reversión de siempre saca la caja entera. Así el stock, el promedio y
+          el kardex se mueven como si la reserva nunca hubiera pasado, y el
+          encargo vuelve a "esperando mercadería".
+
+          Un apartado que ya se entregó o se canceló no se toca: esas unidades
+          se fueron con el cliente o ya volvieron al stock. Se avisa.
+        */
+        const ahora = Date.now();
+        const devueltoDe = new Map<string, { cantidad: number; costo?: number }[]>();
+        const reversiones: { ap: Apartado; llegadas: LlegadaEncargo[] }[] = [];
+        conLlegadasSnaps.forEach((s, i) => {
+          if (!s.exists()) return;
+          const ap = { ...(s.data() as Apartado), id: idsConLlegadas[i] };
+          const netas = llegadasDeCaja(ap, purchaseId, trackingId);
+          if (netas.size === 0) return;
+          if (ap.status !== 'activo') {
+            encargosCerrados.push(`${ap.numero} (${etiquetaApartado(ap.status).toLowerCase()})`);
+            return;
+          }
+          const llegadas: LlegadaEncargo[] = [];
+          netas.forEach(({ cantidad, costoUnitario }, pid) => {
+            if (!serverProducts.has(pid)) return; // borrado: no hay a dónde devolverla
+            // Sin costo, sin la clave (no `undefined`): así se anula con su
+            // llegada en costoDeLinea, que tampoco lo tenía.
+            const l = LlegadaEncargoSchema.safeParse({
+              productId: pid, cantidad: -cantidad, fecha: ahora, origen: 'reversion',
+              ...(typeof costoUnitario === 'number' ? { costoUnitario } : {}),
+              compraId: purchaseId, trackingId,
+            });
+            if (!l.success) throw new Error(`Reversión de la llegada inválida — ${zodErrorMsg(l)}`);
+            llegadas.push(l.data);
+            devueltoDe.set(pid, [...(devueltoDe.get(pid) || []), { cantidad, costo: costoUnitario }]);
+            vuelvenAEncargo.push({
+              apartadoId: ap.id, numero: ap.numero, cliente: ap.customerName,
+              producto: serverProducts.get(pid)!.name, cantidad, completo: false,
+            });
+          });
+          if (llegadas.length > MAX_LLEGADAS_POR_ESCRITURA) {
+            throw new Error(
+              `El apartado ${ap.numero} recibió ${llegadas.length} productos distintos de esta caja y ` +
+              `no se pueden devolver a encargo de una vez. Avisá al soporte antes de revertir.`,
+            );
+          }
+          if (llegadas.length > 0) reversiones.push({ ap, llegadas });
+        });
+
         // 2. CÁLCULOS
         const items = (serverPurchase.items || []).map(i => ({
           ...i,
@@ -1680,6 +1936,27 @@ export function useStoreData() {
           items.length === 0 ? 'OPEN' : allFullyReceived ? 'CLOSED' : anyReceived ? 'PARTIAL' : 'OPEN';
 
         // 3. ESCRITURAS
+        // Primero los encargos: cada uno recupera su pendiente y su kardex.
+        const stockCorriendo = new Map<string, number>();
+        serverProducts.forEach((p, pid) => stockCorriendo.set(pid, p.stock || 0));
+        reversiones.forEach(({ ap, llegadas }) => {
+          transaction.update(doc(db, 'apartados', ap.id), {
+            llegadas: [...(ap.llegadas || []), ...llegadas],
+            updatedAt: ahora,
+          });
+          llegadas.forEach(l => {
+            const p = serverProducts.get(l.productId)!;
+            const stockDespues = (stockCorriendo.get(l.productId) || 0) - l.cantidad; // cantidad < 0
+            stockCorriendo.set(l.productId, stockDespues);
+            transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+              productId: l.productId, productName: p.name, sku: p.sku,
+              tipo: 'liberacion', delta: -l.cantidad, stockDespues,
+              refId: ap.id, fecha: ahora,
+              motivo: `Recepción revertida: vuelve a encargo ${ap.numero} · ${ap.customerName}`.slice(0, 300),
+            }));
+          });
+        });
+
         removeByProduct.forEach((qty, pid) => {
           const p = serverProducts.get(pid);
           if (!p) {
@@ -1689,7 +1966,19 @@ export function useStoreData() {
             return;
           }
 
-          const stockAntes = p.stock || 0;
+          // Las unidades que estaban reservadas para un encargo vuelven primero
+          // al stock, al costo con que salieron (ver arriba).
+          let stockAntes = p.stock || 0;
+          let costoAntes = p.cost || 0;
+          const devueltas = devueltoDe.get(pid) || [];
+          devueltas.forEach(d => {
+            // Con el mismo costo, el promedio no se mueve: no se recalcula, para
+            // que el camino exacto de costoAlRevertir lo siga reconociendo.
+            if (typeof d.costo === 'number' && Math.abs(d.costo - costoAntes) > 1e-9) {
+              costoAntes = costoAlRecibir(stockAntes, costoAntes, d.cantidad, d.costo);
+            }
+            stockAntes += d.cantidad;
+          });
           const bruto = stockAntes - qty;
           const newStock = Math.max(0, bruto);
           // El piso en 0 es deliberado, pero significa que se descontó MENOS de
@@ -1697,6 +1986,11 @@ export function useStoreData() {
           if (bruto < 0) topeados.push(p.name);
 
           const cambios: any = { stock: newStock, updatedAt: Date.now() };
+          const unidadesDevueltas = devueltas.reduce((s, d) => s + d.cantidad, 0);
+          if (unidadesDevueltas > 0) {
+            cambios.apartadas = Math.max(0, (p.apartadas || 0) - unidadesDevueltas);
+            cambios.encargadas = (p.encargadas || 0) + unidadesDevueltas;
+          }
 
           /*
             Deshacer el costo promedio. Los dos caminos, sus supuestos y el caso
@@ -1705,7 +1999,7 @@ export function useStoreData() {
             reversiones que antes empujaba el costo hasta el de la última caja.
           */
           const efectoP = efecto.get(pid);
-          const reversion = costoAlRevertir(stockAntes, p.cost || 0, {
+          const reversion = costoAlRevertir(stockAntes, costoAntes, {
             unidades: qty,
             costoUnitarioReal: efectoP?.unitario,
             costoPrevio: efectoP?.previo,
@@ -1715,6 +2009,7 @@ export function useStoreData() {
           });
           if (reversion.costo === null) {
             costoSinRevertir.push(p.name);
+            if (costoAntes !== (p.cost || 0)) cambios.cost = costoAntes;
           } else {
             cambios.cost = reversion.costo;
             // `exacto` es el caso normal y no necesita aviso. Los otros dos sí:
@@ -1743,10 +2038,10 @@ export function useStoreData() {
         });
         transaction.update(purchaseRef, { items, trackings, status });
       });
-      return { borrados, topeados, costoSinRevertir, costoAproximado };
+      return { borrados, topeados, costoSinRevertir, costoAproximado, vuelvenAEncargo, encargosCerrados };
     } catch (e) {
       handleFirestoreError(e, 'update', `purchases/${purchaseId}`);
-      return { borrados: [], topeados: [], costoSinRevertir: [], costoAproximado: [] };
+      return vacio;
     }
   };
 
@@ -1777,7 +2072,9 @@ export function useStoreData() {
     corregir la prima, y el aviso y el comprobante tienen que salir de lo que
     quedó en el servidor, no de lo que se pidió la segunda vez.
   */
-  const crearApartado = async (nuevo: NuevoApartado): Promise<{ numero: string; guardado: Apartado | null }> => {
+  const crearApartado = async (
+    nuevo: NuevoApartado,
+  ): Promise<{ numero: string; guardado: Apartado | null; encargo: LineaEncargo[] }> => {
     if (!user) throw new Error('Sesión no iniciada.');
     const ahora = Date.now();
     const base: any = {
@@ -1818,14 +2115,17 @@ export function useStoreData() {
     const counterRef = doc(db, 'counters', 'apartados');
     let numero = '';
     let guardado = null as Apartado | null;
+    let encargo: LineaEncargo[] = [];
     try {
       await runTransaction(db, async (transaction) => {
         guardado = null;
+        encargo = [];
         // 0. IDEMPOTENCIA: si ya existe, el stock ya bajó y el número ya se usó.
         const apSnap = await transaction.get(apRef);
         if (apSnap.exists()) {
           guardado = { ...(apSnap.data() as Apartado), id: nuevo.id };
           numero = String(guardado.numero || '');
+          encargo = guardado.encargo || [];
           return;
         }
 
@@ -1840,37 +2140,66 @@ export function useStoreData() {
 
         // 2. VALIDACIONES
         snaps.forEach((snap, i) => {
-          const { qty, name } = porProducto.get(ids[i])!;
+          const { name } = porProducto.get(ids[i])!;
           if (!snap.exists()) throw new Error(`El producto ${name} ya no existe en la base de datos.`);
-          const p = snap.data() as Product & Record<string, unknown>;
-          const fuera = errorCamposFuera(p);
+          const fuera = errorCamposFuera(snap.data() as Product & Record<string, unknown>);
           if (fuera) throw fuera;
-          if ((p.stock || 0) < qty) {
-            throw new Error(`Stock insuficiente de ${p.name}. Pedido: ${qty}, Disponible: ${p.stock}`);
-          }
         });
+
+        /*
+          Lo que hay en la tienda se reserva ya; lo que falta queda ENCARGADO.
+
+          Antes esto lanzaba "Stock insuficiente", y la salida que quedaba para
+          apartar algo que venía en camino era subir el stock a mano: un stock
+          fantasma que el POS podía vender, la tablet mostraba disponible y el
+          conteo físico no encontraba. Ahora lo que no está no se descuenta de
+          ningún lado: suma a `encargadas` (prometido, no físico) y espera en
+          `encargo` a que la recepción de la caja lo reserve.
+
+          Con el stock del SERVIDOR: si alguien vendió la última unidad mientras
+          el diálogo estaba abierto, este apartado queda como encargo en vez de
+          fallar, y `encargo` vuelve al POS para que lo diga.
+        */
+        ids.forEach((id, i) => {
+          const p = snaps[i].data() as Product;
+          const { qty } = porProducto.get(id)!;
+          const reservadas = Math.min(Math.max(0, p.stock || 0), qty);
+          if (qty - reservadas > 0) encargo.push({ productId: id, cantidad: qty - reservadas });
+        });
+        const final: any = { ...documento, numero };
+        if (encargo.length > 0) final.encargo = encargo;
+        // Lo que se escribe es la salida de Zod, ahora con el encargo adentro.
+        const revision = ApartadoSchema.safeParse(final);
+        if (!revision.success) throw new Error(`Apartado inválido — ${zodErrorMsg(revision)}`);
 
         // 3. ESCRITURAS
         snaps.forEach((snap, i) => {
           const p = snap.data() as Product;
           const { qty } = porProducto.get(ids[i])!;
-          const stockNuevo = (p.stock || 0) - qty;
-          transaction.update(doc(db, 'products', ids[i]), {
-            stock: stockNuevo,
-            apartadas: (p.apartadas || 0) + qty,
-            updatedAt: ahora,
-          });
-          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
-            productId: ids[i], productName: p.name, sku: p.sku,
-            tipo: 'apartado', delta: -qty, stockDespues: stockNuevo,
-            refId: nuevo.id, fecha: ahora,
-            motivo: `Apartado ${numero} · ${base.customerName}`.slice(0, 300),
-          }));
+          const porLlegar = encargo.find((e) => e.productId === ids[i])?.cantidad || 0;
+          const reservadas = qty - porLlegar;
+          const stockNuevo = (p.stock || 0) - reservadas;
+          const cambios: any = { updatedAt: ahora };
+          if (reservadas > 0) {
+            cambios.stock = stockNuevo;
+            cambios.apartadas = (p.apartadas || 0) + reservadas;
+          }
+          if (porLlegar > 0) cambios.encargadas = (p.encargadas || 0) + porLlegar;
+          transaction.update(doc(db, 'products', ids[i]), cambios);
+          // El kardex registra lo que SALIÓ del stock. Lo encargado no estaba.
+          if (reservadas > 0) {
+            transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+              productId: ids[i], productName: p.name, sku: p.sku,
+              tipo: 'apartado', delta: -reservadas, stockDespues: stockNuevo,
+              refId: nuevo.id, fecha: ahora,
+              motivo: `Apartado ${numero} · ${base.customerName}`.slice(0, 300),
+            }));
+          }
         });
         transaction.set(counterRef, { value: siguiente, updatedAt: ahora });
-        transaction.set(apRef, { ...documento, numero });
+        transaction.set(apRef, revision.data);
       });
-      return { numero, guardado };
+      return { numero, guardado, encargo };
     } catch (e) {
       console.error('crearApartado', e);
       handleFirestoreError(e, 'create', `apartados/${nuevo.id}`);
@@ -2048,6 +2377,13 @@ export function useStoreData() {
             `se entrega con el saldo en cero.`,
           );
         }
+        // Un encargo se entrega cuando llegó todo: lo que falta no está en la
+        // tienda, y la factura diría que se entregó.
+        const faltan = pendientesDe(ap);
+        if (!saleSnap.exists() && faltan.size > 0) {
+          const lista = Array.from(faltan, ([pid, n]) => `${n} × ${nombreEnApartado(ap, pid)}`).join(', ');
+          throw new Error(`Todavía no llegó ${lista} del apartado ${ap.numero}: se entrega cuando esté todo en la tienda.`);
+        }
         const porProducto = cantidadesPorProducto(ap.items);
         const ids = Array.from(porProducto.keys());
         const snaps = await Promise.all(ids.map((id) => transaction.get(doc(db, 'products', id))));
@@ -2069,7 +2405,22 @@ export function useStoreData() {
           yaEstaba = true;
         } else {
           const siguiente = ((counterSnap?.exists() ? counterSnap.data().value : 0) || 0) + 1;
-          v = armarVentaDeApartado(ap, {
+          /*
+            El costo de cada línea es el de sus unidades reservadas: las que
+            salieron del stock al apartar, al costo de ese día, y las que
+            llegaron después, al de la caja que las trajo (costoDeLinea). El
+            margen de Reportes sale de este número; con el del día que se apartó,
+            un encargo que llegó más caro declararía una ganancia que no existe.
+          */
+          const partes = partesDeApartado(ap);
+          const conCosto = {
+            ...ap,
+            items: ap.items.map((i) => {
+              const c = partes.get(i.id)?.costo;
+              return typeof c === 'number' ? { ...i, cost: c } : i;
+            }),
+          };
+          v = armarVentaDeApartado(conCosto, {
             id: saleId,
             invoiceNumber: `A-${String(siguiente).padStart(6, '0')}`,
             fecha: ahora,
@@ -2170,8 +2521,10 @@ export function useStoreData() {
         const errorDevolucion = validarDevolucion(devuelto, abonadoNio(ap));
         if (errorDevolucion) throw new Error(errorDevolucion);
 
-        const porProducto = cantidadesPorProducto(ap.items);
-        const ids = Array.from(porProducto.keys());
+        // Cada producto partido en lo que está en la tienda (vuelve al stock) y
+        // lo que todavía no llegó (sólo deja de estar prometido).
+        const partes = partesDeApartado(ap);
+        const ids = Array.from(partes.keys());
         const snaps = await Promise.all(ids.map((id) => transaction.get(doc(db, 'products', id))));
 
         // 2. VALIDACIONES
@@ -2184,35 +2537,143 @@ export function useStoreData() {
         // 3. ESCRITURAS
         const ahora = Date.now();
         snaps.forEach((s, i) => {
-          const { qty, name, cost } = porProducto.get(ids[i])!;
+          const parte = partes.get(ids[i])!;
           if (!s.exists()) {
-            borrados.push(name);
+            if (parte.reservadas > 0) borrados.push(nombreEnApartado(ap, ids[i]));
             return;
           }
           const p = s.data() as Product;
-          const stockAntes = p.stock || 0;
-          const stockNuevo = stockAntes + qty;
-          const cambios: any = {
-            stock: stockNuevo,
-            apartadas: Math.max(0, (p.apartadas || 0) - qty),
-            updatedAt: ahora,
-          };
-          if (typeof cost === 'number' && Number.isFinite(cost) && cost >= 0) {
-            cambios.cost = costoAlRecibir(stockAntes, p.cost || 0, qty, cost);
+          const cambios: any = { updatedAt: ahora };
+          if (parte.reservadas > 0) {
+            const stockAntes = p.stock || 0;
+            const stockNuevo = stockAntes + parte.reservadas;
+            cambios.stock = stockNuevo;
+            cambios.apartadas = Math.max(0, (p.apartadas || 0) - parte.reservadas);
+            // Al costo con que salieron —el de la línea, o el de la caja que las
+            // trajo si eran de un encargo—: ver partesDeApartado.
+            const costo = parte.costo;
+            if (typeof costo === 'number' && Number.isFinite(costo) && costo >= 0) {
+              cambios.cost = costoAlRecibir(stockAntes, p.cost || 0, parte.reservadas, costo);
+            }
+            transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+              productId: ids[i], productName: p.name, sku: p.sku,
+              tipo: 'liberacion', delta: parte.reservadas, stockDespues: stockNuevo,
+              refId: apartadoId, fecha: ahora,
+              motivo: `Apartado ${ap.numero} cancelado${motivo ? ` · ${motivo}` : ''}`.slice(0, 300),
+            }));
           }
+          // Lo que no llegó no estaba en la tienda: no vuelve a ningún stock,
+          // sólo deja de estar prometido. Si después llega, queda a la venta.
+          if (parte.pendiente > 0) cambios.encargadas = Math.max(0, (p.encargadas || 0) - parte.pendiente);
           transaction.update(doc(db, 'products', ids[i]), cambios);
-          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
-            productId: ids[i], productName: p.name, sku: p.sku,
-            tipo: 'liberacion', delta: qty, stockDespues: stockNuevo,
-            refId: apartadoId, fecha: ahora,
-            motivo: `Apartado ${ap.numero} cancelado${motivo ? ` · ${motivo}` : ''}`.slice(0, 300),
-          }));
         });
         const cierre: any = { status: 'cancelado', canceladoEn: ahora, devueltoNio: devuelto, updatedAt: ahora };
         if (motivo) cierre.motivoCancelacion = motivo;
         transaction.update(apRef, cierre);
       });
       return { borrados, yaEstaba, devueltoNio: devueltoFinal };
+    } catch (e) {
+      handleFirestoreError(e, 'update', `apartados/${apartadoId}`);
+      throw e;
+    }
+  };
+
+  /**
+   * Reserva para un encargo unidades que aparecieron en el stock por otro
+   * camino que su caja: una devolución, un apartado cancelado, un ajuste, o
+   * una recepción que no lo alcanzó. Lo que la recepción hace sola, pero a
+   * pedido, desde la pantalla de Apartados.
+   *
+   * Con el stock del SERVIDOR, al costo promedio de hoy (es el costo con que
+   * sale cualquier unidad del stock) y como mucho lo que haya: si falta, queda
+   * esperando. Si con esto llegó todo, el plazo de pago empieza a correr hoy.
+   */
+  const reservarEncargo = async (
+    apartadoId: string,
+  ): Promise<{ reservadas: { producto: string; cantidad: number }[]; completo: boolean; faltan: string[] }> => {
+    if (!user) throw new Error('Sesión no iniciada.');
+    const apRef = doc(db, 'apartados', apartadoId);
+    let reservadas: { producto: string; cantidad: number }[] = [];
+    let completo = false;
+    let faltan: string[] = [];
+    try {
+      await runTransaction(db, async (transaction) => {
+        reservadas = [];
+        completo = false;
+        faltan = [];
+
+        // 1. LECTURAS
+        const snap = await transaction.get(apRef);
+        if (!snap.exists()) throw new Error('El apartado ya no existe.');
+        const ap = { ...(snap.data() as Apartado), id: apartadoId };
+        if (ap.status !== 'activo') {
+          throw new Error(`El apartado ${ap.numero} está ${etiquetaApartado(ap.status).toLowerCase()}.`);
+        }
+        const pendientes = pendientesDe(ap);
+        if (pendientes.size === 0) {
+          completo = true;
+          return;
+        }
+        const ids = Array.from(pendientes.keys());
+        const snaps = await Promise.all(ids.map((id) => transaction.get(doc(db, 'products', id))));
+
+        // 2. VALIDACIONES Y CÁLCULOS
+        snaps.forEach((s) => {
+          if (!s.exists()) return;
+          const fuera = errorCamposFuera(s.data() as Product & Record<string, unknown>);
+          if (fuera) throw fuera;
+        });
+        const ahora = Date.now();
+        const nuevas: LlegadaEncargo[] = [];
+        const porProducto: { id: string; p: Product; cantidad: number }[] = [];
+        snaps.forEach((s, i) => {
+          const pid = ids[i];
+          const falta = pendientes.get(pid)!;
+          if (!s.exists()) {
+            faltan.push(nombreEnApartado(ap, pid));
+            return;
+          }
+          const p = s.data() as Product;
+          const cantidad = Math.min(falta, Math.max(0, p.stock || 0));
+          if (cantidad <= 0 || nuevas.length >= MAX_LLEGADAS_POR_ESCRITURA) {
+            faltan.push(p.name);
+            return;
+          }
+          if (cantidad < falta) faltan.push(p.name);
+          const l = LlegadaEncargoSchema.safeParse({
+            productId: pid, cantidad, fecha: ahora, origen: 'stock', costoUnitario: p.cost || 0,
+          });
+          if (!l.success) throw new Error(`Llegada inválida — ${zodErrorMsg(l)}`);
+          nuevas.push(l.data);
+          porProducto.push({ id: pid, p, cantidad });
+          reservadas.push({ producto: p.name, cantidad });
+        });
+        if (nuevas.length === 0) return;
+
+        // 3. ESCRITURAS
+        porProducto.forEach(({ id, p, cantidad }) => {
+          const stockNuevo = (p.stock || 0) - cantidad;
+          transaction.update(doc(db, 'products', id), {
+            stock: stockNuevo,
+            apartadas: (p.apartadas || 0) + cantidad,
+            encargadas: Math.max(0, (p.encargadas || 0) - cantidad),
+            updatedAt: ahora,
+          });
+          transaction.set(doc(collection(db, 'movimientos')), buildMovimiento({
+            productId: id, productName: p.name, sku: p.sku,
+            tipo: 'apartado', delta: -cantidad, stockDespues: stockNuevo,
+            refId: apartadoId, fecha: ahora,
+            motivo: `Reservado del stock para ${ap.numero} · ${ap.customerName}`.slice(0, 300),
+          }));
+        });
+        const llegadas = [...(ap.llegadas || []), ...nuevas];
+        completo = !tienePendientes({ ...ap, llegadas });
+        const upd: any = { llegadas, updatedAt: ahora };
+        // Decisión del dueño: el plazo de un encargo corre desde que está todo.
+        if (completo) upd.fechaLimite = fechaLimiteDesde(ahora, configApartados.plazoDias);
+        transaction.update(apRef, upd);
+      });
+      return { reservadas, completo, faltan };
     } catch (e) {
       handleFirestoreError(e, 'update', `apartados/${apartadoId}`);
       throw e;
@@ -2421,9 +2882,15 @@ export function useStoreData() {
       ninguna parte. Se valúa al costo con que salió del stock, que quedó
       congelado en la línea del apartado.
     */
+    // Sólo las unidades RESERVADAS: lo encargado que no llegó no está en la
+    // tienda, y sumarlo inflaba el inventario con mercadería que no se pagó.
     const totalApartadoValue = apartados
       .filter((a) => a.status === 'activo')
-      .reduce((acc, a) => acc + (a.items || []).reduce((s, i) => s + (i.cost || 0) * i.quantity, 0), 0);
+      .reduce((acc, a) => {
+        let valor = 0;
+        partesDeApartado(a).forEach((parte) => { valor += (parte.costo || 0) * parte.reservadas; });
+        return acc + valor;
+      }, 0);
     return {
       totalProducts: products.length,
       // Valor de inventario A COSTO (no a precio de venta); guards contra docs viejos sin cost/stock.
@@ -2501,6 +2968,7 @@ export function useStoreData() {
     anularAbono,
     entregarApartado,
     cancelarApartado,
+    reservarEncargo,
     actualizarApartado,
     guardarConfigApartados,
     fetchVenta,
