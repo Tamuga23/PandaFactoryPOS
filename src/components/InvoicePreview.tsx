@@ -16,6 +16,8 @@ export interface InvoiceItem {
   priceUSD: number;
   image?: string;
   sku?: string;
+  /** Sólo en el comprobante de un encargo: unidades de esta línea que todavía no llegaron. */
+  porLlegar?: number;
 }
 
 /** Un abono como se imprime en el comprobante de apartado. */
@@ -87,6 +89,13 @@ export interface InvoiceData {
     estado: 'activo' | 'entregado' | 'cancelado';
     /** Fecha límite de PAGO, como se imprime (dd/mm/aaaa). */
     fechaLimite: string;
+    /**
+     * Encargo al que todavía le falta mercadería. Su fecha límite es
+     * provisoria y no se imprime: el plazo corre desde que llega.
+     */
+    esperando?: boolean;
+    /** El plazo de la tienda en días, para decirlo en lugar de la fecha. */
+    plazoDias?: number;
     /** El día al que corresponde el saldo impreso: el de emisión de esta copia. */
     saldoAl: string;
     totalNio: number;
@@ -251,7 +260,8 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
   let isFirstPage = true;
 
   data.items.forEach((item) => {
-    const itemHeight = item.image ? ITEM_WITH_IMAGE_HEIGHT : ITEM_WITHOUT_IMAGE_HEIGHT;
+    // + el renglón "Por llegar" de un encargo, para que no empuje el pie fuera de la hoja.
+    const itemHeight = (item.image ? ITEM_WITH_IMAGE_HEIGHT : ITEM_WITHOUT_IMAGE_HEIGHT) + (item.porLlegar ? 12 : 0);
     
     if (currentPageHeight + itemHeight > PAGE_HEIGHT_LIMIT) {
       pages.push({
@@ -613,10 +623,19 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                         cómo terminó.
                       */}
                       {/* Con saldo en cero no hay nada que pagar antes de ninguna fecha. */}
-                      {data.type === 'APARTADO' && data.apartado?.estado === 'activo' && data.apartado.saldoNio > 0 && (
+                      {data.type === 'APARTADO' && data.apartado?.estado === 'activo' && data.apartado.saldoNio > 0 && !data.apartado.esperando && (
                         <div className="flex items-center gap-4 text-[11px] font-semibold text-rose-600 mt-1">
                           <span className="w-24">Pagar antes de:</span>
                           <span className="font-bold">{data.apartado.fechaLimite}</span>
+                        </div>
+                      )}
+                      {/* Encargo: la fecha la fija la llegada, así que se imprime el plazo. */}
+                      {data.type === 'APARTADO' && data.apartado?.estado === 'activo' && data.apartado.esperando && (
+                        <div className="flex items-center gap-4 text-[11px] font-semibold text-[#1a6ba0] mt-1">
+                          <span className="w-24">Plazo de pago:</span>
+                          <span className="font-bold">
+                            {data.apartado.plazoDias ? `${data.apartado.plazoDias} días desde que llegue` : 'desde que llegue'}
+                          </span>
                         </div>
                       )}
                       {data.type === 'APARTADO' && data.apartado && data.apartado.estado !== 'activo' && (
@@ -744,7 +763,14 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                   <img src={item.image} alt="product" className="max-w-full max-h-full object-contain mix-blend-multiply rounded-md" />
                                 </div>
                               )}
-                              <span className="font-bold text-zinc-900 text-[10px] leading-tight break-words pt-1">{item.productName}</span>
+                              <span className="font-bold text-zinc-900 text-[10px] leading-tight break-words pt-1">
+                                {item.productName}
+                                {item.porLlegar ? (
+                                  <span className="block mt-0.5 text-[9px] font-bold text-[#1a6ba0]">
+                                    Por llegar: {item.porLlegar} · se reserva cuando llegue
+                                  </span>
+                                ) : null}
+                              </span>
                             </div>
                           </td>
                           {/* Es la factura impresa: aca es donde mas importa que
@@ -936,9 +962,13 @@ export default function InvoicePreview({ data, isOpen, onClose, onConfirm, isCon
                                  ) : (
                                    <>
                                      <p>
-                                       {(data.apartado?.saldoNio ?? 0) > 0
-                                         ? '1. Los productos quedan reservados a tu nombre. El saldo se completa antes de la fecha límite de pago indicada arriba.'
-                                         : '1. Los productos quedan reservados a tu nombre: el saldo ya está completo.'}
+                                       {data.apartado?.esperando
+                                         ? (data.apartado.saldoNio ?? 0) > 0
+                                           ? `1. Los productos marcados «por llegar» se reservan a tu nombre cuando lleguen a la tienda; desde ese día tenés ${data.apartado.plazoDias ? `${data.apartado.plazoDias} días` : 'el plazo de la tienda'} para completar el saldo.`
+                                           : '1. Los productos marcados «por llegar» se reservan a tu nombre cuando lleguen a la tienda: el saldo ya está completo.'
+                                         : (data.apartado?.saldoNio ?? 0) > 0
+                                           ? '1. Los productos quedan reservados a tu nombre. El saldo se completa antes de la fecha límite de pago indicada arriba.'
+                                           : '1. Los productos quedan reservados a tu nombre: el saldo ya está completo.'}
                                      </p>
                                      <p>2. Se entregan cuando el saldo pendiente llega a cero; en ese momento se emite la factura, y la garantía corre desde esa fecha.</p>
                                      <p>3. Conservá este comprobante: cada abono queda registrado en él.</p>

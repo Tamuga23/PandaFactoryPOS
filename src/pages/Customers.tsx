@@ -8,7 +8,7 @@ import InvoicePreview, { InvoiceData } from '../components/InvoicePreview';
 import { buildInvoiceDataFromSale, buildWhatsAppMessage } from '../lib/invoice';
 import { etiquetaVenta } from '../lib/etiquetas';
 import { BadgeEstado } from '../components/ApartadoPiezas';
-import { estadoVisible, redondearCordobas, saldoNio, type EstadoVisible } from '../lib/apartados';
+import { estadoVisible, redondearCordobas, saldoNio, tienePendientes, type EstadoVisible } from '../lib/apartados';
 import ConfirmarBorrado from '../components/ConfirmarBorrado';
 import { toast } from '../components/Toast';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -292,7 +292,10 @@ export default function Customers() {
                               {activos.length === 1 ? 'Apartado' : `${activos.length} apartados`}
                               {saldo > 0
                                 ? ` · saldo ${formatCurrencyNIO(saldo)}`
-                                : ` · ${activos.length === 1 ? 'listo' : 'listos'} para entregar`}
+                                // Pagado no es "listo" si la mercadería todavía no llegó.
+                                : activos.some((ap) => tienePendientes(ap))
+                                  ? ' · esperando mercadería'
+                                  : ` · ${activos.length === 1 ? 'listo' : 'listos'} para entregar`}
                             </span>
                           );
                         })()}

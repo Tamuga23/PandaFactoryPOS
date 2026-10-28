@@ -29,6 +29,7 @@ import {
   BadgeEstado,
   BarraProgreso,
   Cifra,
+  ListaFaltantes,
   ModalApartado,
   fechaCorta,
   fechaHora,
@@ -36,6 +37,7 @@ import {
   plazoDe,
   plural,
   unidadesDe,
+  type Faltante,
 } from './ApartadoPiezas';
 
 /*
@@ -68,6 +70,10 @@ interface Props {
   /** El teléfono de la ficha del cliente, si tiene ficha y la ficha tiene teléfono. */
   telefonoFicha?: string;
   buscandoFactura: boolean;
+  /** Lo que le falta a un encargo; vacío si no espera nada. */
+  faltantes: Faltante[];
+  reservando: boolean;
+  onReservar: () => void;
   onCerrar: () => void;
   onAbonar: () => void;
   onAnular: (abono: AbonoApartado) => void;
@@ -86,6 +92,9 @@ export default function ApartadoDetalle({
   activo,
   telefonoFicha,
   buscandoFactura,
+  faltantes,
+  reservando,
+  onReservar,
   onCerrar,
   onAbonar,
   onAnular,
@@ -98,7 +107,13 @@ export default function ApartadoDetalle({
 }: Props) {
   const visible = estadoVisible(ap, ahora);
   const abierto = ap.status === 'activo';
-  const conSaldo = visible === 'activo' || visible === 'vencido';
+  // Un encargo con saldo recibe abonos, pero no recordatorios: su plazo no corre.
+  const recuerdaSaldo = visible === 'activo' || visible === 'vencido';
+  const esperando = visible === 'esperando';
+  const conSaldo = recuerdaSaldo || (esperando && saldoNio(ap) > 0);
+  const reservable = esperando && faltantes.some((f) => f.enStock > 0);
+  // Mientras espera, la fecha guardada es provisoria: la fija la llegada.
+  const fechaEditable = abierto && !esperando;
   const abonado = abonadoNio(ap);
   const saldo = saldoNio(ap);
   const devuelto = ap.devueltoNio ?? 0;
@@ -124,7 +139,7 @@ export default function ApartadoDetalle({
   const fechaViva = aFechaInput(ap.fechaLimite);
   const notaViva = ap.notes || '';
   const telCambio = tel !== null && tel.trim() !== telVivo.trim();
-  const fechaCambio = abierto && fecha !== null && fecha !== fechaViva;
+  const fechaCambio = fechaEditable && fecha !== null && fecha !== fechaViva;
   const notaCambio = nota !== null && nota.trim() !== notaViva.trim();
   const hayCambios = telCambio || fechaCambio || notaCambio;
 
@@ -296,6 +311,11 @@ export default function ApartadoDetalle({
           <h4 id="detalle-productos" className="text-[10px] uppercase font-bold text-zinc-400 mb-2">
             Productos
           </h4>
+          {faltantes.length > 0 && (
+            <div className="mb-2">
+              <ListaFaltantes faltantes={faltantes} />
+            </div>
+          )}
           <div className="overflow-x-auto border border-zinc-800 rounded-lg">
             <table className="w-full text-sm">
               <thead className="bg-zinc-800/50 text-[10px] uppercase text-zinc-400 font-bold">
@@ -464,7 +484,12 @@ export default function ApartadoDetalle({
               )}
             </div>
             <div className="space-y-1">
-              {abierto ? (
+              {abierto && esperando ? (
+                <>
+                  <p className="text-[10px] uppercase text-zinc-400 font-bold">Fecha límite de pago</p>
+                  <p className="text-sm text-zinc-300 py-2">Se fija cuando llegue la mercadería.</p>
+                </>
+              ) : abierto ? (
                 <>
                   <label htmlFor="detalle-fecha-limite" className="text-[10px] uppercase text-zinc-400 font-bold">
                     Fecha límite de pago
@@ -632,7 +657,7 @@ export default function ApartadoDetalle({
             <Printer className="w-4 h-4" aria-hidden="true" />
             Comprobante
           </button>
-          {conSaldo && (
+          {recuerdaSaldo && (
             <button
               type="button"
               onClick={onRecordatorio}
@@ -665,6 +690,21 @@ export default function ApartadoDetalle({
             >
               <HandCoins className="w-4 h-4" aria-hidden="true" />
               Abonar
+            </button>
+          )}
+          {reservable && (
+            <button
+              type="button"
+              onClick={onReservar}
+              disabled={reservando}
+              className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              {reservando ? (
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <PackageCheck className="w-4 h-4" aria-hidden="true" />
+              )}
+              Reservar ahora
             </button>
           )}
           {visible === 'listo' && (

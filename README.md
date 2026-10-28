@@ -13,7 +13,7 @@
 *   **📦 Gestión de Inventario Avanzada:** Control estricto de existencias, cálculo automático de costo promedio ponderado y alertas de stock bajo.
 *   **🚢 Logística de Importación (Landed Cost):** Registro de compras, trackings, fletes marítimos/aéreos y prorrateo automático de gastos aduaneros para obtener el costo real del producto puesto en tienda.
 *   **🤝 CRM Integrado:** Gestión de clientes y proveedores, historial de ventas y seguimientos.
-*   **🧾 Apartados y saldos pendientes:** El cliente reserva productos dejando una prima y paga el resto en abonos. El stock queda reservado, cada abono se registra con su forma de pago y su comprobante, y la factura se emite al entregar, con el saldo en cero.
+*   **🧾 Apartados y saldos pendientes:** El cliente reserva productos dejando una prima y paga el resto en abonos. El stock queda reservado, cada abono se registra con su forma de pago y su comprobante, y la factura se emite al entregar, con el saldo en cero. También se aparta lo que todavía no llegó (**encargo**): queda reservado al cliente cuando se recibe la caja que lo trae, y su plazo de pago corre desde ese día.
 *   **📱 Ecosistema Omnicanal:** Alimenta directamente a **PandaLink** (la PWA utilizada en las tablets del piso de venta) proyectando catálogos, fichas técnicas y manejo de objeciones comerciales.
 
 ---

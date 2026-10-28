@@ -707,3 +707,121 @@ describe('APARTADOS · lo que escribe cada transacción del hook pasa entero', (
     await assertSucceeds(batch.commit());
   });
 });
+
+// =============================================================================
+// ENCARGOS · apartar lo que todavía no llegó (2026-10-27)
+//
+// Un encargo es un apartado con unidades que no estaban en la tienda. Lo que
+// no se reservó queda en `encargo` (no cambia nunca) y cada vez que una parte
+// llega —o se revierte la recepción que la trajo— se agrega una entrada a
+// `llegadas`, que sólo crece. El producto lleva `encargadas`: lo prometido que
+// no está en la tienda.
+// =============================================================================
+
+describe('ENCARGOS · lo que el apartado registra de la mercadería que espera', () => {
+  /** El apartado de un encargo recién creado: el TV no estaba, queda por llegar. */
+  const encargoNuevo = (id: string, numero: string) => ({
+    ...apartadoNuevo(id, numero), encargo: [{ productId: 'p-tv', cantidad: 1 }], llegadas: [],
+  });
+  const LLEGADA_TV = {
+    productId: 'p-tv', cantidad: 1, fecha: 4_000, origen: 'compra', costoUnitario: 262.5,
+    compraId: 'co1', trackingId: 'trk-1',
+  };
+  const sembrarEncargo = () => env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('apartados').doc('ap-encargo').set(encargoNuevo('ap-encargo', 'AP-000006'));
+  });
+  const apEncargo = () => staff().collection('apartados').doc('ap-encargo');
+
+  it('el staff crea un encargo: con lo que falta en `encargo` y sin llegadas', async () => {
+    await assertSucceeds(staff().collection('apartados').doc('ap-nuevo').set(encargoNuevo('ap-nuevo', 'AP-000005')));
+  });
+
+  it('no nace con llegadas, ni con un renglón de encargo en 0 o con un campo de más', async () => {
+    const nuevo = staff().collection('apartados').doc('ap-nuevo');
+    const base = encargoNuevo('ap-nuevo', 'AP-000005');
+    await assertFails(nuevo.set({ ...base, llegadas: [LLEGADA_TV] }));
+    await assertFails(nuevo.set({ ...base, encargo: [{ productId: 'p-tv', cantidad: 0 }] }));
+    await assertFails(nuevo.set({ ...base, encargo: [{ productId: 'p-tv', cantidad: 1, orden: 'co1' }] }));
+  });
+
+  it('registrar que llegó pasa, y con la llegada se fija la fecha límite', async () => {
+    await sembrarEncargo();
+    await assertSucceeds(apEncargo().update({ llegadas: [LLEGADA_TV], fechaLimite: 4_000 + 30 * DIA, updatedAt: 4_000 }));
+  });
+
+  it('una caja puede traer hasta cinco productos del mismo apartado en una escritura, no seis', async () => {
+    await sembrarEncargo();
+    const varias = (n: number) => Array.from({ length: n }, (_, i) => ({ ...LLEGADA_TV, productId: `p-${i}` }));
+    await assertFails(apEncargo().update({ llegadas: varias(6), updatedAt: 4_000 }));
+    await assertSucceeds(apEncargo().update({ llegadas: varias(5), updatedAt: 4_000 }));
+  });
+
+  it('una llegada mal formada no entra, sea la primera o la última de la escritura', async () => {
+    // Las reglas validan la primera y la última nuevas (ver llegadasSoloCrecen:
+    // las cinco pasaban el tope de expresiones). Con dos, son todas.
+    await sembrarEncargo();
+    await assertFails(apEncargo().update({
+      llegadas: [LLEGADA_TV, { ...LLEGADA_TV, origen: 'regalo' }], updatedAt: 4_000,
+    }));
+    await assertFails(apEncargo().update({
+      llegadas: [{ ...LLEGADA_TV, origen: 'regalo' }, LLEGADA_TV], updatedAt: 4_000,
+    }));
+    await assertFails(apEncargo().update({ llegadas: [{ ...LLEGADA_TV, cantidad: 0 }], updatedAt: 4_000 }));
+    await assertFails(apEncargo().update({ llegadas: [{ ...LLEGADA_TV, cantidad: 1.5 }], updatedAt: 4_000 }));
+  });
+
+  it('revertir la recepción agrega una llegada NEGATIVA; reescribir o sacar una llegada falla', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('apartados').doc('ap-encargo').set({
+        ...encargoNuevo('ap-encargo', 'AP-000006'), llegadas: [LLEGADA_TV],
+      });
+    });
+    const reversion = { ...LLEGADA_TV, cantidad: -1, origen: 'reversion', fecha: 5_000 };
+    await assertSucceeds(apEncargo().update({ llegadas: [LLEGADA_TV, reversion], updatedAt: 5_000 }));
+    await assertFails(apEncargo().update({ llegadas: [], updatedAt: 6_000 }));
+    await assertFails(apEncargo().update({ llegadas: [{ ...LLEGADA_TV, cantidad: 2 }, reversion], updatedAt: 6_000 }));
+  });
+
+  it('lo encargado no se toca después de apartar', async () => {
+    await sembrarEncargo();
+    await assertFails(apEncargo().update({ encargo: [{ productId: 'p-tv', cantidad: 2 }], updatedAt: 4_000 }));
+    await assertFails(apEncargo().update({ encargo: [], updatedAt: 4_000 }));
+  });
+
+  it('un apartado cerrado ya no registra llegadas', async () => {
+    await assertFails(staff().collection('apartados').doc('ap-cancelado').update({
+      llegadas: [LLEGADA_TV], updatedAt: 6_000,
+    }));
+    await assertFails(staff().collection('apartados').doc('ap-entregado').update({
+      llegadas: [LLEGADA_TV], updatedAt: 6_000,
+    }));
+  });
+
+  it('el producto guarda sus unidades encargadas; un número negativo falla', async () => {
+    await assertSucceeds(staff().collection('products').doc('p-tv').update({ encargadas: 1, updatedAt: 2 }));
+    await assertFails(staff().collection('products').doc('p-tv').update({ encargadas: -1, updatedAt: 3 }));
+  });
+
+  it('recibir la caja que trae un encargo: compra, producto, kardex y apartado en una escritura', async () => {
+    await sembrarEncargo();
+    const db = staff();
+    const batch = db.batch();
+    // La recepción suma 3 al stock y le reserva 1 al encargo: neto +2.
+    batch.update(db.collection('products').doc('p-tv'), {
+      stock: 4, apartadas: 2, encargadas: 0, cost: 262.5, updatedAt: 4_000,
+    });
+    batch.set(db.collection('movimientos').doc(), {
+      productId: 'p-tv', productName: 'Smart TV 55', sku: 'TV55', tipo: 'compra', delta: 3,
+      stockDespues: 5, refId: 'co1', fecha: 4_000, ownerId: 'shared_store',
+    });
+    batch.set(db.collection('movimientos').doc(), {
+      productId: 'p-tv', productName: 'Smart TV 55', sku: 'TV55', tipo: 'apartado', delta: -1,
+      stockDespues: 4, refId: 'ap-encargo', fecha: 4_000, motivo: 'Llegó para AP-000006 · María López',
+      ownerId: 'shared_store',
+    });
+    batch.update(db.collection('apartados').doc('ap-encargo'), {
+      llegadas: [LLEGADA_TV], fechaLimite: 4_000 + 30 * DIA, updatedAt: 4_000,
+    });
+    await assertSucceeds(batch.commit());
+  });
+});

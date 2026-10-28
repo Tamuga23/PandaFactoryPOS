@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Truck } from 'lucide-react';
 import type { Apartado, Customer } from '../types';
 import { diasRestantes, redondearCordobas, ultimoAbonoEn, type EstadoVisible } from '../lib/apartados';
 import { etiquetaApartado } from '../lib/etiquetas';
@@ -66,8 +66,12 @@ export const parsearMonto = (texto: string): number | null => {
 */
 export const textoEstado = (e: EstadoVisible): string => (e === 'activo' ? 'Pendiente' : etiquetaApartado(e));
 
+// `esperando` comparte el ámbar con `activo`: DESIGN.md lo reserva para
+// "tránsito, pendiente, parcial", y un encargo es las tres cosas. El rótulo los
+// distingue.
 const TONO_ESTADO: Record<EstadoVisible, string> = {
   activo: 'bg-amber-500/10 text-amber-500',
+  esperando: 'bg-amber-500/10 text-amber-500',
   vencido: 'bg-rose-500/10 text-rose-400',
   listo: 'bg-emerald-500/10 text-emerald-500',
   entregado: 'bg-zinc-800 text-zinc-300',
@@ -100,6 +104,11 @@ export function plazoDe(ap: Apartado, visible: EstadoVisible, ahora: number): { 
     const t = textoPagado(diasDesde(ultimoAbonoEn(ap) ?? ap.fecha, ahora));
     return { texto: t.charAt(0).toUpperCase() + t.slice(1), tono: 'text-emerald-400' };
   }
+  // Un encargo no vence mientras la tienda no tiene el producto: la fecha
+  // guardada es provisoria y se reescribe cuando llega (ver crearApartado).
+  if (visible === 'esperando') {
+    return { texto: 'El plazo de pago empieza cuando llegue', tono: 'text-zinc-400' };
+  }
   const limite = `Fecha límite ${fechaCorta(ap.fechaLimite)}`;
   const d = diasRestantes(ap.fechaLimite, ahora);
   if (visible === 'vencido') {
@@ -112,6 +121,50 @@ export function plazoDe(ap: Apartado, visible: EstadoVisible, ahora: number): { 
   if (d <= 0) return { texto: `${limite} · vence hoy`, tono: 'text-amber-400' };
   if (d === 1) return { texto: `${limite} · vence mañana`, tono: 'text-amber-400' };
   return { texto: `${limite} · vence en ${d} días`, tono: 'text-zinc-400' };
+}
+
+// ---------------------------------------------------------------------------
+// Encargos
+// ---------------------------------------------------------------------------
+
+/** Lo que le falta a un encargo de un producto, y de dónde puede salir. */
+export interface Faltante {
+  productId: string;
+  nombre: string;
+  cantidad: number;
+  /** Stock de ahora: si hay, se le puede reservar sin esperar la caja. */
+  enStock: number;
+  /** La orden de compra abierta que lo trae, ya en palabras; null si no hay ninguna. */
+  orden: string | null;
+}
+
+/**
+ * Qué falta, y la respuesta a "¿y cuándo llega?": hay stock para reservarlo
+ * ya, viene en tal orden, o no hay ninguna orden que lo traiga (un pedido
+ * especial que todavía no se pidió es justo lo que no se puede olvidar).
+ */
+export function ListaFaltantes({ faltantes }: { faltantes: Faltante[] }) {
+  if (faltantes.length === 0) return null;
+  return (
+    <ul className="space-y-1" aria-label="Por llegar">
+      {faltantes.map((f) => (
+        <li key={f.productId} className="flex gap-1.5 text-xs leading-snug min-w-0">
+          <Truck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="text-amber-400 font-semibold tabular-nums">Por llegar: {f.cantidad} × {f.nombre}</span>
+            <span className="text-zinc-400">
+              {' · '}
+              {f.enStock > 0
+                ? `hay ${f.enStock} en stock: se puede reservar ya`
+                : f.orden
+                  ? `viene en la ${f.orden}`
+                  : 'ninguna orden de compra lo trae'}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 // ---------------------------------------------------------------------------

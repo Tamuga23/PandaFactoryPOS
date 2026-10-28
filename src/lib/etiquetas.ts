@@ -37,11 +37,13 @@ export const etiquetaOrden = (estado?: string) =>
   ESTADO_ORDEN[estado || 'OPEN'] || estado || 'Abierta';
 
 /**
- * Estado VISIBLE de un apartado. `listo` y `vencido` no se guardan en
- * Firestore: los deriva `estadoVisible` (src/lib/apartados.ts) al pintar.
+ * Estado VISIBLE de un apartado. `esperando`, `listo` y `vencido` no se
+ * guardan en Firestore: los deriva `estadoVisible` (src/lib/apartados.ts) al
+ * pintar.
  */
 export const ESTADO_APARTADO: Record<string, string> = {
   activo: 'Activo',
+  esperando: 'Esperando mercadería',
   listo: 'Listo para entregar',
   vencido: 'Vencido',
   entregado: 'Entregado',

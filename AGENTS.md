@@ -279,6 +279,90 @@ Java 25 de Android Studio (`C:/Program Files/Android/Android Studio/jbr/bin/java
 `npx vitest run firestore.rules.test.ts` con
 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8089`. Resultado: 66/66.
 
+## Estado al 2026-10-27 — Apartado por ENCARGO (productos sin stock)
+
+El dueño aparta también equipos que NO tiene: vienen en una orden de compra o
+son un pedido especial. Antes el POS no dejaba agregar un producto agotado y
+`crearApartado` exigía stock, y la salida que quedaba era subir el stock a mano:
+un stock fantasma que el POS vendía y la tablet mostraba disponible.
+
+**Decisiones del dueño (2026-10-27), vinculantes:**
+
+- El plazo de pago de un encargo corre **desde que llega** la mercadería:
+  cuando se reserva la última unidad pendiente,
+  `fechaLimite = fechaLimiteDesde(llegada, config.plazoDias)`.
+- La prima es la misma de los apartados (`config/apartados.primaMinimaPct`).
+  No hay configuración aparte para encargos.
+
+**Modelo (es el mismo apartado; lo que cambia es que una parte puede no estar):**
+
+- `Product.encargadas`: prometidas a clientes que todavía NO llegaron. No son
+  físicas (el conteo sigue siendo `stock + apartadas`). Lo escriben sólo las
+  transacciones de apartados y la recepción/reversión de compras;
+  `updateProduct` y `adjustStock` lo descartan, `deleteProduct` no borra con
+  encargadas, y viaja en `TABLET_ONLY_SALE_ITEM_FIELDS`.
+- `Apartado.encargo` (lo que no se reservó al crear, inmutable) y
+  `Apartado.llegadas` (sólo crece; cantidad negativa = reversión). Lo pendiente
+  se DERIVA (`pendientesDe`), no se guarda. Estado visible nuevo `esperando`
+  ("Esperando mercadería"), que gana sobre listo y vencido.
+- `crearApartado` reserva lo que hay en el servidor y encarga el resto; ya no
+  lanza "Stock insuficiente". Devuelve `encargo` para que el POS diga qué quedó
+  por llegar (el servidor pudo encontrar menos stock que la pantalla).
+- `updatePurchase` reserva lo recibido para los encargos que lo esperan, en la
+  MISMA transacción, del más viejo al más nuevo (`asignarLlegadas`), caja por
+  caja, al costo promedio que queda después de recibir. Los candidatos salen de
+  la lista en vivo y se LEEN por id (una transacción no admite consultas).
+- `revertTrackingReception` deshace primero lo que esa caja reservó
+  (`llegadasDeCaja`): las unidades vuelven al stock al costo con que salieron,
+  y recién ahí corre la reversión de siempre, así el promedio sigue cayendo en
+  el camino exacto de `costoAlRevertir`.
+- `reservarEncargo(apartadoId)`: el botón "Reservar ahora" de Apartados, para
+  stock que apareció por otro camino (devolución, ajuste, cancelación).
+- Cancelar devuelve al stock sólo lo reservado (a su costo, `partesDeApartado`)
+  y a lo pendiente sólo le baja `encargadas`. Entregar exige que no falte nada,
+  y la línea de la factura lleva el costo de lo que de verdad se entregó
+  (`costoDeLinea`), no el del día en que se apartó.
+- El POS deja cargar más que el stock; FACTURAR frena antes del preview si una
+  línea no alcanza, y la proforma sigue permitida. El carrito lee el stock en
+  vivo, no el que se copió al agregar la línea.
+
+**Trampa que ya mordió (no repetir):** validar las cinco llegadas nuevas una por
+una pasaba el **tope de 1000 expresiones por pedido** del motor de reglas: con
+cinco válidas el pedido se rechazaba igual. `llegadasSoloCrecen` valida la
+primera y la última nuevas (con una o dos, que es casi toda caja, son todas);
+las del medio las cuida Zod. Es el mismo criterio que `isValidSaleItem(items[0])`.
+El tope de 5 por escritura lo respeta el código (`MAX_LLEGADAS_POR_ESCRITURA`):
+lo que no entra queda por llegar y se reserva desde Apartados.
+
+**De paso, un bug que ya existía (lo encontró la revisión):** `updatePurchase`
+copiaba la orden UNA vez, afuera de la transacción, y marcaba las cajas
+`isReceived` sobre esa copia. Si Firestore reintentaba el callback (algo que
+leyó cambió antes del commit: una venta en otro equipo), el reintento no
+encontraba nada que recibir y la caja quedaba "recibida" sin que sus unidades
+entraran al stock. Ahora cada intento hace su propia copia de una plantilla
+limpia. Leer los encargos en esa transacción hacía el reintento más probable.
+
+Límites conocidos, aceptados: la recepción y la reversión encuentran los
+encargos en la lista en vivo de apartados (una transacción no admite
+consultas); uno creado en otro equipo segundos antes puede no estar. En la
+recepción se avisa (`sinReservar`); en la reversión no. Y revertir una caja
+cuyo encargo ya se entregó descuenta la caja entera del stock, igual que
+cuando sus unidades se vendieron (se avisa con `encargosCerrados`).
+
+Verificado: `npm run lint` en cero con control positivo, las cuatro suites,
+`validations.ts` cargado con `npx tsx`, `medir:foco` 350/350, `npm run build`,
+y las reglas en el emulador **76/76** (diez pruebas nuevas de encargos).
+
+**Pendiente del usuario, en este orden:**
+
+1. `npx firebase-tools deploy --only firestore:rules` — ANTES del merge: sin
+   las reglas nuevas, `encargadas` en un producto y `encargo`/`llegadas` en un
+   apartado hacen rechazar toda escritura que los lleve.
+2. Mergear a `main` para que llegue a producción.
+3. Probarlo en producción con un producto de prueba: apartar con stock 0,
+   recibir la caja de una orden que lo trae, revertir esa recepción, volver a
+   recibirla, entregar; y cancelar otro encargo a medio llegar.
+
 ## Reglas de trabajo para el agente
 
 - **NUNCA** leas, muevas, copies ni pegues en el chat el JSON del service account. La rotación de la llave la hace el usuario a mano en Google Cloud Console.

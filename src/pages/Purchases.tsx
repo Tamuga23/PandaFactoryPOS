@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import type { EncargoReservado } from '../hooks/useStoreData';
 import { Purchase, PurchaseItem, Product, PurchaseTracking } from '../types';
 import { formatCurrency, DEFAULT_EXCHANGE_RATE } from '../lib/utils';
 import { Trash2, Calendar, User, Plus, Package, Clock, CheckCircle2, Navigation, Edit, Ban, X, Truck, Search } from 'lucide-react';
@@ -24,6 +26,11 @@ const toLocalDateStr = (ts?: number) => (ts ? format(new Date(ts), 'yyyy-MM-dd')
 
 export default function Purchases() {
   const { products, purchases, recordPurchase, updatePurchase, deletePurchase, cancelPurchase, revertTrackingReception, addProduct, companyInfo, loading, suppliers, addSupplier } = useStore();
+  const navigate = useNavigate();
+
+  /** "2 × Smart TV → AP-000012 (María López)", para los avisos de encargos. */
+  const detalleEncargos = (lista: EncargoReservado[]) =>
+    lista.map(a => `${a.cantidad} × ${a.producto} → ${a.numero} (${a.cliente})`).join('; ');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [trackingModalPurchase, setTrackingModalPurchase] = useState<Purchase | null>(null);
   const [borrando, setBorrando] = useState<Purchase | null>(null);
@@ -287,7 +294,7 @@ export default function Purchases() {
     setConfirmingRevert(null);
     setIsReverting(true);
     try {
-      const { borrados, topeados, costoSinRevertir, costoAproximado } =
+      const { borrados, topeados, costoSinRevertir, costoAproximado, vuelvenAEncargo, encargosCerrados } =
         await revertTrackingReception(trackingModalPurchase.id, tracking.id);
       // Reflejar la reversión en el estado local del modal.
       setTrackingModalPurchase(prev => {
@@ -338,6 +345,19 @@ export default function Purchases() {
         toast.info(
           `El costo promedio de ${costoAproximado.join(', ')} se recalculó, pero es aproximado: ` +
           `desde que se recibió esta caja entró otra mercadería. Confirmalo antes de fijar precio.`,
+        );
+      }
+      // Lo que esta caja había reservado para clientes vuelve a "por llegar".
+      if (vuelvenAEncargo.length > 0) {
+        toast.info(
+          `Vuelven a esperar mercadería: ${detalleEncargos(vuelvenAEncargo)}. ` +
+          'Se reservan solos cuando la caja se reciba de nuevo.',
+        );
+      }
+      if (encargosCerrados.length > 0) {
+        toast.info(
+          `Esta caja también había reservado unidades para ${encargosCerrados.join(', ')}. ` +
+          'Esos apartados ya están cerrados y no se tocaron: revisá el inventario.',
         );
       }
     } catch (e: any) {
@@ -397,7 +417,7 @@ export default function Purchases() {
     const unidades = boxItems.reduce((a, b) => a + b.quantity, 0);
 
     try {
-      const { faltantes, unidadesNoEntraron } = await updatePurchase(updatedPurchase);
+      const { faltantes, unidadesNoEntraron, asignados, sinReservar } = await updatePurchase(updatedPurchase);
       closeTrackingForm();
       if (vaARecibir) {
         /*
@@ -425,6 +445,35 @@ export default function Purchases() {
             `${faltantes.length === 1 ? 'Este producto ya no existe' : 'Estos productos ya no existen'} ` +
             `en el catálogo, así que sus unidades NO entraron al inventario ni al kardex, ` +
             `aunque la caja figure recibida: ${faltantes.join(', ')}.`,
+          );
+        }
+        /*
+          Encargos: lo que llegó para clientes que lo estaban esperando ya quedó
+          reservado a su nombre en la misma transacción. Se dice a quién, y se
+          ofrece ir a avisarles: el "ya llegó" sale de la tarjeta del apartado.
+        */
+        if (asignados.length > 0) {
+          const numeros = Array.from(new Set(asignados.map(a => a.numero)));
+          const completos = Array.from(new Set(asignados.filter(a => a.completo).map(a => a.numero)));
+          toast.accion(
+            numeros.length === 1
+              ? `Llegó mercadería encargada: quedó reservada para ${numeros[0]}.`
+              : `Llegó mercadería encargada: quedó reservada para ${numeros.length} apartados.`,
+            {
+              etiqueta: numeros.length === 1 ? `Ver ${numeros[0]}` : 'Ver en Apartados',
+              alHacer: () =>
+                navigate(numeros.length === 1 ? `/apartados?q=${encodeURIComponent(numeros[0])}` : '/apartados'),
+            },
+            detalleEncargos(asignados) +
+              (completos.length > 0
+                ? `. Con esto ${completos.length === 1 ? 'tiene' : 'tienen'} todo en la tienda y su plazo de pago empieza hoy: ${completos.join(', ')}.`
+                : '.'),
+          );
+        }
+        if (sinReservar.length > 0) {
+          toast.info(
+            `Llegaron unidades de ${sinReservar.join(', ')} y hay clientes que las encargaron, pero no se ` +
+            'les reservaron solas: quedaron a la venta. Reservalas desde Apartados → Por llegar.',
           );
         }
       } else {

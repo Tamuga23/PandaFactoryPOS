@@ -30,6 +30,8 @@ import {
   validarTelefono,
   abonadoNio,
   saldoNio,
+  tienePendientes,
+  pendientesDe,
 } from '../lib/apartados';
 import {
   guardarVentaEnCurso,
@@ -38,6 +40,17 @@ import {
   hace,
   type VentaEnCurso,
 } from '../lib/ventaEnCurso';
+
+/*
+  Tope de unidades por línea. Antes el techo era el stock; ahora una línea
+  puede pasarlo (lo que falta se aparta como encargo), y sin ningún tope un
+  dedo apoyado en "+" o un 0 de más en el campo armaba una línea de 10.000.
+*/
+const MAX_CANTIDAD_LINEA = 999;
+
+/** Cuántas unidades de la línea no están en la tienda. */
+const faltanteDe = (item: { quantity: number; stock: number }): number =>
+  Math.max(0, item.quantity - Math.max(0, item.stock || 0));
 
 export default function POS() {
   const {
@@ -142,18 +155,53 @@ export default function POS() {
     });
   }, [products, searchTerm]);
 
+  /*
+    Pasar el stock ya no se bloquea al cargar el carrito: lo que no está en la
+    tienda se puede APARTAR COMO ENCARGO (viene en una orden o es un pedido
+    especial), y antes la única salida era subir el stock a mano —un stock
+    fantasma que el POS vendía y la tablet mostraba—. El límite pasó a donde
+    corresponde: FACTURAR no deja vender lo que no hay (ver handleTryCheckout).
+    Se avisa una vez, al cruzar el stock, no en cada unidad.
+  */
+  /*
+    El stock de una línea sale del catálogo EN VIVO, no del que se copió al
+    cargarla: si mientras el carrito espera llega la caja (o alguien vende la
+    última), "por encargar" y el freno de FACTURAR tienen que enterarse.
+  */
+  const stockVivo = (item: CartItem): number => products.find((p) => p.id === item.id)?.stock ?? item.stock;
+  const faltante = (item: CartItem): number => faltanteDe({ quantity: item.quantity, stock: stockVivo(item) });
+  /** El carrito con el stock de ahora: es el que mira el diálogo de apartar. */
+  const carritoVivo = useMemo(
+    () => cart.map((i) => ({ ...i, stock: products.find((p) => p.id === i.id)?.stock ?? i.stock })),
+    [cart, products],
+  );
+
+  const avisarSiPasaElStock = (product: Product, cantidad: number) => {
+    const stock = Math.max(0, product.stock || 0);
+    if (cantidad !== stock + 1) return;
+    toast.info(
+      stock === 0
+        ? `«${product.name}» no tiene stock: se puede apartar como encargo (F4). Para facturarlo tiene que estar en la tienda.`
+        : `«${product.name}» tiene ${stock} en stock: lo que pase de ahí se aparta como encargo (F4).`,
+    );
+  };
+
   const addToCart = (product: Product) => {
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
-      if (existing.quantity >= product.stock) {
-        toast.error(`No hay más stock disponible de "${product.name}".`);
-        return;
-      }
+      if (existing.quantity >= MAX_CANTIDAD_LINEA) return;
+      avisarSiPasaElStock(product, existing.quantity + 1);
       setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
     } else {
-      if (product.stock <= 0) {
-        toast.error('Producto sin stock.');
-        return;
+      avisarSiPasaElStock(product, 1);
+      // Hay stock, pero también clientes esperando este producto: puede ser la
+      // unidad de uno de ellos que entró por otro lado (una devolución, un
+      // ajuste). No se bloquea; se dice dónde reservársela.
+      if ((product.stock || 0) > 0 && (product.encargadas || 0) > 0) {
+        toast.info(
+          `Hay ${product.encargadas} ${product.encargadas === 1 ? 'unidad' : 'unidades'} de «${product.name}» ` +
+          'encargadas por clientes. Si este stock es para ellos, reservalo desde Apartados.',
+        );
       }
       /*
         `{ ...product }` traía `price`, que es el precio de LISTA. El carrito
@@ -170,12 +218,9 @@ export default function POS() {
   const updateQuantity = (id: string, delta: number) => {
     setCart(cart.map(item => {
       if (item.id === id) {
-        const newQ = item.quantity + delta;
-        if (newQ > item.stock) {
-          toast.error('No se puede superar el stock disponible.');
-          return item;
-        }
-        return { ...item, quantity: Math.max(1, newQ) };
+        const newQ = Math.min(MAX_CANTIDAD_LINEA, Math.max(1, item.quantity + delta));
+        if (delta > 0) avisarSiPasaElStock({ ...item, stock: stockVivo(item) }, newQ);
+        return { ...item, quantity: newQ };
       }
       return item;
     }));
@@ -554,9 +599,10 @@ export default function POS() {
    * momento. Antes se volcaba crudo al estado, sin una sola consulta, y eso
    * mentía en tres formas distintas y todas en silencio:
    *
-   *  - `item.stock` era el de hace seis horas, y es el TECHO que usan el botón
-   *    de sumar y el input de cantidad. El operador podía subir a 5 unidades de
-   *    algo que ya tenía 1, y el choque recién aparecía al confirmar.
+   *  - `item.stock` era el de hace seis horas, y entonces era el TECHO del
+   *    botón de sumar y del input de cantidad. El operador podía subir a 5
+   *    unidades de algo que ya tenía 1, y el choque recién aparecía al
+   *    confirmar. (Hoy el carrito lee el stock en vivo: ver `stockVivo`.)
    *  - Si el producto se borró del catálogo, el error llegaba recién dentro de
    *    la transacción ("ya no existe en la base de datos").
    *  - Si el cliente se borró, `customerId` viajaba a Firestore como id
@@ -583,11 +629,16 @@ export default function POS() {
 
     const reconciliado = vivos.map((item) => {
       const p = products.find((x) => x.id === item.id)!;
-      const cantidad = Math.min(item.quantity, Math.max(1, p.stock));
-      if (p.stock <= 0) {
-        avisos.push(`«${item.name}» quedó sin stock`);
-      } else if (cantidad !== item.quantity) {
-        avisos.push(`«${item.name}»: ${item.quantity} → ${cantidad} por stock`);
+      // La cantidad NO se recorta al stock: lo que falta se puede apartar como
+      // encargo, y recortarla en silencio cambiaba lo que el cliente pidió. Se
+      // avisa, y FACTURAR igual frena si no alcanza.
+      const cantidad = item.quantity;
+      if (faltanteDe({ quantity: cantidad, stock: p.stock }) > 0) {
+        avisos.push(
+          p.stock <= 0
+            ? `«${item.name}» quedó sin stock`
+            : `«${item.name}»: pediste ${cantidad} y hay ${p.stock}`,
+        );
       }
       const catalogo = precioVigente(p);
       if (!item.efectivoApplied && Math.abs(catalogo - item.price) > 0.005) {
@@ -745,6 +796,24 @@ export default function POS() {
     if (errorCierre) {
       toast.error(errorCierre);
       return;
+    }
+
+    /*
+      Se vende lo que hay. El carrito ya deja pasar el stock —para apartar como
+      encargo—, así que FACTURAR frena acá, ANTES del preview: la transacción
+      de recordSale lo rechazaría igual, pero después de que el operador giró
+      la pantalla y el cliente leyó una factura. La proforma no toca stock y
+      sigue permitida: cotizar algo que viene en camino es lo normal.
+    */
+    if (!isProforma) {
+      const corta = cart.find((i) => faltante(i) > 0);
+      if (corta) {
+        toast.error(
+          `«${corta.name}» no tiene stock suficiente (pediste ${corta.quantity}, hay ${Math.max(0, stockVivo(corta))}). ` +
+          'Para venderlo sin stock, apartalo como encargo (F4).',
+        );
+        return;
+      }
     }
 
     // Venta financiada sin plazo elegido: se corta acá. Registrar el plazo es
@@ -1009,7 +1078,7 @@ export default function POS() {
 
   /** El comprobante en el preview, con WhatsApp si el teléfono abre un chat. */
   const mostrarComprobanteApartado = (ap: Apartado) => {
-    setPreviewData(buildInvoiceDataFromApartado(ap, companyInfo, products));
+    setPreviewData(buildInvoiceDataFromApartado(ap, companyInfo, products, Date.now(), configApartados.plazoDias));
     const wa = buildWhatsAppApartado(ap, 'comprobante');
     setWaShare(wa.link ? wa : null);
   };
@@ -1020,9 +1089,16 @@ export default function POS() {
    * registró un intento anterior cuya respuesta no llegó.
    */
   const terminarApartado = (ap: Apartado, yaEstaba: boolean) => {
+    // Lo que no estaba en la tienda queda encargado; se dice cuánto, porque el
+    // servidor pudo encontrar menos stock que la pantalla.
+    let porLlegar = 0;
+    pendientesDe(ap).forEach((n) => { porLlegar += n; });
     toast.success(
       `Apartado ${ap.numero} ${yaEstaba ? 'ya estaba registrado' : 'registrado'} · ` +
-      `prima ${formatCurrencyNIO(abonadoNio(ap))} · saldo ${formatCurrencyNIO(saldoNio(ap))} · stock reservado`,
+      `prima ${formatCurrencyNIO(abonadoNio(ap))} · saldo ${formatCurrencyNIO(saldoNio(ap))} · ` +
+      (tienePendientes(ap)
+        ? `${porLlegar} ${porLlegar === 1 ? 'unidad queda encargada' : 'unidades quedan encargadas'}: se reserva al llegar`
+        : 'stock reservado'),
     );
     limpiarVenta();
     intentoApartado.current = null;
@@ -1242,7 +1318,7 @@ export default function POS() {
 
     // (c) La transacción. Su mensaje ya viene listo para el operador (stock,
     // permisos, conexión, datos). Los ids se quedan: el reintento es seguro.
-    let resultado: { numero: string; guardado: Apartado | null };
+    let resultado: Awaited<ReturnType<typeof crearApartado>>;
     try {
       resultado = await crearApartado(nuevo);
     } catch (e: any) {
@@ -1272,7 +1348,16 @@ export default function POS() {
       return;
     }
     terminarApartado(
-      { ...nuevo, numero: resultado.numero, status: 'activo', anulaciones: [], ownerId: 'shared_store', updatedAt: ahora },
+      {
+        ...nuevo,
+        numero: resultado.numero,
+        // Lo decide el servidor con SU stock: es lo que va al comprobante.
+        ...(resultado.encargo.length > 0 ? { encargo: resultado.encargo } : {}),
+        status: 'activo',
+        anulaciones: [],
+        ownerId: 'shared_store',
+        updatedAt: ahora,
+      },
       false,
     );
   };
@@ -1318,7 +1403,7 @@ export default function POS() {
       */}
       {apartarAbierto && (
         <DialogoApartar
-          items={cart}
+          items={carritoVivo}
           tasa={currentExchangeRate}
           envioNio={shipping}
           descuentoNio={discount}
@@ -1399,8 +1484,8 @@ export default function POS() {
               Cada tarjeta es un <button>, no un <div onClick>. Agregar al
               carrito es LA acción de esta pantalla y antes no se alcanzaba con
               Tab: el único camino de teclado era saberse el SKU de memoria.
-              Además, `disabled` cuando no hay stock reemplaza al toast de
-              error: la tarjeta decía `cursor-not-allowed` pero igual respondía.
+              Sin stock ya no se deshabilita: se puede apartar como encargo.
+              La foto atenuada y el rótulo dicen que no está en la tienda.
             */}
             {filteredProducts.length === 0 && (
               <div className="col-span-full py-12 text-center">
@@ -1425,12 +1510,15 @@ export default function POS() {
                 key={product.id}
                 type="button"
                 onClick={() => addToCart(product)}
-                disabled={product.stock <= 0}
-                aria-label={`Agregar ${product.name} al carrito`}
-                className={`relative text-left w-full rounded-xl border p-3 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                aria-label={
                   product.stock > 0
-                    ? 'bg-zinc-800/40 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 cursor-pointer'
-                    : 'bg-zinc-900/50 border-zinc-800 cursor-not-allowed'
+                    ? `Agregar ${product.name} al carrito`
+                    : `Agregar ${product.name} al carrito para encargarlo: no hay stock`
+                }
+                className={`relative text-left w-full rounded-xl border p-3 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                  product.stock > 0
+                    ? 'bg-zinc-800/40 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'
+                    : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
                 }`}
               >
                 {/*
@@ -1470,9 +1558,16 @@ export default function POS() {
                       </span>
                     )}
                   </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}`}>
-                    Stock: {product.stock}
-                  </span>
+                  {product.stock > 0 ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
+                      Stock: {product.stock}
+                    </span>
+                  ) : (
+                    // Ámbar y no rosa: no es un error, es "se encarga".
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 whitespace-nowrap">
+                      Sin stock · encargo
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
@@ -1589,6 +1684,11 @@ export default function POS() {
               <div key={item.id} className="flex items-center justify-between bg-zinc-800/40 p-3 rounded-lg border border-zinc-700/50">
                 <div className="flex-1 pr-3">
                   <h4 className="text-sm font-medium text-zinc-200 leading-tight mb-1">{item.name}</h4>
+                  {faltante(item) > 0 && (
+                    <p className="text-[10px] text-amber-400 leading-tight mb-1 tabular-nums">
+                      {Math.max(0, stockVivo(item))} en stock · {faltante(item)} por encargar
+                    </p>
+                  )}
                   {/* P2.5: precio negociable por línea (clic para editar, en C$) */}
                   {editingPriceId === item.id ? (
                     <input
@@ -1645,14 +1745,16 @@ export default function POS() {
                   <input
                     type="number"
                     min={1}
-                    max={item.stock}
+                    max={MAX_CANTIDAD_LINEA}
                     value={item.quantity}
                     aria-label={`Cantidad de ${item.name}`}
                     onChange={(e) => {
                       const n = Math.floor(Number(e.target.value));
                       if (!Number.isFinite(n)) return;
-                      // El techo de stock se respeta igual que con los botones.
-                      const fijada = Math.min(Math.max(1, n), item.stock);
+                      // Puede pasar el stock (encargo); FACTURAR frena si no alcanza.
+                      const fijada = Math.min(Math.max(1, n), MAX_CANTIDAD_LINEA);
+                      const stock = Math.max(0, stockVivo(item));
+                      if (fijada > stock && item.quantity <= stock) avisarSiPasaElStock({ ...item, stock }, stock + 1);
                       setCart(prev => prev.map(i => i.id === item.id ? { ...i, quantity: fijada } : i));
                     }}
                     className="text-xs font-medium w-9 text-center text-zinc-200 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-cyan-500 rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"

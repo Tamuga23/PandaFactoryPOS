@@ -240,6 +240,80 @@ console.log('\n— Agregados');
   ok('numeración AP-000001', A.numeroApartado(1) === 'AP-000001' && A.numeroApartado(1234567) === 'AP-1234567');
 }
 
+console.log('\n— Encargos (productos que no estaban en la tienda)');
+{
+  const ap = {
+    encargo: [{ productId: 'p1', cantidad: 3 }, { productId: 'p2', cantidad: 1 }],
+    llegadas: [{ productId: 'p1', cantidad: 2, fecha: 10, origen: 'compra', costoUnitario: 95 }],
+  };
+  const p = A.pendientesDe(ap);
+  ok('pendientes = encargo − llegadas, por producto', p.get('p1') === 1 && p.get('p2') === 1 && p.size === 2);
+  ok('tienePendientes', A.tienePendientes(ap) && !A.tienePendientes({
+    encargo: [{ productId: 'p1', cantidad: 1 }],
+    llegadas: [{ productId: 'p1', cantidad: 1, fecha: 1, origen: 'stock' }],
+  }));
+  ok('una reversión vuelve a dejar pendiente', A.pendientesDe({
+    ...ap, llegadas: [...ap.llegadas, { productId: 'p1', cantidad: -2, fecha: 11, origen: 'reversion', costoUnitario: 95 }],
+  }).get('p1') === 3);
+  ok('un apartado común no tiene pendientes', !A.tienePendientes({}));
+
+  const r = A.asignarLlegadas(
+    [{ id: 'b', fecha: 20, pendiente: 2 }, { id: 'a', fecha: 10, pendiente: 1 }, { id: 'c', fecha: 30, pendiente: 5 }], 4);
+  ok('FIFO: el encargo más viejo recibe primero', JSON.stringify(r) ===
+    JSON.stringify([{ id: 'a', cantidad: 1 }, { id: 'b', cantidad: 2 }, { id: 'c', cantidad: 1 }]), JSON.stringify(r));
+  ok('menos unidades que lo encargado', JSON.stringify(A.asignarLlegadas([{ id: 'a', fecha: 1, pendiente: 3 }], 2)) ===
+    JSON.stringify([{ id: 'a', cantidad: 2 }]));
+  ok('el mismo apartado dos veces no recibe dos veces',
+    A.asignarLlegadas([{ id: 'a', fecha: 1, pendiente: 1 }, { id: 'a', fecha: 1, pendiente: 1 }], 5).length === 1);
+  ok('cero unidades: nadie recibe', A.asignarLlegadas([{ id: 'a', fecha: 1, pendiente: 1 }], 0).length === 0);
+
+  ok('costo de línea sin llegadas: el de crear, exacto', A.costoDeLinea(80, 2, []) === 80);
+  ok('1 reservada a 80 + 1 llegada a 100 → 90', A.costoDeLinea(80, 1, [{ cantidad: 1, costoUnitario: 100 }]) === 90);
+  ok('todo encargado, llegó a 95 → 95', A.costoDeLinea(80, 0, [{ cantidad: 2, costoUnitario: 95 }]) === 95);
+  ok('llegada y su reversión: vuelve al de crear, exacto',
+    A.costoDeLinea(80, 1, [{ cantidad: 1, costoUnitario: 100 }, { cantidad: -1, costoUnitario: 100 }]) === 80);
+
+  const pp = A.partesDeApartado({
+    items: [{ id: 'p1', quantity: 3, cost: 80 }],
+    encargo: [{ productId: 'p1', cantidad: 2 }],
+    llegadas: [{ productId: 'p1', cantidad: 1, fecha: 5, origen: 'compra', costoUnitario: 100 }],
+  }).get('p1');
+  ok('partes: 3 en total, 2 encargadas, 1 llegó, 1 pendiente, 2 reservadas',
+    pp.total === 3 && pp.encargadas === 2 && pp.llegadas === 1 && pp.pendiente === 1 && pp.reservadas === 2, JSON.stringify(pp));
+  ok('partes: las reservadas cuestan (80 + 100) / 2', pp.costo === 90, String(pp.costo));
+
+  const caja = A.llegadasDeCaja({ llegadas: [
+    { productId: 'p1', cantidad: 2, fecha: 1, origen: 'compra', costoUnitario: 95, compraId: 'c1', trackingId: 't1' },
+    { productId: 'p1', cantidad: 1, fecha: 2, origen: 'compra', costoUnitario: 90, compraId: 'c1', trackingId: 't2' },
+    { productId: 'p1', cantidad: -2, fecha: 3, origen: 'reversion', costoUnitario: 95, compraId: 'c1', trackingId: 't1' },
+    { productId: 'p1', cantidad: 2, fecha: 4, origen: 'compra', costoUnitario: 97, compraId: 'c1', trackingId: 't1' },
+  ] }, 'c1', 't1').get('p1');
+  ok('lo que dejó una caja: neto de su reversión anterior, sin las de otra caja',
+    caja.cantidad === 2 && caja.costoUnitario === 97, JSON.stringify(caja));
+
+  const esperando = {
+    status: 'activo', fechaLimite: 0, totalNio: 100, abonos: [ab(100)], anulaciones: [],
+    encargo: [{ productId: 'p1', cantidad: 1 }], llegadas: [],
+  };
+  ok('pagado pero sin la mercadería → esperando, no listo', A.estadoVisible(esperando, 99999) === 'esperando');
+  ok('fecha provisoria pasada pero esperando → no vence', A.estadoVisible({ ...esperando, abonos: [ab(10)] }, 99999) === 'esperando');
+  ok('cuando llega todo vuelve a la cuenta de siempre', A.estadoVisible({
+    ...esperando, llegadas: [{ productId: 'p1', cantidad: 1, fecha: 1, origen: 'compra' }],
+  }, 0) === 'listo');
+
+  // El conteo físico del Inventario lista lo que cada apartado tiene EN EL
+  // ESTANTE: lo encargado que no llegó no se puede contar.
+  const enEstante = A.apartadosConProducto([
+    { status: 'activo', numero: 'AP-1', customerName: 'A', items: [{ id: 'p1', quantity: 3 }],
+      encargo: [{ productId: 'p1', cantidad: 2 }], llegadas: [] },
+    { status: 'activo', numero: 'AP-2', customerName: 'B', items: [{ id: 'p1', quantity: 1 }],
+      encargo: [{ productId: 'p1', cantidad: 1 }], llegadas: [] },
+  ], 'p1');
+  ok('apartadosConProducto: sólo lo reservado, y el encargo que no llegó no aparece',
+    enEstante.length === 1 && enEstante[0].apartado.numero === 'AP-1' && enEstante[0].unidades === 1,
+    JSON.stringify(enEstante.map((x) => [x.apartado.numero, x.unidades])));
+}
+
 console.log('\n— Configuración');
 {
   const D = A.CONFIG_APARTADOS_DEFAULT;

@@ -113,6 +113,8 @@ export const ProductSchema = z.object({
   stock: z.number().min(0, "Stock cannot be negative"),
   // Unidades apartadas: fuera de `stock`, pero en la tienda. Ver Product en types.ts.
   apartadas: z.number().int().min(0).optional(),
+  // Unidades prometidas a clientes que todavía no llegaron. Ver Product en types.ts.
+  encargadas: z.number().int().min(0).optional(),
   minStockAlert: z.number().min(0, "Min stock alert must be non-negative"),
   category: z.string().min(1, "Category is required"),
   imageBase64: z.string().optional(),
@@ -356,6 +358,23 @@ export const AbonoApartadoSchema = z.object({
   referencia: z.string().max(100).optional(),
 });
 
+/** Lo que no se reservó al apartar porque no había stock (ver lib/apartados.ts). */
+export const LineaEncargoSchema = z.object({
+  productId: z.string().min(1).max(128),
+  cantidad: z.number().int().positive(),
+});
+
+/** Una parte del encargo que pasó a estar reservada, o que volvió atrás (cantidad negativa). */
+export const LlegadaEncargoSchema = z.object({
+  productId: z.string().min(1).max(128),
+  cantidad: z.number().int().refine((n) => n !== 0, 'Una llegada de cero unidades no es una llegada'),
+  fecha: z.number(),
+  origen: z.enum(['compra', 'stock', 'reversion']),
+  costoUnitario: z.number().min(0).optional(),
+  compraId: z.string().max(128).optional(),
+  trackingId: z.string().max(128).optional(),
+});
+
 export const AnulacionAbonoSchema = z.object({
   abonoId: z.string().min(1).max(128),
   motivo: z.string().trim().min(1, 'Escribí por qué se anula el abono').max(300),
@@ -387,6 +406,8 @@ export const ApartadoSchema = z.object({
   totalNio: z.number().positive(),
   abonos: z.array(AbonoApartadoSchema).min(1, 'Falta la prima').max(200),
   anulaciones: z.array(AnulacionAbonoSchema).max(200),
+  encargo: z.array(LineaEncargoSchema).max(100).optional(),
+  llegadas: z.array(LlegadaEncargoSchema).max(200).optional(),
   customerId: z.string().max(128).optional(),
   customerName: z.string().trim().min(1, 'Falta el nombre del cliente').max(100),
   customerPhone: z.string().trim().min(1, 'Falta el teléfono del cliente').max(50),
@@ -414,6 +435,12 @@ export const ApartadoSchema = z.object({
     { message: 'El total en córdobas no coincide con las líneas, la tasa, el envío y el descuento', path: ['totalNio'] },
   )
   .refine((ap) => saldoNio(ap) >= 0, { message: 'Lo abonado pasa del total del apartado', path: ['abonos'] })
+  // Lo encargado de un producto no puede pasar de lo que el apartado tiene de él.
+  .refine(
+    (ap) => (ap.encargo || []).every((e) =>
+      e.cantidad <= ap.items.filter((i) => i.id === e.productId).reduce((s, i) => s + i.quantity, 0)),
+    { message: 'Hay más unidades encargadas que en las líneas del apartado', path: ['encargo'] },
+  )
   .refine((ap) => validarTelefono(ap.customerPhone) === null, {
     message: 'El teléfono tiene que tener 8 dígitos (o el número internacional completo)',
     path: ['customerPhone'],
@@ -451,7 +478,7 @@ export const ConfigApartadosSchema = z.object({
  * el nombre del campo.
  */
 export const CAMPOS_PRODUCTO = [
-  'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'minStockAlert',
+  'id', 'sku', 'name', 'description', 'price', 'cost', 'stock', 'apartadas', 'encargadas', 'minStockAlert',
   'category', 'imageBase64', 'isReordering', 'createdAt', 'updatedAt', 'ownerId',
   'categorySlug', 'publicar', 'precioPromo', 'descEfectivoPct', 'campania', 'beneficio',
   'bullets', 'specsProyector', 'objecionesOverride', 'media', 'activo', 'financiamientoOverride',
